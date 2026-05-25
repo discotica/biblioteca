@@ -32,4 +32,4 @@ jobs:
           protocol: ftps
           port: 21
           local-dir: ./build/
-          server-dir: biblioteca/
+          server-dir: public_html/biblioteca/
