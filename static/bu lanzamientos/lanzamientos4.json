@@ -1,0 +1,1162 @@
+[
+  {
+    "artist": "Aurelio",
+    "title": "Ecos Urbanos",
+    "label": "Electroflor",
+    "country": [
+      "Perú",
+      "Colombia"
+    ],
+    "genre": [
+      "House"
+    ],
+    "release_date": "2024-07-12",
+    "cover": "https://f4.bcbits.com/img/a0361703670_16.jpg",
+    "buy_link": "https://bandcamp.com",
+    "review": "Fragmentos de sonidos con alma.",
+    "radar": {
+      "experimental": 1,
+      "denso": 0,
+      "sintetico": 0,
+      "bailable": 4,
+      "rapido": 1
+    }
+  },
+  {
+    "artist": "Densa Luz",
+    "title": "Materia Ligera",
+    "label": "Selva Records",
+    "country": [
+      "Colombia"
+    ],
+    "genre": [
+      "Electrónica Experimental",
+      "Downtempo"
+    ],
+    "release_date": "2024-09-23",
+    "cover": "https://f4.bcbits.com/img/a2042075751_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 2,
+      "denso": 2,
+      "sintetico": 5,
+      "bailable": 4,
+      "rapido": 3
+    }
+  },
+  {
+    "artist": "Densa Luz",
+    "title": "Nocturno",
+    "label": "Prisma Sonoro",
+    "country": [
+      "Perú",
+      "Brasil"
+    ],
+    "genre": [
+      "Ambient",
+      "Lo-fi"
+    ],
+    "release_date": "2025-01-08",
+    "cover": "https://f4.bcbits.com/img/a2459883177_16.jpg",
+    "buy_link": "https://bandcamp.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 3,
+      "denso": 0,
+      "sintetico": 1,
+      "bailable": 4,
+      "rapido": 1
+    }
+  },
+  {
+    "artist": "Los Sintes",
+    "title": "Púlsar",
+    "label": "Electroflor",
+    "country": [
+      "Perú",
+      "Chile"
+    ],
+    "genre": [
+      "Lo-fi",
+      "Techno"
+    ],
+    "release_date": "2024-10-15",
+    "cover": "https://f4.bcbits.com/img/a3408880142_16.jpg",
+    "buy_link": "https://soundcloud.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 4,
+      "denso": 5,
+      "sintetico": 2,
+      "bailable": 1,
+      "rapido": 0
+    }
+  },
+  {
+    "artist": "Cosmo Club",
+    "title": "Tensión Solar",
+    "label": "Onda Futura",
+    "country": [
+      "Colombia",
+      "Perú"
+    ],
+    "genre": [
+      "Ambient",
+      "Electrónica Experimental"
+    ],
+    "release_date": "2025-04-07",
+    "cover": "https://f4.bcbits.com/img/a2284269478_16.jpg",
+    "buy_link": "https://bandcamp.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 2,
+      "denso": 0,
+      "sintetico": 4,
+      "bailable": 2,
+      "rapido": 4
+    }
+  },
+  {
+    "artist": "Introsón",
+    "title": "Tensión Solar",
+    "label": "Selva Records",
+    "country": [
+      "Chile"
+    ],
+    "genre": [
+      "Electrónica Experimental",
+      "Techno"
+    ],
+    "release_date": "2025-02-09",
+    "cover": "https://f4.bcbits.com/img/a0464830190_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "Ritmos que acarician y sacuden a la vez.",
+    "radar": {
+      "experimental": 3,
+      "denso": 0,
+      "sintetico": 2,
+      "bailable": 0,
+      "rapido": 5
+    }
+  },
+  {
+    "artist": "Densa Luz",
+    "title": "Ecos Urbanos",
+    "label": "Selva Records",
+    "country": [
+      "Chile",
+      "Brasil"
+    ],
+    "genre": [
+      "House",
+      "Nu Cumbia"
+    ],
+    "release_date": "2024-12-24",
+    "cover": "https://f4.bcbits.com/img/a1912255738_16.jpg",
+    "buy_link": "https://soundcloud.com",
+    "review": "Un viaje introspectivo al ritmo del beat.",
+    "radar": {
+      "experimental": 5,
+      "denso": 2,
+      "sintetico": 5,
+      "bailable": 5,
+      "rapido": 2
+    }
+  },
+  {
+    "artist": "Densa Luz",
+    "title": "Lento y Salvaje",
+    "label": "Onda Futura",
+    "country": [
+      "Argentina",
+      "Colombia"
+    ],
+    "genre": [
+      "Electrónica Experimental"
+    ],
+    "release_date": "2024-08-15",
+    "cover": "https://f4.bcbits.com/img/a2284269478_16.jpg",
+    "buy_link": "https://bandcamp.com",
+    "review": "Una cápsula sonora emocional.",
+    "radar": {
+      "experimental": 0,
+      "denso": 2,
+      "sintetico": 0,
+      "bailable": 2,
+      "rapido": 0
+    }
+  },
+  {
+    "artist": "Densa Luz",
+    "title": "Nocturno",
+    "label": "Modular Beat",
+    "country": [
+      "Uruguay"
+    ],
+    "genre": [
+      "Techno"
+    ],
+    "release_date": "2024-11-14",
+    "cover": "https://f4.bcbits.com/img/a2459883177_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "Fragmentos de sonidos con alma.",
+    "radar": {
+      "experimental": 1,
+      "denso": 3,
+      "sintetico": 5,
+      "bailable": 3,
+      "rapido": 5
+    }
+  },
+  {
+    "artist": "Clorofónica",
+    "title": "Afuera Llueve",
+    "label": "Selva Records",
+    "country": [
+      "Chile",
+      "Uruguay"
+    ],
+    "genre": [
+      "Electrónica Experimental"
+    ],
+    "release_date": "2025-01-13",
+    "cover": "https://f4.bcbits.com/img/a2459883177_16.jpg",
+    "buy_link": "https://bandcamp.com",
+    "review": "Fragmentos de sonidos con alma.",
+    "radar": {
+      "experimental": 3,
+      "denso": 1,
+      "sintetico": 2,
+      "bailable": 0,
+      "rapido": 1
+    }
+  },
+  {
+    "artist": "Los Sintes",
+    "title": "Ruidos del Sur",
+    "label": "Modular Beat",
+    "country": [
+      "Perú"
+    ],
+    "genre": [
+      "Downtempo",
+      "Electrónica Experimental"
+    ],
+    "release_date": "2024-11-30",
+    "cover": "https://f4.bcbits.com/img/a2284269478_16.jpg",
+    "buy_link": "https://soundcloud.com",
+    "review": "Fragmentos de sonidos con alma.",
+    "radar": {
+      "experimental": 1,
+      "denso": 5,
+      "sintetico": 2,
+      "bailable": 1,
+      "rapido": 1
+    }
+  },
+  {
+    "artist": "Introsón",
+    "title": "Afuera Llueve",
+    "label": "Volcán Edits",
+    "country": [
+      "Argentina"
+    ],
+    "genre": [
+      "Downtempo",
+      "Nu Cumbia"
+    ],
+    "release_date": "2024-06-19",
+    "cover": "https://f4.bcbits.com/img/a0464830190_16.jpg",
+    "buy_link": "https://bandcamp.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 5,
+      "denso": 3,
+      "sintetico": 2,
+      "bailable": 4,
+      "rapido": 5
+    }
+  },
+  {
+    "artist": "Ondas Negras",
+    "title": "Lento y Salvaje",
+    "label": "Electroflor",
+    "country": [
+      "Colombia"
+    ],
+    "genre": [
+      "Nu Cumbia"
+    ],
+    "release_date": "2024-11-24",
+    "cover": "https://f4.bcbits.com/img/a3408880142_16.jpg",
+    "buy_link": "https://bandcamp.com",
+    "review": "Un viaje introspectivo al ritmo del beat.",
+    "radar": {
+      "experimental": 5,
+      "denso": 0,
+      "sintetico": 5,
+      "bailable": 5,
+      "rapido": 3
+    }
+  },
+  {
+    "artist": "Introsón",
+    "title": "Ecos Urbanos",
+    "label": "Onda Futura",
+    "country": [
+      "Colombia",
+      "Argentina"
+    ],
+    "genre": [
+      "Downtempo",
+      "House"
+    ],
+    "release_date": "2025-01-24",
+    "cover": "https://f4.bcbits.com/img/a2350905924_16.jpg",
+    "buy_link": "https://soundcloud.com",
+    "review": "Texturas densas que fluyen con naturalidad.",
+    "radar": {
+      "experimental": 4,
+      "denso": 4,
+      "sintetico": 1,
+      "bailable": 2,
+      "rapido": 2
+    }
+  },
+  {
+    "artist": "Introsón",
+    "title": "Afuera Llueve",
+    "label": "Modular Beat",
+    "country": [
+      "Brasil"
+    ],
+    "genre": [
+      "Ambient",
+      "House"
+    ],
+    "release_date": "2024-12-21",
+    "cover": "https://f4.bcbits.com/img/a2284269478_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "Una cápsula sonora emocional.",
+    "radar": {
+      "experimental": 3,
+      "denso": 1,
+      "sintetico": 1,
+      "bailable": 3,
+      "rapido": 1
+    }
+  },
+  {
+    "artist": "Frágil Beat",
+    "title": "Nocturno",
+    "label": "Electroflor",
+    "country": [
+      "Brasil"
+    ],
+    "genre": [
+      "Lo-fi",
+      "House"
+    ],
+    "release_date": "2024-12-01",
+    "cover": "https://f4.bcbits.com/img/a3408880142_16.jpg",
+    "buy_link": "https://soundcloud.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 1,
+      "denso": 3,
+      "sintetico": 1,
+      "bailable": 0,
+      "rapido": 5
+    }
+  },
+  {
+    "artist": "Tropikal Mind",
+    "title": "Ficciones",
+    "label": "Modular Beat",
+    "country": [
+      "Argentina"
+    ],
+    "genre": [
+      "House"
+    ],
+    "release_date": "2024-10-27",
+    "cover": "https://f4.bcbits.com/img/a4042319249_16.jpg",
+    "buy_link": "https://soundcloud.com",
+    "review": "Una cápsula sonora emocional.",
+    "radar": {
+      "experimental": 0,
+      "denso": 1,
+      "sintetico": 0,
+      "bailable": 3,
+      "rapido": 5
+    }
+  },
+  {
+    "artist": "Introsón",
+    "title": "Ficciones",
+    "label": "Electroflor",
+    "country": [
+      "Uruguay"
+    ],
+    "genre": [
+      "Electrónica Experimental",
+      "Nu Cumbia"
+    ],
+    "release_date": "2025-02-19",
+    "cover": "https://f4.bcbits.com/img/a1912255738_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "Un viaje introspectivo al ritmo del beat.",
+    "radar": {
+      "experimental": 0,
+      "denso": 4,
+      "sintetico": 3,
+      "bailable": 5,
+      "rapido": 1
+    }
+  },
+  {
+    "artist": "Cosmo Club",
+    "title": "Ecos Urbanos",
+    "label": "Onda Futura",
+    "country": [
+      "Perú"
+    ],
+    "genre": [
+      "Electrónica Experimental",
+      "Techno"
+    ],
+    "release_date": "2024-07-25",
+    "cover": "https://f4.bcbits.com/img/a2459883177_16.jpg",
+    "buy_link": "https://bandcamp.com",
+    "review": "Una cápsula sonora emocional.",
+    "radar": {
+      "experimental": 2,
+      "denso": 0,
+      "sintetico": 1,
+      "bailable": 1,
+      "rapido": 1
+    }
+  },
+  {
+    "artist": "Aurelio",
+    "title": "Ecos Urbanos",
+    "label": "Volcán Edits",
+    "country": [
+      "Argentina",
+      "Perú"
+    ],
+    "genre": [
+      "House",
+      "Nu Cumbia"
+    ],
+    "release_date": "2024-07-06",
+    "cover": "https://f4.bcbits.com/img/a2350905924_16.jpg",
+    "buy_link": "https://soundcloud.com",
+    "review": "Texturas densas que fluyen con naturalidad.",
+    "radar": {
+      "experimental": 0,
+      "denso": 2,
+      "sintetico": 2,
+      "bailable": 4,
+      "rapido": 0
+    }
+  },
+  {
+    "artist": "Densa Luz",
+    "title": "Púlsar",
+    "label": "Selva Records",
+    "country": [
+      "Argentina",
+      "Perú"
+    ],
+    "genre": [
+      "Electrónica Experimental",
+      "Lo-fi"
+    ],
+    "release_date": "2025-01-28",
+    "cover": "https://f4.bcbits.com/img/a0464830190_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "Fragmentos de sonidos con alma.",
+    "radar": {
+      "experimental": 0,
+      "denso": 5,
+      "sintetico": 4,
+      "bailable": 5,
+      "rapido": 5
+    }
+  },
+  {
+    "artist": "Cosmo Club",
+    "title": "Materia Ligera",
+    "label": "Volcán Edits",
+    "country": [
+      "Uruguay"
+    ],
+    "genre": [
+      "Techno",
+      "Electrónica Experimental"
+    ],
+    "release_date": "2024-10-11",
+    "cover": "https://f4.bcbits.com/img/a1912255738_16.jpg",
+    "buy_link": "https://soundcloud.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 4,
+      "denso": 3,
+      "sintetico": 4,
+      "bailable": 2,
+      "rapido": 2
+    }
+  },
+  {
+    "artist": "Ondas Negras",
+    "title": "Ruidos del Sur",
+    "label": "Electroflor",
+    "country": [
+      "Argentina",
+      "Uruguay"
+    ],
+    "genre": [
+      "Ambient",
+      "Electrónica Experimental"
+    ],
+    "release_date": "2025-06-08",
+    "cover": "https://f4.bcbits.com/img/a0464830190_16.jpg",
+    "buy_link": "https://soundcloud.com",
+    "review": "Ritmos que acarician y sacuden a la vez.",
+    "radar": {
+      "experimental": 5,
+      "denso": 3,
+      "sintetico": 0,
+      "bailable": 2,
+      "rapido": 1
+    }
+  },
+  {
+    "artist": "Frágil Beat",
+    "title": "Nocturno",
+    "label": "Selva Records",
+    "country": [
+      "Argentina"
+    ],
+    "genre": [
+      "Lo-fi",
+      "Electrónica Experimental"
+    ],
+    "release_date": "2024-08-07",
+    "cover": "https://f4.bcbits.com/img/a2284269478_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "Fragmentos de sonidos con alma.",
+    "radar": {
+      "experimental": 1,
+      "denso": 5,
+      "sintetico": 5,
+      "bailable": 1,
+      "rapido": 1
+    }
+  },
+  {
+    "artist": "Ondas Negras",
+    "title": "Ecos Urbanos",
+    "label": "Volcán Edits",
+    "country": [
+      "Colombia"
+    ],
+    "genre": [
+      "Techno",
+      "House"
+    ],
+    "release_date": "2025-01-17",
+    "cover": "https://f4.bcbits.com/img/a2459883177_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "Ritmos que acarician y sacuden a la vez.",
+    "radar": {
+      "experimental": 2,
+      "denso": 0,
+      "sintetico": 5,
+      "bailable": 0,
+      "rapido": 5
+    }
+  },
+  {
+    "artist": "Frágil Beat",
+    "title": "Lento y Salvaje",
+    "label": "Onda Futura",
+    "country": [
+      "Brasil",
+      "Colombia"
+    ],
+    "genre": [
+      "Nu Cumbia",
+      "Lo-fi"
+    ],
+    "release_date": "2025-03-13",
+    "cover": "https://f4.bcbits.com/img/a4230057167_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "Ritmos que acarician y sacuden a la vez.",
+    "radar": {
+      "experimental": 5,
+      "denso": 4,
+      "sintetico": 4,
+      "bailable": 3,
+      "rapido": 2
+    }
+  },
+  {
+    "artist": "Cosmo Club",
+    "title": "Materia Ligera",
+    "label": "Electroflor",
+    "country": [
+      "Brasil"
+    ],
+    "genre": [
+      "Electrónica Experimental",
+      "Nu Cumbia"
+    ],
+    "release_date": "2024-12-23",
+    "cover": "https://f4.bcbits.com/img/a0464830190_16.jpg",
+    "buy_link": "https://bandcamp.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 1,
+      "denso": 3,
+      "sintetico": 0,
+      "bailable": 4,
+      "rapido": 5
+    }
+  },
+  {
+    "artist": "Introsón",
+    "title": "Tensión Solar",
+    "label": "Modular Beat",
+    "country": [
+      "Argentina"
+    ],
+    "genre": [
+      "Techno",
+      "Nu Cumbia"
+    ],
+    "release_date": "2025-06-03",
+    "cover": "https://f4.bcbits.com/img/a2350905924_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "Fragmentos de sonidos con alma.",
+    "radar": {
+      "experimental": 0,
+      "denso": 5,
+      "sintetico": 1,
+      "bailable": 2,
+      "rapido": 3
+    }
+  },
+  {
+    "artist": "Clorofónica",
+    "title": "Ecos Urbanos",
+    "label": "Selva Records",
+    "country": [
+      "Argentina"
+    ],
+    "genre": [
+      "Techno",
+      "House"
+    ],
+    "release_date": "2024-10-25",
+    "cover": "https://f4.bcbits.com/img/a2284269478_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "Texturas densas que fluyen con naturalidad.",
+    "radar": {
+      "experimental": 2,
+      "denso": 2,
+      "sintetico": 3,
+      "bailable": 1,
+      "rapido": 3
+    }
+  },
+  {
+    "artist": "Minimália",
+    "title": "Afuera Llueve",
+    "label": "Modular Beat",
+    "country": [
+      "Uruguay",
+      "Argentina"
+    ],
+    "genre": [
+      "Electrónica Experimental"
+    ],
+    "release_date": "2024-11-26",
+    "cover": "https://f4.bcbits.com/img/a2042075751_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 2,
+      "denso": 4,
+      "sintetico": 1,
+      "bailable": 5,
+      "rapido": 5
+    }
+  },
+  {
+    "artist": "Los Sintes",
+    "title": "Tensión Solar",
+    "label": "Prisma Sonoro",
+    "country": [
+      "Brasil"
+    ],
+    "genre": [
+      "Electrónica Experimental",
+      "Ambient"
+    ],
+    "release_date": "2024-06-18",
+    "cover": "https://f4.bcbits.com/img/a2459883177_16.jpg",
+    "buy_link": "https://soundcloud.com",
+    "review": "Una cápsula sonora emocional.",
+    "radar": {
+      "experimental": 1,
+      "denso": 3,
+      "sintetico": 3,
+      "bailable": 3,
+      "rapido": 3
+    }
+  },
+  {
+    "artist": "Ondas Negras",
+    "title": "Materia Ligera",
+    "label": "Electroflor",
+    "country": [
+      "Chile",
+      "Argentina"
+    ],
+    "genre": [
+      "Downtempo",
+      "Techno"
+    ],
+    "release_date": "2024-10-06",
+    "cover": "https://f4.bcbits.com/img/a1912255738_16.jpg",
+    "buy_link": "https://soundcloud.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 1,
+      "denso": 1,
+      "sintetico": 0,
+      "bailable": 3,
+      "rapido": 5
+    }
+  },
+  {
+    "artist": "Los Sintes",
+    "title": "Ecos Urbanos",
+    "label": "Prisma Sonoro",
+    "country": [
+      "Argentina",
+      "Colombia"
+    ],
+    "genre": [
+      "Downtempo"
+    ],
+    "release_date": "2025-04-08",
+    "cover": "https://f4.bcbits.com/img/a2350905924_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "Una cápsula sonora emocional.",
+    "radar": {
+      "experimental": 2,
+      "denso": 1,
+      "sintetico": 3,
+      "bailable": 5,
+      "rapido": 4
+    }
+  },
+  {
+    "artist": "Densa Luz",
+    "title": "Ficciones",
+    "label": "Electroflor",
+    "country": [
+      "Perú",
+      "Colombia"
+    ],
+    "genre": [
+      "Lo-fi"
+    ],
+    "release_date": "2024-06-14",
+    "cover": "https://f4.bcbits.com/img/a1912255738_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 0,
+      "denso": 5,
+      "sintetico": 2,
+      "bailable": 0,
+      "rapido": 4
+    }
+  },
+  {
+    "artist": "Introsón",
+    "title": "Tensión Solar",
+    "label": "Prisma Sonoro",
+    "country": [
+      "Brasil",
+      "Colombia"
+    ],
+    "genre": [
+      "Techno",
+      "Ambient"
+    ],
+    "release_date": "2025-01-21",
+    "cover": "https://f4.bcbits.com/img/a1912255738_16.jpg",
+    "buy_link": "https://bandcamp.com",
+    "review": "Texturas densas que fluyen con naturalidad.",
+    "radar": {
+      "experimental": 1,
+      "denso": 2,
+      "sintetico": 1,
+      "bailable": 0,
+      "rapido": 3
+    }
+  },
+  {
+    "artist": "Cosmo Club",
+    "title": "Ecos Urbanos",
+    "label": "Volcán Edits",
+    "country": [
+      "Argentina",
+      "Perú"
+    ],
+    "genre": [
+      "House",
+      "Nu Cumbia"
+    ],
+    "release_date": "2024-07-28",
+    "cover": "https://f4.bcbits.com/img/a1912255738_16.jpg",
+    "buy_link": "https://bandcamp.com",
+    "review": "Ritmos que acarician y sacuden a la vez.",
+    "radar": {
+      "experimental": 2,
+      "denso": 4,
+      "sintetico": 5,
+      "bailable": 3,
+      "rapido": 2
+    }
+  },
+  {
+    "artist": "Cosmo Club",
+    "title": "Ficciones",
+    "label": "Volcán Edits",
+    "country": [
+      "Colombia"
+    ],
+    "genre": [
+      "Ambient"
+    ],
+    "release_date": "2024-10-28",
+    "cover": "https://f4.bcbits.com/img/a2459883177_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "Texturas densas que fluyen con naturalidad.",
+    "radar": {
+      "experimental": 3,
+      "denso": 4,
+      "sintetico": 0,
+      "bailable": 4,
+      "rapido": 3
+    }
+  },
+  {
+    "artist": "Densa Luz",
+    "title": "Ruidos del Sur",
+    "label": "Selva Records",
+    "country": [
+      "Brasil"
+    ],
+    "genre": [
+      "Downtempo"
+    ],
+    "release_date": "2024-12-05",
+    "cover": "https://f4.bcbits.com/img/a3408880142_16.jpg",
+    "buy_link": "https://soundcloud.com",
+    "review": "Una cápsula sonora emocional.",
+    "radar": {
+      "experimental": 2,
+      "denso": 4,
+      "sintetico": 4,
+      "bailable": 3,
+      "rapido": 3
+    }
+  },
+  {
+    "artist": "Tropikal Mind",
+    "title": "Ficciones",
+    "label": "Onda Futura",
+    "country": [
+      "Uruguay"
+    ],
+    "genre": [
+      "Techno",
+      "Downtempo"
+    ],
+    "release_date": "2024-12-19",
+    "cover": "https://f4.bcbits.com/img/a2042075751_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 0,
+      "denso": 1,
+      "sintetico": 4,
+      "bailable": 0,
+      "rapido": 1
+    }
+  },
+  {
+    "artist": "Cosmo Club",
+    "title": "Tensión Solar",
+    "label": "Volcán Edits",
+    "country": [
+      "Perú",
+      "Brasil"
+    ],
+    "genre": [
+      "Downtempo"
+    ],
+    "release_date": "2025-06-04",
+    "cover": "https://f4.bcbits.com/img/a2459883177_16.jpg",
+    "buy_link": "https://bandcamp.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 0,
+      "denso": 0,
+      "sintetico": 4,
+      "bailable": 0,
+      "rapido": 0
+    }
+  },
+  {
+    "artist": "Ondas Negras",
+    "title": "Lento y Salvaje",
+    "label": "Volcán Edits",
+    "country": [
+      "Colombia"
+    ],
+    "genre": [
+      "Ambient"
+    ],
+    "release_date": "2025-04-13",
+    "cover": "https://f4.bcbits.com/img/a2284269478_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "Una cápsula sonora emocional.",
+    "radar": {
+      "experimental": 5,
+      "denso": 1,
+      "sintetico": 1,
+      "bailable": 1,
+      "rapido": 3
+    }
+  },
+  {
+    "artist": "Densa Luz",
+    "title": "Lento y Salvaje",
+    "label": "Electroflor",
+    "country": [
+      "Argentina",
+      "Colombia"
+    ],
+    "genre": [
+      "Techno",
+      "House"
+    ],
+    "release_date": "2024-11-24",
+    "cover": "https://f4.bcbits.com/img/a0464830190_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "Fragmentos de sonidos con alma.",
+    "radar": {
+      "experimental": 1,
+      "denso": 0,
+      "sintetico": 5,
+      "bailable": 0,
+      "rapido": 3
+    }
+  },
+  {
+    "artist": "Introsón",
+    "title": "Púlsar",
+    "label": "Prisma Sonoro",
+    "country": [
+      "Chile"
+    ],
+    "genre": [
+      "Techno",
+      "Lo-fi"
+    ],
+    "release_date": "2024-12-15",
+    "cover": "https://f4.bcbits.com/img/a2459883177_16.jpg",
+    "buy_link": "https://bandcamp.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 2,
+      "denso": 2,
+      "sintetico": 2,
+      "bailable": 1,
+      "rapido": 5
+    }
+  },
+  {
+    "artist": "Minimália",
+    "title": "Tensión Solar",
+    "label": "Selva Records",
+    "country": [
+      "Argentina"
+    ],
+    "genre": [
+      "Lo-fi"
+    ],
+    "release_date": "2025-01-12",
+    "cover": "https://f4.bcbits.com/img/a4230057167_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 3,
+      "denso": 1,
+      "sintetico": 3,
+      "bailable": 5,
+      "rapido": 3
+    }
+  },
+  {
+    "artist": "Clorofónica",
+    "title": "Lento y Salvaje",
+    "label": "Selva Records",
+    "country": [
+      "Brasil",
+      "Uruguay"
+    ],
+    "genre": [
+      "Techno",
+      "House"
+    ],
+    "release_date": "2025-05-05",
+    "cover": "https://f4.bcbits.com/img/a2350905924_16.jpg",
+    "buy_link": "https://soundcloud.com",
+    "review": "Una cápsula sonora emocional.",
+    "radar": {
+      "experimental": 2,
+      "denso": 1,
+      "sintetico": 5,
+      "bailable": 5,
+      "rapido": 2
+    }
+  },
+  {
+    "artist": "Ondas Negras",
+    "title": "Materia Ligera",
+    "label": "Modular Beat",
+    "country": [
+      "Chile",
+      "Colombia"
+    ],
+    "genre": [
+      "Downtempo",
+      "Techno"
+    ],
+    "release_date": "2024-06-22",
+    "cover": "https://f4.bcbits.com/img/a3408880142_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 0,
+      "denso": 4,
+      "sintetico": 4,
+      "bailable": 0,
+      "rapido": 2
+    }
+  },
+  {
+    "artist": "Ondas Negras",
+    "title": "Bajo el Agua",
+    "label": "Onda Futura",
+    "country": [
+      "Argentina",
+      "Brasil"
+    ],
+    "genre": [
+      "Electrónica Experimental",
+      "Techno"
+    ],
+    "release_date": "2025-02-12",
+    "cover": "https://f4.bcbits.com/img/a2350905924_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "Un viaje introspectivo al ritmo del beat.",
+    "radar": {
+      "experimental": 1,
+      "denso": 4,
+      "sintetico": 5,
+      "bailable": 1,
+      "rapido": 5
+    }
+  },
+  {
+    "artist": "Aurelio",
+    "title": "Tensión Solar",
+    "label": "Selva Records",
+    "country": [
+      "Brasil",
+      "Argentina"
+    ],
+    "genre": [
+      "Ambient"
+    ],
+    "release_date": "2025-03-23",
+    "cover": "https://f4.bcbits.com/img/a3408880142_16.jpg",
+    "buy_link": "https://spotify.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 4,
+      "denso": 1,
+      "sintetico": 1,
+      "bailable": 2,
+      "rapido": 2
+    }
+  },
+  {
+    "artist": "Densa Luz",
+    "title": "Materia Ligera",
+    "label": "Modular Beat",
+    "country": [
+      "Chile",
+      "Brasil"
+    ],
+    "genre": [
+      "Nu Cumbia",
+      "Electrónica Experimental"
+    ],
+    "release_date": "2024-11-30",
+    "cover": "https://f4.bcbits.com/img/a2350905924_16.jpg",
+    "buy_link": "https://soundcloud.com",
+    "review": "Fragmentos de sonidos con alma.",
+    "radar": {
+      "experimental": 0,
+      "denso": 2,
+      "sintetico": 1,
+      "bailable": 0,
+      "rapido": 5
+    }
+  },
+  {
+    "artist": "Frágil Beat",
+    "title": "Púlsar",
+    "label": "Modular Beat",
+    "country": [
+      "Argentina",
+      "Perú"
+    ],
+    "genre": [
+      "Nu Cumbia"
+    ],
+    "release_date": "2024-12-25",
+    "cover": "https://f4.bcbits.com/img/a0464830190_16.jpg",
+    "buy_link": "https://soundcloud.com",
+    "review": "El pulso de lo nuevo en clave latina.",
+    "radar": {
+      "experimental": 2,
+      "denso": 1,
+      "sintetico": 2,
+      "bailable": 3,
+      "rapido": 5
+    }
+  }
+]

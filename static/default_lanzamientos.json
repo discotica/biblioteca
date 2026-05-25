@@ -1,0 +1,21 @@
+[
+  {
+    "artist": [ "Artista Ejemplo" ],
+    "title": "Título del Track",
+    "type": "Single",
+    "country": [ "Colombia" ],
+    "genre": [ "Techno", "Ambient" ],
+    "label": [ "Nombre del Sello" ],
+    "release_date": "2025-01-01",
+    "buy_link": "https://example.bandcamp.com/track/ejemplo",
+    "review": "Breve reseña sobre el estilo o sensación del track",
+    "radar": {
+      "experimental": 3,
+      "denso": 4,
+      "sintetico": 5,
+      "bailable": 2,
+      "rapido": 1
+    },
+    "cover": "https://example.com/portada.jpg"
+  }
+]

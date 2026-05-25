@@ -1,0 +1,20 @@
+[
+  {
+    "artist": "Luisa Sónica",
+    "title": "Onda Interna",
+    "country": ["Colombia", "Argentina", "Brasil"],
+    "genre": ["Funk", "Ambient"],
+    "label": "Cinta Futura",
+    "release_date": "2024-09-01",
+    "buy_link": "https://cintafutura.bandcamp.com/album/onda-interna",
+    "review": "Un viaje sensual entre sintetizadores tropicales y groove etéreo.",
+    "radar": {
+      "experimental": 3,
+      "denso": 2,
+      "sintetico": 4,
+      "bailable": 5,
+      "rapido": 2
+    },
+    "cover": "/covers/luisa.jpg"
+  }
+]

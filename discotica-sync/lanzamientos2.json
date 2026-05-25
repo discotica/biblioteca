@@ -1,0 +1,28 @@
+[
+  {
+    "number": "1",
+    "artist": "Los Chimbos",
+    "title": "Como te Voy a olvidar",
+    "type": "Single",
+    "country": [
+      "Colombia",
+      "Chile"
+    ],
+    "genre": [
+      "Funk",
+      "Neo-Soul"
+    ],
+    "label": "Los Chimbos Media",
+    "release_date": "2025-02-12",
+    "buy_link": "loschimbos.bandcamp.com",
+    "review": "Hola 123",
+    "radar": {
+      "experimental": 3,
+      "denso": 5,
+      "sintetico": 2,
+      "bailable": 5,
+      "rapido": 4
+    },
+    "cover": "https://f4.bcbits.com/img/a1170499139_16.jpg"
+  }
+]
