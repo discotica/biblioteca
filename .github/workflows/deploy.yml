@@ -32,4 +32,4 @@ jobs:
           protocol: ftps
           port: 21
           local-dir: ./build/
-          server-dir: domains/discotica.com/public_html/biblioteca/
+          server-dir: biblioteca/
