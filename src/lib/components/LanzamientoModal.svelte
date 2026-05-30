@@ -136,7 +136,10 @@
     goto(`/?${params.toString()}`);
   }
 
+  let savedScrollY = 0;
+
   onMount(() => {
+    savedScrollY = window.scrollY;
     document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', onKeydown);
     document.addEventListener('pointerdown', handleClickOutside, true);
@@ -144,6 +147,7 @@
 
   onDestroy(() => {
     document.body.style.overflow = '';
+    window.scrollTo({ top: savedScrollY, behavior: 'instant' });
     document.removeEventListener('keydown', onKeydown);
     document.removeEventListener('pointerdown', handleClickOutside, true);
   });
@@ -156,9 +160,10 @@
     <div class="ambient" style="background-image: url({cover});" aria-hidden={true}></div>
 
     <button class="btn-close" on:click={cerrar} aria-label="Cerrar">
-      <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden={true}>
-        <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <svg width="14" height="14" viewBox="0 0 12 12" fill="none" aria-hidden={true}>
+        <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
+      <span class="btn-close__esc" aria-hidden={true}>ESC</span>
     </button>
 
     <div class="scroll-area">
@@ -402,24 +407,36 @@
     top: 0.9rem;
     right: 0.9rem;
     z-index: 10;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: rgba(10, 10, 10, .8);
+    height: 36px;
+    padding: 0 0.65rem;
+    border-radius: 999px;
+    background: rgba(10, 10, 10, .85);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border: 1px solid rgba(255,255,255,.2);
-    color: rgba(248,255,238,.8);
+    color: rgba(248,255,238,.75);
     cursor: pointer;
     display: flex;
     align-items: center;
-    justify-content: center;
-    transition: background .15s, color .15s, border-color .15s;
+    gap: 0.4rem;
+    transition: background .15s, color .15s, border-color .15s, transform .15s;
   }
   .btn-close:hover {
-    background: rgba(150,247,25,.2);
+    background: rgba(150,247,25,.15);
     border-color: rgba(150,247,25,.5);
     color: var(--color-acento);
+    transform: scale(1.05);
+  }
+  .btn-close__esc {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    opacity: 0.5;
+    font-family: var(--font-base);
+  }
+  @media (max-width: 600px) {
+    .btn-close__esc { display: none; }
+    .btn-close { padding: 0; width: 36px; justify-content: center; }
   }
 
   /* ─── Scroll area ─── */

@@ -25,20 +25,20 @@
   // Modal
   let lanzamientoActivo = null;
 
-  function abrirModal(lanzamiento) {
+  async function abrirModal(lanzamiento) {
     lanzamientoActivo = lanzamiento;
     const slug = slugFromLanzamiento(lanzamiento);
     const params = new URLSearchParams(get(page).url.search);
     params.set('modal', slug);
-    history.replaceState({}, '', `/?${params.toString()}`);
+    await goto(`?${params.toString()}`, { replaceState: true, noScroll: true });
   }
 
-  function cerrarModal() {
+  async function cerrarModal() {
     lanzamientoActivo = null;
     const params = new URLSearchParams(get(page).url.search);
     params.delete('modal');
     const qs = params.toString();
-    history.replaceState({}, '', qs ? `/?${qs}` : '/');
+    await goto(qs ? `?${qs}` : '/', { replaceState: true, noScroll: true });
   }
 
   const lanzamientosPorPagina = 12;
@@ -78,17 +78,20 @@
   $: if (!cargandoTSV) {
     const qsNow = $page.url.searchParams.toString();
     if (qsNow !== lastSeenQS) {
+      const prev = new URLSearchParams(lastSeenQS);
+      const next = new URLSearchParams(qsNow);
+      prev.delete('modal'); next.delete('modal');
       lastSeenQS = qsNow;
 
-      syncingFromURL = true;
-      const { paginaActual: p, filtros } = readFiltersFromURL($page.url.searchParams);
-
-      paginaActual = p;
-      filtrosSeleccionados = filtros;
-
-      // Re-aplica sin re-escribir la URL (evita loop)
-      aplicarTodosLosFiltros({ skipURL: true });
-      syncingFromURL = false;
+      // Si solo cambió el param 'modal', no re-sincronizar filtros
+      if (prev.toString() !== next.toString()) {
+        syncingFromURL = true;
+        const { paginaActual: p, filtros } = readFiltersFromURL($page.url.searchParams);
+        paginaActual = p;
+        filtrosSeleccionados = filtros;
+        aplicarTodosLosFiltros({ skipURL: true });
+        syncingFromURL = false;
+      }
     }
   }
   
@@ -966,10 +969,12 @@ goto(`?${nextQs}`, { replaceState: true, noScroll: true });
 {/if}
 
 {#if lanzamientoActivo}
-  <LanzamientoModal
-    lanzamiento={lanzamientoActivo}
-    on:cerrar={cerrarModal}
-  />
+  {#key slugFromLanzamiento(lanzamientoActivo)}
+    <LanzamientoModal
+      lanzamiento={lanzamientoActivo}
+      on:cerrar={cerrarModal}
+    />
+  {/key}
 {/if}
 
 <style>
