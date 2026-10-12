@@ -1,8 +1,23 @@
 # Estado operativo
 
-Actualizado: 2026-10-10.
+Actualizado: 2026-10-11.
 
-## U17 — Estudio: propuestas y reportes: implementada, pendiente de aceptación (2026-10-10)
+## Saneamiento S0 y línea base sobre U17 (2026-10-11)
+
+- **S0 cerrada en local:**
+  - todo el trabajo desde mayo está en la rama `modernizacion-2026`, en 7 commits por bloque; `main` sigue en `0ab31e0`;
+  - respaldo en `../discotica-backups/2026-10-11-arbol/` con `SHA256SUMS`, más una copia fuera de este disco;
+  - **sin push**: `origin` (`discotica/biblioteca`) es público.
+- **X3 cerrada:** `.env` está vacío.
+- **U10b, U11, U12, U13, U14, U16 y U17 aceptadas.** La línea base está recapturada sobre U17: 182 capturas, se borraron las `.ref-pre-*` y el detalle está en [`decisiones.md`](./decisiones.md).
+- **Arreglo de inestabilidad:** al saltar de sección en el editor con `prefers-reduced-motion`, el header ya no depende de una carrera de foco. También se estabilizaron las capturas `estudio-editor-medios-M` y `generos-D`.
+- **Deuda:**
+  - `lab-u6-M` y `lab-u8-M` tienen antialiasing intermitente, del 0,01 %;
+  - "El censo conserva sus 127 IDs" sigue fallando desde U7;
+  - E17:202 sigue fallando en `test:browser` (S3).
+- **Siguiente acción segura:** cerrar S1, que ya está en curso en el árbol con los workflows, `.nvmrc` y `package.json`. Después, S3, S4 (H8) y S5 del [plan de saneamiento](../producto/plan-saneamiento-2026-10-06.md). U18 espera a que se cierren S3–S9.
+
+## U17 — Estudio: propuestas y reportes: aceptada el 2026-10-11 (implementada 2026-10-10)
 
 - **Arranque:** U15 aceptada; U16 sin aceptar. La comparación contra `.ref-pre-u16` dio solo lo de U16; el árbol de partida se capturó en `tests/visual/.ref-pre-u17/` (176).
 - **Propuestas en bandeja:** lista a la izquierda y detalle a la derecha; en móvil, lista y después detalle, con "Volver". La propuesta abierta va en la URL (`?propuesta=`).
@@ -20,7 +35,7 @@ Actualizado: 2026-10-10.
 - **Pendiente del equipo:** la ayuda de "Nota interna" promete algo que administración no ve (limitación de E09 desde E10).
 - Relevo: [`u17-estudio-propuestas-reportes-2026-10-10.md`](./u17-estudio-propuestas-reportes-2026-10-10.md). Sin commit, push ni producción.
 
-## U16 — Estudio: editor: implementada, pendiente de aceptación (2026-10-10)
+## U16 — Estudio: editor: aceptada el 2026-10-11 (implementada 2026-10-10)
 
 - **Arranque:** U15 aceptada por el equipo al empezar U16. La línea base oficial sigue en U10 (U10b–U14 sin aceptar); el árbol de partida se capturó en `tests/visual/.ref-pre-u16/` (172) y se borró `.ref-pre-u15`.
 - **Editor en una página** con índice lateral fijo: Datos, Créditos, Clasificación, Medios e Historial, con lo que falta para publicar marcado por sección. Más compacto: géneros y países con el Combobox de U6 (sin la nube), créditos en filas, radar en una fila y el historial como última sección. Sin vista previa.
@@ -54,7 +69,7 @@ Actualizado: 2026-10-10.
 - **No publicar todavía en staging:** allí faltan D2 y E18, así que la lista del Catálogo y Reportes fallan (lo de la lista ya pasaba con `/admin/catalogo` desde D2). Orden: E18 corregida → D2 → U15.
 - Relevo: [`u15-estudio-estructura-catalogo-2026-10-10.md`](./u15-estudio-estructura-catalogo-2026-10-10.md). Sin commit, push ni producción.
 
-## U14 — Perfil, aportes y colecciones: implementada, pendiente de aceptación (2026-10-10)
+## U14 — Perfil, aportes y colecciones: aceptada el 2026-10-11 (implementada 2026-10-10)
 
 - **Mis aportes** (`/mis-aportes`): filas compactas con estado, lanzamiento, fecha y una acción a tamaño normal. Mismos estados y datos que la sección del perfil, que desaparece. El menú de cuenta, el perfil propio y Sugerir enlazan aquí.
 - **Perfil:** redes con SocialLinks; en el propio, "Editar redes" (→ `/cuenta#redes`), interruptor "Mostrar mis aportes aceptados" y Estudio para admin y colaborador. En el ajeno, colecciones públicas en mosaico y aportes aceptados solo si su dueño lo permite.
@@ -69,7 +84,7 @@ Actualizado: 2026-10-10.
 - **Visual:** contra `.ref-pre-u14`, 12 diferencias y 14 capturas nuevas, todas de perfil, Mis aportes, Mis colecciones y colección. La línea base no se recapturó.
 - Relevo: [`u14-perfil-colecciones-2026-10-10.md`](./u14-perfil-colecciones-2026-10-10.md). Sin commit, push ni producción.
 
-## U13 — Sugerir y reportar: implementada, pendiente de aceptación (2026-10-09)
+## U13 — Sugerir y reportar: aceptada el 2026-10-11 (implementada 2026-10-09)
 
 - **Sugerir por pasos:** fuente → revisar datos → nota → enviar.
   - Se vuelve con "Atrás", "Editar" o el navegador sin perder datos.
@@ -87,7 +102,7 @@ Actualizado: 2026-10-10.
 - **Sin contrato nuevo:** "cambio a un lanzamiento existente" no existe en E09; el caso está documentado para E09.
 - Relevo: [`u13-sugerir-reportar-2026-10-09.md`](./u13-sugerir-reportar-2026-10-09.md). Sin commit, push ni producción.
 
-## U12 — Cuenta: entrar, registro y correo: implementada, pendiente de aceptación (2026-10-09)
+## U12 — Cuenta: entrar, registro y correo: aceptada el 2026-10-11 (implementada 2026-10-09)
 
 - **Entrar:**
   - dos columnas con tres beneficios y, en móvil, primero el formulario;

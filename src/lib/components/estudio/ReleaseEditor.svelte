@@ -501,7 +501,11 @@
     if (!target) return;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
-    target.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true });
+    // El foco va un frame después. Con el salto instantáneo, el header veía el
+    // scroll unas veces con el foco aún en el selector (se queda) y otras ya en
+    // el h2 (se oculta); así siempre lo ve antes del cambio de foco.
+    const heading = target.querySelector<HTMLElement>('h2');
+    requestAnimationFrame(() => heading?.focus({ preventScroll: true }));
   }
 
   $effect(() => {

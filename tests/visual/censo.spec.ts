@@ -421,7 +421,17 @@ add('admin-new-D', 'D', STUDIO, { role: 'admin', full: true, maxH: 4000, setup: 
 add('estudio-editor-top-M', 'M', STUDIO, { role: 'admin', supplementary: true, setup: openEditor });
 add('estudio-editor-medios-M', 'M', STUDIO, {
   role: 'admin', supplementary: true,
-  setup: async (page) => { await openEditor(page); await page.getByLabel('Ir a la sección').selectOption('medios'); await settle(page); }
+  setup: async (page) => {
+    await openEditor(page);
+    // El header retoma la referencia de scroll un tick después de cada cambio de
+    // foco. selectOption enfoca el selector y salta a la vez, y la captura dependía
+    // de quién ganaba; enfocar antes reproduce el orden de una persona (header oculto).
+    const section = page.getByLabel('Ir a la sección');
+    await section.focus();
+    await settle(page);
+    await section.selectOption('medios');
+    await settle(page);
+  }
 });
 // Géneros y países con el combobox de U6, en lugar de la nube completa.
 add('estudio-editor-generos-D', 'D', STUDIO, {
@@ -429,7 +439,11 @@ add('estudio-editor-generos-D', 'D', STUDIO, {
   setup: async (page) => {
     await openEditor(page);
     const genres = page.getByRole('combobox', { name: 'Géneros' });
-    await genres.scrollIntoViewIfNeeded();
+    // Enfocar primero: el scroll del foco ocurre con el campo enfocado y el header
+    // no se oculta (estado aceptado en U16). Con scrollIntoViewIfNeeded + fill, el
+    // header dependía de si el scroll llegaba antes que el foco (ver medios-M).
+    await genres.focus();
+    await settle(page);
     await genres.fill('tech');
     await page.waitForSelector('[role=listbox] [role=option]');
     await settle(page);
