@@ -1,233 +1,798 @@
-<svelte:head>
-  <title>Sugerir un lanzamiento — Discótica</title>
-  <meta
-    name="description"
-    content="Sugiere un lanzamiento de música electrónica sudamericana para el catálogo de Discótica."
-  />
-</svelte:head>
+<script lang="ts">
+  import { onMount, tick } from 'svelte';
+  import { goto, pushState } from '$app/navigation';
+  import { page } from '$app/state';
+  import PageLayout from '$lib/layouts/PageLayout.svelte';
+  import { Button, Combobox, Cover, Field, Icon, LoadingIndicator, Notice, Select, Textarea, type ComboboxOption } from '$lib/ui';
+  import { user } from '$lib/stores/authStore';
+  import { knownProfileRole, loadProfileRole } from '$lib/stores/profileRole';
+  import { writeAdminHandoff } from '$lib/domain/adminHandoff';
+  import {
+    CONTRIBUTION_STEPS,
+    errorsForStep,
+    firstInvalidField,
+    firstStepWithError,
+    visibleStep,
+    type ContributionField,
+    type ContributionStep
+  } from '$lib/domain/contributionSteps';
+  import {
+    ADMIN_NEW_RELEASE_HREF,
+    RELEASE_TYPE_OPTIONS,
+    contributionFieldErrors,
+    createContributionDraft,
+    inspectSource,
+    loadContribution,
+    loadContributionDictionaries,
+    saveContributionDraft,
+    searchArtistNames,
+    sourceProviderFor,
+    submitContribution,
+    type ContributionFieldErrors,
+    type ContributionPayload,
+    type ContributionStatus,
+    type DetectedMetadata,
+    type ProfileRole,
+    type ReleaseTypeSlug
+  } from '$lib/stores/contributionsStore';
 
-<div class="container sugerir-page">
+  // Sugerir por pasos (U13): fuente → revisar datos → nota → enviar. Todo vive en
+  // este componente mientras se avanza o se vuelve; entre visitas, en el borrador
+  // de E09 (Guardar borrador y /sugerir?draft=<uuid>), como en E10. El payload,
+  // los estados y las RPC no cambian.
 
-  <header class="sugerir__header">
-    <p class="kicker">Catálogo abierto</p>
-    <h1>Sugerir un lanzamiento</h1>
-    <p class="lede">
-      El archivo crece con la comunidad. Si hay un lanzamiento de música
-      electrónica sudamericana que debería estar en el catálogo, puedes
-      enviarlo aquí.
-    </p>
-  </header>
+  type StepState = { sugerirPaso?: ContributionStep };
 
-  <div class="sugerir__body">
+  const editorialEnabled = import.meta.env.VITE_EDITORIAL_ENABLED === 'true';
+  const SOURCE_ERROR = 'Usa una URL HTTPS de Bandcamp, Spotify o SoundCloud.';
+  const FIELD_IDS: Record<ContributionField, string> = {
+    source: 'source-url',
+    title: 'title',
+    primary_artists: 'primary-artists',
+    release_type: 'release-type',
+    release_date: 'release-date',
+    genres: 'genres',
+    countries: 'countries'
+  };
+  const typeOptions = [{ value: '', label: 'Selecciona y confirma' }, ...RELEASE_TYPE_OPTIONS];
 
-    <div class="criterios">
-      <h2>Qué entra al catálogo</h2>
-      <ul class="lista">
-        <li>Lanzamientos de música electrónica producidos en América del Sur, el Caribe o la diáspora latinoamericana</li>
-        <li>Álbumes, EPs y singles publicados en plataformas digitales (Bandcamp, SoundCloud, Spotify, etc.)</li>
-        <li>Artistas independientes, sellos y colectivos de la escena</li>
-        <li>Sin límite de fecha — el catálogo incluye lanzamientos actuales e históricos</li>
-      </ul>
-    </div>
+  let sourceUrl = $state('');
+  let title = $state('');
+  let primaryArtists = $state<string[]>([]);
+  let collaborators = $state<string[]>([]);
+  let releaseType = $state<ReleaseTypeSlug | ''>('');
+  let releaseDate = $state('');
+  let genres = $state<string[]>([]);
+  let countries = $state<string[]>([]);
+  let label = $state('');
+  let teamNote = $state('');
+  let detectedMetadata = $state<DetectedMetadata>({});
+  /** URL de la última detección: si no cambia, el paso 1 solo continúa. */
+  let detectedUrl = $state('');
+  /** Ya hay datos que revisar (detectados, escritos o de un borrador). */
+  let hasData = $state(false);
+  let detectionState = $state<'idle' | 'loading' | 'available' | 'unavailable'>('idle');
+  let draftId = $state('');
+  let resumedStatus = $state<ContributionStatus | null>(null);
+  let reviewerNote = $state('');
+  let loadingDraft = $state(false);
+  let busy = $state<'save' | 'submit' | ''>('');
+  let error = $state('');
+  let success = $state(false);
+  let saved = $state('');
+  let fieldErrors = $state<ContributionFieldErrors>({});
+  // Todos los roles con sesión ven el formulario al instante (también admin,
+  // pedido del equipo en U13); el rol se lee en paralelo y solo decide el envío.
+  const initialRole = knownProfileRole($user?.id);
+  let role = $state<ProfileRole | ''>(initialRole ?? '');
+  let roleLoaded = $state(initialRole !== null);
+  /** Paso inicial sin entrada en el historial: el 2 al retomar un borrador. */
+  let fallbackStep = $state<ContributionStep>(1);
+  let sourceInput = $state<HTMLInputElement>();
+  let stepHeading = $state<HTMLHeadingElement>();
+  let genreOptions = $state<ComboboxOption[]>([]);
+  let countryOptions = $state<ComboboxOption[]>([]);
 
-    <div class="cta-wrap">
-      <a
-        class="cta-btn"
-        href="https://forms.gle/Zi3iX9v1j29XeCpQ9"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        + SUGERIR
-      </a>
-    </div>
+  const step = $derived(visibleStep((page.state as StepState).sugerirPaso, hasData, fallbackStep));
+  const draftParam = $derived(page.url.searchParams.get('draft'));
+  // Admin usa el mismo flujo, pero E09 no acepta sus envíos: el último paso lo
+  // lleva al Catálogo del Estudio (U15) con lo rellenado, y no guarda borradores que no podría enviar.
+  const isAdmin = $derived(role === 'admin');
+  const canSaveDraft = $derived(resumedStatus !== 'changes_requested' && roleLoaded && !isAdmin);
+  const loginHref = $derived(`/auth/login?redirect=${encodeURIComponent(page.url.pathname + page.url.search)}`);
+  const sourceUnchanged = $derived(hasData && sourceUrl.trim() === detectedUrl);
+  const typeLabel = $derived(RELEASE_TYPE_OPTIONS.find((option) => option.value === releaseType)?.label ?? '');
 
-    <p class="alternativa">
-      También puedes escribirnos por Instagram
-      <a href="https://www.instagram.com/discotica_/" target="_blank" rel="noopener">@discotica_</a>.
-    </p>
+  /** Búsqueda de artistas en el catálogo para un Combobox (con "Añadir" si no existe). */
+  class ArtistSearch {
+    query = $state('');
+    options = $state<ComboboxOption[]>([]);
+    loading = $state(false);
+    #timer: ReturnType<typeof setTimeout> | undefined;
+    #sequence = 0;
 
+    run(query: string) {
+      clearTimeout(this.#timer);
+      const sequence = ++this.#sequence;
+      if (query.trim().length < 2) {
+        this.options = [];
+        this.loading = false;
+        return;
+      }
+      this.loading = true;
+      this.#timer = setTimeout(async () => {
+        const found = await searchArtistNames(query).catch(() => [] as string[]);
+        if (sequence !== this.#sequence) return;
+        this.options = found.map((name) => ({ value: name, label: name }));
+        this.loading = false;
+      }, 200);
+    }
+  }
+  const primarySearch = new ArtistSearch();
+  const collaboratorSearch = new ArtistSearch();
+  $effect(() => primarySearch.run(primarySearch.query));
+  $effect(() => collaboratorSearch.run(collaboratorSearch.query));
+
+  const clean = (values: string[]) => values.map((value) => value.trim()).filter(Boolean);
+
+  function payload(): ContributionPayload {
+    return {
+      version: 2,
+      title: title.trim(),
+      primary_artists: clean(primaryArtists),
+      collaborators: clean(collaborators),
+      release_type: releaseType,
+      release_date: releaseDate,
+      genres: clean(genres),
+      countries: clean(countries),
+      ...(label.trim() ? { label: label.trim() } : {}),
+      ...(teamNote.trim() ? { team_note: teamNote.trim() } : {})
+    };
+  }
+
+  function requestInput() {
+    return {
+      sourceUrl: sourceUrl.trim(),
+      sourceProvider: sourceProviderFor(sourceUrl)!,
+      payload: payload(),
+      detectedMetadata
+    };
+  }
+
+  function populate(contribution: NonNullable<Awaited<ReturnType<typeof loadContribution>>>) {
+    sourceUrl = contribution.source_url;
+    detectedUrl = contribution.source_url.trim();
+    title = contribution.payload.title ?? '';
+    primaryArtists = [...(contribution.payload.primary_artists ?? [])];
+    collaborators = [...(contribution.payload.collaborators ?? [])];
+    releaseType = contribution.payload.release_type ?? '';
+    releaseDate = contribution.payload.release_date ?? '';
+    genres = [...(contribution.payload.genres ?? [])];
+    countries = [...(contribution.payload.countries ?? [])];
+    label = contribution.payload.label ?? '';
+    teamNote = contribution.payload.team_note ?? '';
+    detectedMetadata = contribution.detected_metadata ?? {};
+    detectionState = contribution.detected_metadata?.source_available === false ? 'unavailable' : 'available';
+    draftId = contribution.id;
+    resumedStatus = contribution.status;
+    reviewerNote = contribution.reviewer_note ?? '';
+    fallbackStep = 2;
+    hasData = true;
+  }
+
+  onMount(async () => {
+    loadContributionDictionaries()
+      .then((values) => {
+        genreOptions = values.genres.map((name) => ({ value: name, label: name }));
+        countryOptions = values.countries.map((name) => ({ value: name, label: name }));
+      })
+      // Sin sugerencias se sigue pudiendo escribir cualquier valor (Añadir «…»).
+      .catch(() => {});
+
+    if (!$user) return;
+    const requestedId = draftParam;
+    if (editorialEnabled && requestedId) loadingDraft = true;
+    else if (editorialEnabled) {
+      await tick();
+      sourceInput?.focus();
+    }
+    try {
+      role = await loadProfileRole($user.id);
+    } catch (cause: any) {
+      role = '';
+      error = cause?.message || 'No se pudieron comprobar tus permisos.';
+    } finally {
+      roleLoaded = true;
+    }
+    if (!editorialEnabled || !role) {
+      loadingDraft = false;
+      return;
+    }
+    if (!requestedId) return;
+    try {
+      const contribution = await loadContribution(requestedId);
+      if (!contribution || !['draft', 'changes_requested'].includes(contribution.status)) {
+        throw new Error('Este borrador no está disponible para edición.');
+      }
+      populate(contribution);
+    } catch (cause: any) {
+      error = cause?.message || 'No se pudo cargar el borrador.';
+    } finally {
+      loadingDraft = false;
+    }
+  });
+
+  // Al cambiar de paso (botones o atrás/adelante del navegador), el foco va al
+  // título del paso y la vista vuelve al inicio del formulario.
+  let shownStep: ContributionStep | null = null;
+  $effect(() => {
+    const current = step;
+    if (shownStep !== null && shownStep !== current) {
+      tick().then(() => {
+        stepHeading?.focus({ preventScroll: true });
+        const top = stepHeading?.closest('form')?.getBoundingClientRect().top ?? 0;
+        if (top < 0) window.scrollBy({ top: top - 96 });
+      });
+    }
+    shownStep = current;
+  });
+
+  function goToStep(next: ContributionStep) {
+    error = '';
+    saved = '';
+    pushState('', { sugerirPaso: next } as App.PageState);
+  }
+
+  async function focusField(field: ContributionField | null) {
+    if (!field) return;
+    await tick();
+    document.getElementById(FIELD_IDS[field])?.focus();
+  }
+
+  async function detectar() {
+    if (detectionState === 'loading' || busy) return;
+    error = '';
+    saved = '';
+    fieldErrors = {};
+    const provider = sourceProviderFor(sourceUrl);
+    if (!provider) {
+      fieldErrors = { source: SOURCE_ERROR };
+      sourceInput?.focus();
+      return;
+    }
+    detectionState = 'loading';
+    try {
+      const detected = await inspectSource(sourceUrl.trim());
+      detectedMetadata = { ...detected, provider };
+      title ||= detected.title ?? '';
+      if (!primaryArtists.length) primaryArtists = clean(detected.artists ?? []);
+      releaseDate ||= detected.release_date ?? '';
+      detectionState = detected.source_available === false ? 'unavailable' : 'available';
+    } catch {
+      detectedMetadata = { provider, source_available: false };
+      detectionState = 'unavailable';
+    }
+    detectedUrl = sourceUrl.trim();
+    hasData = true;
+    goToStep(2);
+  }
+
+  async function continuar() {
+    if (step === 1) {
+      if (sourceUnchanged && sourceProviderFor(sourceUrl)) goToStep(2);
+      else await detectar();
+      return;
+    }
+    if (step === 2) {
+      const errors = errorsForStep(contributionFieldErrors(sourceUrl, payload()), 2);
+      fieldErrors = errors;
+      if (Object.keys(errors).length) {
+        error = 'Revisa los campos obligatorios indicados.';
+        await focusField(firstInvalidField(errors));
+        return;
+      }
+      goToStep(3);
+      return;
+    }
+    if (step === 3) {
+      goToStep(4);
+      return;
+    }
+    if (isAdmin) await continuarEnConsola();
+    else await enviar();
+  }
+
+  async function continuarEnConsola() {
+    writeAdminHandoff({
+      sourceUrl: sourceUrl.trim(),
+      title: title.trim(),
+      primaryArtists: clean(primaryArtists),
+      collaborators: clean(collaborators),
+      releaseType: typeLabel,
+      releaseDate,
+      genres: clean(genres),
+      countries: clean(countries),
+      label: label.trim(),
+      note: teamNote.trim(),
+      coverUrl: typeof detectedMetadata.cover_url === 'string' ? detectedMetadata.cover_url : ''
+    });
+    await goto(ADMIN_NEW_RELEASE_HREF);
+  }
+
+  function atras() {
+    if (step > 1) goToStep((step - 1) as ContributionStep);
+  }
+
+  async function guardar() {
+    if (busy) return;
+    error = '';
+    saved = '';
+    fieldErrors = {};
+    if (!sourceProviderFor(sourceUrl)) {
+      fieldErrors = { source: SOURCE_ERROR };
+      if (step !== 1) goToStep(1);
+      await focusField('source');
+      return;
+    }
+    busy = 'save';
+    try {
+      const contribution = draftId
+        ? await saveContributionDraft(draftId, requestInput())
+        : await createContributionDraft(requestInput());
+      draftId = contribution.id;
+      resumedStatus = 'draft';
+      saved = 'Borrador guardado. Puedes retomarlo desde tu perfil.';
+    } catch (cause: any) {
+      error = cause?.message || 'No se pudo guardar el borrador.';
+    } finally {
+      busy = '';
+    }
+  }
+
+  async function enviar() {
+    if (busy) return;
+    error = '';
+    saved = '';
+    const errors = contributionFieldErrors(sourceUrl, payload());
+    fieldErrors = errors;
+    const target = firstStepWithError(errors);
+    if (target) {
+      error = 'Revisa los campos obligatorios indicados.';
+      if (target !== step) goToStep(target);
+      await focusField(firstInvalidField(errors));
+      return;
+    }
+    busy = 'submit';
+    try {
+      if (!draftId) {
+        const contribution = await createContributionDraft(requestInput());
+        draftId = contribution.id;
+      }
+      await submitContribution(draftId, requestInput());
+      resumedStatus = 'pending';
+      success = true;
+    } catch (cause: any) {
+      error = cause?.message || 'No se pudo enviar la propuesta. Intenta de nuevo.';
+    } finally {
+      busy = '';
+    }
+  }
+
+  async function sugerirOtro() {
+    sourceUrl = '';
+    title = '';
+    primaryArtists = [];
+    collaborators = [];
+    releaseType = '';
+    releaseDate = '';
+    genres = [];
+    countries = [];
+    label = '';
+    teamNote = '';
+    detectedMetadata = {};
+    detectedUrl = '';
+    detectionState = 'idle';
+    draftId = '';
+    resumedStatus = null;
+    reviewerNote = '';
+    fieldErrors = {};
+    error = '';
+    saved = '';
+    fallbackStep = 1;
+    hasData = false;
+    success = false;
+    await goto('/sugerir', { replaceState: true, state: {} });
+    await tick();
+    sourceInput?.focus();
+  }
+
+  const list = (values: string[]) => clean(values).join(', ');
+</script>
+
+<svelte:head><title>Sugerir un lanzamiento — Discótica</title></svelte:head>
+
+{#snippet summaryRow(term: string, value: string)}
+  <div class="sugerir__row">
+    <dt>{term}</dt>
+    <dd class:sugerir__empty={!value}>{value || 'Sin indicar'}</dd>
   </div>
+{/snippet}
 
-</div>
+<PageLayout
+  container="narrow"
+  eyebrow="Catálogo abierto"
+  title="Sugerir un lanzamiento"
+  description="Pega el enlace del lanzamiento, revisa los datos y envíalo. El equipo lo revisa antes de publicarlo."
+>
+  {#if !editorialEnabled}
+    <section class="sugerir__gate">
+      <h2>Sugerencias temporalmente cerradas</h2>
+      <p>Esta función todavía no está habilitada en este entorno.</p>
+    </section>
+  {:else if !$user}
+    <section class="sugerir__gate">
+      <h2>Inicia sesión para proponer</h2>
+      <p>Necesitas una cuenta para sugerir lanzamientos y seguir su revisión.</p>
+      <div class="sugerir__gate-actions">
+        <Button href={loginHref}>Entrar</Button>
+        <Button variant="secondary" href="/auth/registro">Crear una cuenta</Button>
+      </div>
+    </section>
+  {:else if roleLoaded && !role}
+    <section class="sugerir__gate" role="alert">
+      <h2>No puedes crear propuestas</h2>
+      <p>Tu perfil no tiene un rol habilitado para este flujo.</p>
+    </section>
+  {:else if loadingDraft}
+    <LoadingIndicator label="Cargando borrador" />
+  {:else if success}
+    <section class="sugerir__done" role="status">
+      <span class="sugerir__done-icon"><Icon name="check" size="md" /></span>
+      <h2>Propuesta enviada</h2>
+      <p>Tu propuesta quedó pendiente de revisión. Puedes consultar su estado en tu perfil.</p>
+      <div class="sugerir__gate-actions">
+        <Button variant="secondary" href="/mis-aportes">Ver mis aportes</Button>
+        <Button variant="ghost" icon="agregar" onclick={sugerirOtro}>Sugerir otro</Button>
+      </div>
+    </section>
+  {:else}
+    <ol class="sugerir__steps" aria-label="Pasos">
+      {#each CONTRIBUTION_STEPS as item (item.step)}
+        <li
+          class:is-current={item.step === step}
+          class:is-done={item.step < step}
+          aria-current={item.step === step ? 'step' : undefined}
+        >
+          <span class="sugerir__step-n" aria-hidden="true">
+            {#if item.step < step}<Icon name="check" size="sm" />{:else}{item.step}{/if}
+          </span>
+          <span class="sugerir__step-label">{item.label}</span>
+          {#if item.step < step}<span class="sr-only">, completado</span>{/if}
+        </li>
+      {/each}
+    </ol>
+
+    <form class="sugerir__form" novalidate onsubmit={(event) => { event.preventDefault(); void continuar(); }}>
+      <h2 class="sugerir__step-title" tabindex="-1" bind:this={stepHeading}>
+        <span class="sr-only">Paso {step} de 4: </span>{CONTRIBUTION_STEPS[step - 1].label}
+      </h2>
+
+      {#if error}<Notice tone="error">{error}</Notice>{/if}
+      {#if resumedStatus === 'changes_requested'}
+        <Notice title="Cambios solicitados">
+          {reviewerNote || 'Actualiza la propuesta y vuelve a enviarla.'}
+        </Notice>
+      {/if}
+
+      {#if step === 1}
+        <div class="sugerir__source">
+          <Field
+            label="Enlace de la fuente"
+            type="url"
+            id={FIELD_IDS.source}
+            bind:value={sourceUrl}
+            bind:element={sourceInput}
+            placeholder="https://artista.bandcamp.com/album/…"
+            hint="Bandcamp, Spotify o SoundCloud. Recomendamos Bandcamp cuando esté disponible."
+            error={fieldErrors.source}
+            autocomplete="url"
+            required
+          />
+        </div>
+      {:else if step === 2}
+        <p class="sugerir__lead">Comprueba lo que detectamos y completa lo que falte.</p>
+        {#if detectionState === 'unavailable'}
+          <Notice title="Información no disponible.">
+            Puedes completar la propuesta manualmente; lo que ya escribiste se conserva.
+          </Notice>
+        {/if}
+        {#if detectedMetadata.cover_url}
+          <figure class="sugerir__evidence">
+            <div class="sugerir__evidence-cover">
+              <Cover src={String(detectedMetadata.cover_url)} alt="Portada detectada, pendiente de verificación" radius="sm" loading="eager" />
+            </div>
+            <figcaption>Portada detectada como evidencia de solo lectura; el equipo la verificará.</figcaption>
+          </figure>
+        {/if}
+
+        <Field label="Título" id={FIELD_IDS.title} bind:value={title} maxlength={200} error={fieldErrors.title} required />
+        <Combobox
+          label="Artistas principales"
+          id={FIELD_IDS.primary_artists}
+          options={primarySearch.options}
+          bind:value={primaryArtists}
+          bind:query={primarySearch.query}
+          filter={false}
+          loading={primarySearch.loading}
+          allowCreate
+          placeholder="Busca o escribe un nombre"
+          error={fieldErrors.primary_artists}
+          required
+        />
+        <Combobox
+          label="Colaboradores"
+          options={collaboratorSearch.options}
+          bind:value={collaborators}
+          bind:query={collaboratorSearch.query}
+          filter={false}
+          loading={collaboratorSearch.loading}
+          allowCreate
+          placeholder="Busca o escribe un nombre"
+          optional
+        />
+        <div class="sugerir__pair">
+          <Select
+            label="Tipo"
+            id={FIELD_IDS.release_type}
+            options={typeOptions}
+            bind:value={releaseType}
+            hint={detectedMetadata.type ? `La fuente sugiere “${detectedMetadata.type}”; confírmalo manualmente.` : undefined}
+            error={fieldErrors.release_type}
+          />
+          <Field label="Fecha" type="date" id={FIELD_IDS.release_date} bind:value={releaseDate} error={fieldErrors.release_date} required />
+        </div>
+        <div class="sugerir__pair">
+          <Combobox
+            label="Géneros"
+            id={FIELD_IDS.genres}
+            options={genreOptions}
+            bind:value={genres}
+            allowCreate
+            placeholder="Ej. Ambient"
+            error={fieldErrors.genres}
+            required
+          />
+          <Combobox
+            label="Países"
+            id={FIELD_IDS.countries}
+            options={countryOptions}
+            bind:value={countries}
+            allowCreate
+            placeholder="Ej. Colombia"
+            error={fieldErrors.countries}
+            required
+          />
+        </div>
+        <Field label="Sello" id="label" bind:value={label} maxlength={160} optional />
+      {:else if step === 3}
+        <Textarea
+          label={isAdmin ? 'Observación del cambio' : 'Nota para el equipo'}
+          id="team-note"
+          bind:value={teamNote}
+          rows={6}
+          maxlength={3000}
+          hint={isAdmin
+            ? 'Queda en el historial del Estudio. Si la dejas vacía, se usa «Alta desde Sugerir».'
+            : 'Contexto, créditos o cualquier dato que ayude a revisar la propuesta. Puedes enviarla sin nota.'}
+          optional
+        />
+      {:else}
+        <p class="sugerir__lead">
+          {isAdmin
+            ? 'Revisa los datos. En el Estudio eliges o creas lo que falte y lo publicas.'
+            : 'Revisa la propuesta antes de enviarla. Ninguna propuesta se publica automáticamente.'}
+        </p>
+        <section class="sugerir__summary" aria-labelledby="summary-source">
+          <header>
+            <h3 id="summary-source">Fuente</h3>
+            <Button variant="link" size="sm" onclick={() => goToStep(1)}>Editar<span class="sr-only"> la fuente</span></Button>
+          </header>
+          <p class="sugerir__source-link"><a href={sourceUrl} target="_blank" rel="noopener noreferrer">{sourceUrl}</a></p>
+        </section>
+        <section class="sugerir__summary" aria-labelledby="summary-data">
+          <header>
+            <h3 id="summary-data">Datos</h3>
+            <Button variant="link" size="sm" onclick={() => goToStep(2)}>Editar<span class="sr-only"> los datos</span></Button>
+          </header>
+          <div class="sugerir__summary-body">
+            {#if detectedMetadata.cover_url}
+              <div class="sugerir__summary-cover">
+                <Cover src={String(detectedMetadata.cover_url)} alt="" radius="sm" loading="eager" />
+              </div>
+            {/if}
+            <dl>
+              {@render summaryRow('Título', title.trim())}
+              {@render summaryRow('Artistas principales', list(primaryArtists))}
+              {@render summaryRow('Colaboradores', list(collaborators))}
+              {@render summaryRow('Tipo', typeLabel)}
+              {@render summaryRow('Fecha', releaseDate)}
+              {@render summaryRow('Géneros', list(genres))}
+              {@render summaryRow('Países', list(countries))}
+              {@render summaryRow('Sello', label.trim())}
+            </dl>
+          </div>
+        </section>
+        <section class="sugerir__summary" aria-labelledby="summary-note">
+          <header>
+            <h3 id="summary-note">Nota</h3>
+            <Button variant="link" size="sm" onclick={() => goToStep(3)}>Editar<span class="sr-only"> la nota</span></Button>
+          </header>
+          <p class="sugerir__note" class:sugerir__empty={!teamNote.trim()}>{teamNote.trim() || 'Sin nota'}</p>
+        </section>
+      {/if}
+
+      {#if saved}<Notice tone="success">{saved}</Notice>{/if}
+
+      <div class="sugerir__actions">
+        {#if step > 1}
+          <Button variant="secondary" icon="chevron-izquierda" onclick={atras} disabled={!!busy}>Atrás</Button>
+        {/if}
+        {#if step > 1 && canSaveDraft}
+          <Button variant="ghost" class="sugerir__save" loading={busy === 'save'} disabled={busy === 'submit'} onclick={guardar}>
+            {busy === 'save' ? 'Guardando…' : 'Guardar borrador'}
+          </Button>
+        {/if}
+        {#if step === 1}
+          <Button type="submit" class="sugerir__primary" loading={detectionState === 'loading'} disabled={!!busy} iconEnd={sourceUnchanged ? 'chevron-derecha' : undefined}>
+            {#if detectionState === 'loading'}Leyendo…{:else if sourceUnchanged}Continuar{:else}Detectar{/if}
+          </Button>
+        {:else if step < 4}
+          <Button type="submit" class="sugerir__primary" iconEnd="chevron-derecha" disabled={!!busy}>Continuar</Button>
+        {:else if isAdmin}
+          <Button type="submit" class="sugerir__primary" iconEnd="flecha-derecha">Continuar en el Estudio</Button>
+        {:else}
+          <Button type="submit" class="sugerir__primary" loading={busy === 'submit'} disabled={busy === 'save' || !roleLoaded}>
+            {busy === 'submit' ? 'Enviando…' : 'Enviar a revisión'}
+          </Button>
+        {/if}
+      </div>
+    </form>
+  {/if}
+</PageLayout>
 
 <style>
-  @import '$lib/styles/styles.css';
-
-  .sugerir-page {
-    padding-top: clamp(24px, 4vw, 56px);
-    padding-bottom: clamp(40px, 6vw, 100px);
-    max-width: 640px;
-  }
-
-  /* Header */
-  .sugerir__header {
-    margin-bottom: 40px;
-  }
-
-  .kicker {
-    margin: 0 0 10px 0;
-    font-weight: 800;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    font-size: .78rem;
-    color: rgba(150, 247, 25, .95);
-  }
-
-  h1 {
-    margin: 0 0 14px 0;
-    font-size: clamp(1.7rem, 3vw, 2.4rem);
-    line-height: 1.06;
-    font-weight: 800;
-  }
-
-  .lede {
-    margin: 0;
-    color: rgba(248, 255, 238, .72);
-    font-size: 1rem;
-    line-height: 1.6;
-  }
-
-  /* Body */
-  .sugerir__body {
+  /* Pasos: número y nombre; en móvil solo el nombre del paso actual. */
+  .sugerir__steps {
     display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-
-  .criterios {
-    border: 1px solid rgba(248, 255, 238, .10);
-    border-radius: 16px;
-    background: rgba(255, 255, 255, .025);
-    padding: 20px 22px;
-  }
-
-  h2 {
-    margin: 0 0 12px 0;
-    font-size: 1rem;
-    font-weight: 800;
-  }
-
-  /* Callout */
-  .callout {
-    border: 1px solid rgba(150, 247, 25, .28);
-    border-radius: 16px;
-    background: rgba(150, 247, 25, .05);
-    padding: 18px 20px;
-  }
-
-  .callout__title {
-    font-weight: 800;
-    font-size: .94rem;
-    margin-bottom: 10px;
-  }
-
-  .callout__body {
-    color: rgba(248, 255, 238, .72);
-    line-height: 1.55;
-    font-size: .9rem;
-  }
-
-  /* Listas */
-  .lista {
-    margin: 0;
+    gap: var(--space-2);
+    margin: var(--space-5) 0 0;
     padding: 0;
     list-style: none;
-    display: grid;
-    gap: 7px;
-    color: rgba(248, 255, 238, .72);
-    font-size: .9rem;
-    line-height: 1.5;
   }
-
-  .lista li {
+  .sugerir__steps li {
     display: flex;
-    gap: 10px;
-    align-items: baseline;
+    flex: 1 1 0;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+    padding-top: var(--space-2);
+    border-top: 2px solid var(--color-linea);
+    color: var(--color-texto-tenue);
+    font-size: var(--text-sm);
+    font-weight: 600;
   }
-
-  .lista li::before {
-    content: '·';
-    color: #96f719;
-    font-weight: 900;
-    flex-shrink: 0;
-  }
-
-  /* CTA */
-  .cta-wrap {
-    display: flex;
+  .sugerir__steps li.is-done { border-top-color: var(--color-acento-border); color: var(--color-texto-medio); }
+  .sugerir__steps li.is-current { border-top-color: var(--color-acento); color: var(--color-texto); }
+  .sugerir__step-n {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
     justify-content: center;
-    margin: 8px 0;
+    width: var(--icon-lg);
+    height: var(--icon-lg);
+    border: 1px solid currentColor;
+    border-radius: var(--radius-pill);
+    font-size: var(--text-2xs);
+    font-variant-numeric: tabular-nums;
+  }
+  .is-current .sugerir__step-n { border-color: var(--color-acento); background: var(--color-acento); color: var(--color-sobre-acento); }
+  .is-done .sugerir__step-n { border-color: transparent; color: var(--color-acento); }
+  .sugerir__step-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .sugerir__form {
+    display: grid;
+    gap: var(--space-5);
+    margin-top: var(--space-6);
+  }
+  .sugerir__step-title {
+    margin: 0;
+    color: var(--color-texto);
+    font-size: var(--text-lg);
+    line-height: 1.2;
+  }
+  .sugerir__step-title:focus { outline: none; }
+  .sugerir__lead { margin: calc(-1 * var(--space-3)) 0 0; color: var(--color-texto-medio); font-size: var(--text-sm); line-height: 1.5; }
+  .sugerir__pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5) var(--space-4);
+    align-items: start;
   }
 
-  .cta-btn {
+  .sugerir__evidence {
+    display: grid;
+    grid-template-columns: var(--sugerir-evidence) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-4);
+    margin: 0;
+    padding: var(--space-3);
+    border-radius: var(--radius-base);
+    background: var(--color-superficie-1);
+    --sugerir-evidence: calc(var(--space-8) + var(--space-7));
+  }
+  .sugerir__evidence figcaption { color: var(--color-texto-tenue); font-size: var(--text-2xs); line-height: 1.45; }
+
+  .sugerir__summary {
+    display: grid;
+    gap: var(--space-3);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--color-linea-sutil);
+  }
+  .sugerir__summary header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+  .sugerir__summary h3 { margin: 0; color: var(--color-texto-alto); font-size: var(--text-sm); font-weight: 700; }
+  .sugerir__summary-body { display: grid; grid-template-columns: var(--sugerir-evidence) minmax(0, 1fr); gap: var(--space-4); align-items: start; --sugerir-evidence: calc(var(--space-8) + var(--space-7)); }
+  .sugerir__summary-body:not(:has(.sugerir__summary-cover)) { grid-template-columns: minmax(0, 1fr); }
+  .sugerir__summary dl { display: grid; gap: var(--space-2); margin: 0; }
+  .sugerir__row { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr); gap: var(--space-3); font-size: var(--text-sm); line-height: 1.45; }
+  .sugerir__row dt { color: var(--color-texto-tenue); }
+  .sugerir__row dd { margin: 0; color: var(--color-texto); overflow-wrap: anywhere; }
+  .sugerir__source-link, .sugerir__note { margin: 0; font-size: var(--text-sm); line-height: 1.5; overflow-wrap: anywhere; white-space: pre-line; }
+  .sugerir__source-link a { color: var(--color-acento); }
+  .sugerir__empty { color: var(--color-texto-tenue) !important; }
+
+  .sugerir__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--color-linea-sutil);
+  }
+  .sugerir__actions :global(.sugerir__save) { margin-left: auto; }
+  .sugerir__actions :global(.sugerir__primary) { margin-left: auto; }
+  .sugerir__actions :global(.sugerir__save + .sugerir__primary) { margin-left: 0; }
+
+  .sugerir__gate,
+  .sugerir__done {
+    display: grid;
+    justify-items: start;
+    gap: var(--space-3);
+    margin-top: var(--space-5);
+  }
+  .sugerir__gate h2,
+  .sugerir__done h2 { margin: 0; font-size: var(--text-lg); }
+  .sugerir__gate p,
+  .sugerir__done p { margin: 0; color: var(--color-texto-medio); line-height: 1.5; }
+  .sugerir__gate-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-2); }
+  .sugerir__done-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid rgba(150, 247, 25, .75);
-    background: rgba(150, 247, 25, .16);
-    color: var(--color-texto, #f8ffee);
-    border-radius: 999px;
-    padding: .78rem 2.4rem;
-    font-family: var(--font-base, 'Work Sans', sans-serif);
-    font-size: 1.1rem;
-    font-weight: 800;
-    letter-spacing: .04em;
-    text-decoration: none;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 0 0 1px rgba(150, 247, 25, .10), 0 18px 45px rgba(0, 0, 0, .28);
-    transition: transform 120ms ease, filter 120ms ease, border-color 120ms ease;
+    width: var(--target-touch);
+    height: var(--target-touch);
+    border-radius: var(--radius-pill);
+    background: var(--color-acento-dim);
+    color: var(--color-acento);
   }
 
-  .cta-btn::after {
-    content: '';
-    position: absolute;
-    top: -20%;
-    left: -35%;
-    width: 30%;
-    height: 140%;
-    background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.85) 100%, rgba(255,255,255,0) 100%);
-    mix-blend-mode: overlay;
-    transform: skewX(-18deg);
-    animation: sweep 4s ease-in-out infinite;
-    pointer-events: none;
-  }
-
-  @keyframes sweep {
-    0%   { transform: translateX(-40%) skewX(-18deg); opacity: 0; }
-    22%  { transform: translateX(-40%) skewX(-18deg); opacity: 0; }
-    30%  { opacity: .85; }
-    70%  { transform: translateX(440%) skewX(-18deg); opacity: .65; }
-    78%  { opacity: 0; }
-    100% { transform: translateX(440%) skewX(-18deg); opacity: 0; }
-  }
-
-  .cta-btn:hover {
-    filter: brightness(1.08);
-    border-color: rgba(150, 247, 25, .90);
-    transform: translateY(-1px);
-  }
-
-  .cta-btn:active {
-    transform: translateY(0);
-  }
-
-  .alternativa {
-    margin: 0;
-    font-size: .88rem;
-    color: rgba(248, 255, 238, .45);
-    line-height: 1.5;
-  }
-
-  .alternativa a {
-    color: rgba(150, 247, 25, .8);
-    text-decoration: none;
-    border-bottom: 1px solid rgba(150, 247, 25, .3);
-    padding-bottom: 1px;
-    transition: border-color 120ms ease;
-  }
-
-  .alternativa a:hover {
-    border-bottom-color: rgba(150, 247, 25, .7);
+  @media (max-width: 679px) {
+    .sugerir__steps li:not(.is-current) .sugerir__step-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+    .sugerir__steps li { flex: 0 0 auto; }
+    .sugerir__steps li.is-current { flex: 1 1 auto; }
+    .sugerir__pair { grid-template-columns: minmax(0, 1fr); }
+    .sugerir__row { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    /* Atrás y la acción principal comparten la última línea; guardar va encima. */
+    .sugerir__actions :global(.sugerir__save) { order: -1; flex-basis: 100%; margin-left: 0; }
+    .sugerir__actions :global(.sugerir__primary) { flex: 1 1 auto; }
   }
 </style>

@@ -34,7 +34,7 @@
     color: var(--color-texto);
     padding: 0.2rem 0.6rem;
     border-radius: var(--radius-sm);
-    font-size: 0.75rem;
+    font-size: var(--text-2xs);
     display: flex;
     align-items: center;
     gap: 0.4rem;

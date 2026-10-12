@@ -1,0 +1,188 @@
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+  import type { HTMLInputAttributes } from 'svelte/elements';
+  import Icon from './Icon.svelte';
+  import type { IconName } from './icons';
+
+  type Props = {
+    /** Etiqueta visible. Es obligatoria: el placeholder no la sustituye. */
+    label: string;
+    value?: string;
+    type?: 'text' | 'email' | 'search' | 'url' | 'tel' | 'password' | 'number' | 'date';
+    id?: string;
+    name?: string;
+    /** Ayuda bajo el campo. */
+    hint?: string;
+    /** Mensaje de error; marca el campo como inválido. */
+    error?: string;
+    required?: boolean;
+    /** Añade "(opcional)" a la etiqueta. */
+    optional?: boolean;
+    disabled?: boolean;
+    readonly?: boolean;
+    placeholder?: string;
+    autocomplete?: HTMLInputAttributes['autocomplete'];
+    /** md 44 · lg 52 */
+    size?: 'md' | 'lg';
+    /** Icono al inicio, p. ej. `buscar`. */
+    icon?: IconName;
+    /** La etiqueta solo para lectores de pantalla (cuando el contexto ya la muestra). */
+    hideLabel?: boolean;
+    /** Ids adicionales para aria-describedby (p. ej. las reglas de PasswordField). */
+    describedby?: string;
+    /** Contenido al final del campo, dentro del borde (p. ej. un IconButton sm). */
+    end?: Snippet;
+    /** Contenido bajo la ayuda y el error. */
+    below?: Snippet;
+    class?: string;
+    element?: HTMLInputElement;
+    [attribute: string]: unknown;
+  };
+
+  let {
+    label,
+    value = $bindable(''),
+    type = 'text',
+    id,
+    name,
+    hint,
+    error,
+    required = false,
+    optional = false,
+    disabled = false,
+    readonly = false,
+    placeholder,
+    autocomplete,
+    size = 'md',
+    icon,
+    hideLabel = false,
+    describedby,
+    end,
+    below,
+    class: className = '',
+    element = $bindable(),
+    ...rest
+  }: Props = $props();
+
+  const uid = $props.id();
+  const inputId = $derived(id ?? `${uid}-input`);
+  const hintId = `${uid}-hint`;
+  const errorId = `${uid}-error`;
+  const describedBy = $derived([hint && hintId, error && errorId, describedby].filter(Boolean).join(' ') || undefined);
+</script>
+
+<div class="ui-field ui-field--{size} {className}" class:ui-field--error={!!error} class:ui-field--disabled={disabled}>
+  <label class="ui-field__label" class:sr-only={hideLabel} for={inputId}>
+    {label}{#if optional}<span class="ui-field__optional">(opcional)</span>{/if}
+  </label>
+  <div class="ui-field__control" class:ui-field__control--icon={!!icon} class:ui-field__control--end={!!end}>
+    {#if icon}<span class="ui-field__icon"><Icon name={icon} size="md" /></span>{/if}
+    <input
+      bind:this={element}
+      bind:value
+      class="ui-field__input"
+      id={inputId}
+      {type}
+      {name}
+      {required}
+      {disabled}
+      {readonly}
+      {placeholder}
+      {autocomplete}
+      aria-invalid={error ? 'true' : undefined}
+      aria-describedby={describedBy}
+      {...rest}
+    />
+    {#if end}<span class="ui-field__end">{@render end()}</span>{/if}
+  </div>
+  {#if hint}<p class="ui-field__hint" id={hintId}>{hint}</p>{/if}
+  {#if error}<p class="ui-field__error" id={errorId}>{error}</p>{/if}
+  {#if below}{@render below()}{/if}
+</div>
+
+<style>
+  .ui-field {
+    --field-h: var(--field-h-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+  }
+  .ui-field--lg { --field-h: var(--field-h-lg); }
+
+  .ui-field__label {
+    color: var(--color-texto-alto);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .ui-field__optional { margin-left: .3em; color: var(--color-texto-tenue); font-weight: 400; }
+
+  .ui-field__control {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .ui-field__input {
+    width: 100%;
+    min-height: var(--field-h);
+    box-sizing: border-box;
+    padding: 0 var(--control-px-md);
+    border: 1px solid var(--color-linea-fuerte);
+    border-radius: var(--control-radius);
+    background: var(--color-superficie-1);
+    color: var(--color-texto);
+    font-family: var(--font-ui);
+    font-size: var(--text-md);
+    line-height: 1.3;
+    transition: border-color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
+  }
+  .ui-field--lg .ui-field__input { font-size: var(--text-lg); }
+  /* Fecha (U13): el selector nativo con los colores del tema oscuro. */
+  .ui-field__input[type='date'] { color-scheme: dark; }
+  .ui-field__input::placeholder { color: var(--color-texto-tenue); opacity: 1; }
+  .ui-field__control--icon .ui-field__input { padding-left: calc(var(--control-px-md) + var(--icon-md) + var(--space-2)); }
+  .ui-field__control--end .ui-field__input { padding-right: calc(var(--button-h-sm) + var(--space-3)); }
+
+  .ui-field__input:hover:not(:disabled):not(:read-only) { border-color: var(--color-acento-border); }
+  .ui-field__input:focus-visible {
+    outline: 2px solid var(--focus-ring-color);
+    outline-offset: 2px;
+    border-color: var(--color-acento-border);
+    box-shadow: var(--focus-ring);
+    background: var(--color-superficie-2);
+  }
+  .ui-field__input:read-only { background: transparent; border-style: dashed; }
+  .ui-field__input:disabled {
+    border-color: var(--color-linea-sutil);
+    background: transparent;
+    color: var(--color-texto-desactivado);
+    cursor: not-allowed;
+  }
+  .ui-field--disabled .ui-field__label { color: var(--color-texto-tenue); }
+  .ui-field--error .ui-field__input { border-color: var(--color-danger); }
+
+  .ui-field__icon {
+    position: absolute;
+    left: var(--control-px-md);
+    color: var(--color-texto-tenue);
+    pointer-events: none;
+  }
+  .ui-field__control:focus-within .ui-field__icon { color: var(--color-acento); }
+
+  .ui-field__end {
+    position: absolute;
+    right: calc((var(--field-h) - var(--button-h-sm)) / 2);
+    display: flex;
+  }
+
+  .ui-field__hint,
+  .ui-field__error {
+    margin: 0;
+    font-size: var(--text-2xs);
+    line-height: 1.45;
+  }
+  .ui-field__hint { color: var(--color-texto-tenue); }
+  .ui-field__error { color: var(--color-danger-texto); font-weight: 600; }
+</style>

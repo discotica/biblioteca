@@ -1,0 +1,95 @@
+<script>
+  // Barra de resultados (E13, U10): paginación a la izquierda; "Ordenar por" y
+  // grilla/lista a la derecha. En móvil, paginación compacta y orden en una
+  // sola línea; el selector de vista pasa a la línea de «Buscar».
+  import { createEventDispatcher } from 'svelte';
+  import Pagination from '$lib/ui/Pagination.svelte';
+  import Select from '$lib/ui/Select.svelte';
+  import ViewToggle from '$lib/ui/ViewToggle.svelte';
+
+  export let page = 1;
+  export let totalPages = 1;
+  export let order = 'fecha-desc';
+  export let orders = [];
+  export let approximateNotice = '';
+  /** 'grid' | 'list' */
+  export let view = 'grid';
+  /** "1–12 de 2.790 lanzamientos": junto a la paginación desde 769; en móvil va al pie. */
+  export let summary = '';
+  /** false: sin selector grilla/lista (artista y sello). */
+  export let viewToggle = true;
+
+  const dispatch = createEventDispatcher();
+</script>
+
+<div class="results-bar">
+  <div class="results-bar__main">
+    <div class="results-bar__start">
+      <Pagination
+        {page}
+        {totalPages}
+        label="Paginación superior de resultados"
+        onchange={(next) => dispatch('page', next)}
+      />
+      {#if summary}<p class="resultados__contador">{summary}</p>{/if}
+    </div>
+
+    <div class="results-bar__end">
+      <Select
+        class="results-bar__order"
+        label="Ordenar por"
+        hideLabel="wide"
+        inline
+        icon="ordenar"
+        compactIcon={false}
+        value={order}
+        options={orders}
+        onchange={(value) => dispatch('order', value)}
+      />
+      {#if viewToggle}
+        <ViewToggle class="results-bar__view" value={view} label="Vista de resultados" onchange={(mode) => dispatch('view', mode)} />
+      {/if}
+    </div>
+  </div>
+
+  {#if approximateNotice}
+    <p class="results-bar__notice">{approximateNotice}</p>
+  {/if}
+</div>
+
+<style>
+  .results-bar { margin: var(--space-4) 0; }
+  .results-bar__main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    min-height: var(--target-touch);
+  }
+  /* La paginación no cede ancho: el orden se recorta con elipsis si hace falta. */
+  .results-bar__start { display: flex; align-items: center; gap: var(--space-4); flex: none; }
+  .resultados__contador {
+    margin: 0;
+    color: var(--color-texto-secundario);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .results-bar__end {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+    margin-left: auto;
+  }
+  .results-bar__end :global(.results-bar__order) { min-width: 0; }
+  .results-bar__notice { margin: var(--space-3) 0 0; color: var(--color-texto-medio); font-size: var(--text-sm); }
+
+  /* Móvil: una sola línea; la vista se elige junto a «Buscar». */
+  @media (max-width: 768px) {
+    .results-bar { margin: var(--space-2) 0 var(--space-3); }
+    .results-bar__main { gap: var(--space-1); }
+    .results-bar__end :global(.results-bar__view) { display: none; }
+    .resultados__contador { display: none; }
+  }
+</style>

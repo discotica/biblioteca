@@ -1,0 +1,372 @@
+<script lang="ts" generics="T">
+  import { onDestroy, tick, type Snippet } from 'svelte';
+  import IconButton from './IconButton.svelte';
+  import { edgeScrollSpeed, keyboardTarget, moveItem, previewOffsets, targetIndex, type Slot, type SortableLayout } from './sortable';
+
+  type Props = {
+    items: T[];
+    /** Clave estable de cada elemento (id). */
+    key: (item: T) => string;
+    /** Nombre del elemento en el asa y en los anuncios ("Lanzamiento X"). */
+    itemLabel: (item: T) => string;
+    /** Nombre accesible de la lista ("Orden de la colección"). */
+    label: string;
+    /** list: filas de cualquier alto. grid: casillas iguales (grilla de portadas). */
+    layout?: SortableLayout;
+    /** Botones visibles "Subir" y "Bajar" en cada elemento, además del asa. */
+    moveButtons?: boolean;
+    disabled?: boolean;
+    /**
+     * Sin marco: el elemento no lleva borde, relleno ni fondo propios, porque su
+     * contenido ya es una pieza completa (la tarjeta o la fila de una colección, U14).
+     */
+    bare?: boolean;
+    /**
+     * Clase de la lista que pone el anfitrión. Con ella, la lista toma su
+     * disposición (p. ej. `lanzamientos-grilla`) en lugar de la propia.
+     */
+    listClass?: string;
+    /** Se llama con el orden nuevo tras soltar o mover con teclado. */
+    onreorder?: (items: T[], detail: { key: string; from: number; to: number }) => void;
+    item: Snippet<[T, number]>;
+    class?: string;
+  };
+
+  let {
+    items = $bindable(),
+    key,
+    itemLabel,
+    label,
+    layout = 'list',
+    moveButtons = false,
+    disabled = false,
+    bare = false,
+    listClass = '',
+    onreorder,
+    item: itemSnippet,
+    class: className = ''
+  }: Props = $props();
+
+  const uid = $props.id();
+  const helpId = `${uid}-help`;
+
+  let list = $state<HTMLElement>();
+  let announcement = $state('');
+
+  type Drag = {
+    key: string;
+    from: number;
+    to: number;
+    pointerId: number;
+    slots: Slot[];
+    startX: number;
+    startY: number;
+    listLeft: number;
+    listTop: number;
+    clientX: number;
+    clientY: number;
+    dx: number;
+    dy: number;
+  };
+  let drag = $state<Drag | null>(null);
+  /** Un cuadro sin transiciones al soltar, para que nada salte al reordenar el DOM. */
+  let settling = $state(false);
+  let scroller: HTMLElement | null = null;
+  let scrollFrame = 0;
+  let edgePx = 0;
+
+  /** Longitud CSS en px (el token está en rem). */
+  function cssPixels(length: string) {
+    const amount = Number.parseFloat(length);
+    if (!Number.isFinite(amount)) return 0;
+    if (/rem$/.test(length.trim())) return amount * (Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+    return amount;
+  }
+
+  const offsets = $derived(drag ? previewOffsets(layout, drag.slots, drag.from, drag.to) : null);
+
+  function position(index: number) {
+    return `${index + 1} de ${items.length}`;
+  }
+
+  function commitMove(from: number, to: number, via: 'keyboard' | 'pointer') {
+    const moved = items[from];
+    const name = itemLabel(moved);
+    if (from === to) {
+      if (via === 'keyboard') announcement = `«${name}» ya está en la ${to === 0 ? 'primera' : 'última'} posición.`;
+      else announcement = `«${name}» vuelve a la posición ${position(from)}.`;
+      return;
+    }
+    const next = moveItem(items, from, to);
+    items = next;
+    onreorder?.(next, { key: key(moved), from, to });
+    announcement = `«${name}» movido a la posición ${position(to)}.`;
+  }
+
+  async function focusHandle(itemKey: string) {
+    await tick();
+    list?.querySelector<HTMLElement>(`[data-sortable-handle="${CSS.escape(itemKey)}"]`)?.focus();
+  }
+
+  // ---- Teclado ---------------------------------------------------------------
+
+  function onHandleKeydown(event: KeyboardEvent, index: number) {
+    if (disabled) return;
+    if (drag && event.key === 'Escape') {
+      event.preventDefault();
+      cancelDrag();
+      return;
+    }
+    const to = keyboardTarget(event.key, index, items.length);
+    if (to === null) return;
+    event.preventDefault();
+    const itemKey = key(items[index]);
+    commitMove(index, to, 'keyboard');
+    focusHandle(itemKey);
+  }
+
+  async function moveBy(index: number, step: -1 | 1) {
+    const to = Math.max(0, Math.min(items.length - 1, index + step));
+    const itemKey = key(items[index]);
+    commitMove(index, to, 'keyboard');
+    // El foco sigue al elemento movido: el mismo botón, o el asa si ese botón
+    // quedó deshabilitado al llegar a un extremo.
+    await tick();
+    const same = list?.querySelector<HTMLButtonElement>(`[data-sortable-move="${step}"][data-sortable-key="${CSS.escape(itemKey)}"]`);
+    if (same && !same.disabled) same.focus();
+    else focusHandle(itemKey);
+  }
+
+  // ---- Puntero (ratón y táctil) ---------------------------------------------
+  // Solo el asa inicia el arrastre y tiene touch-action: none, así que el resto
+  // de la fila sigue desplazando la página o la hoja con normalidad.
+
+  function measure(): Slot[] {
+    const origin = list!.getBoundingClientRect();
+    return Array.from(list!.children).map((child) => {
+      const rect = (child as HTMLElement).getBoundingClientRect();
+      return { x: rect.left - origin.left, y: rect.top - origin.top, w: rect.width, h: rect.height };
+    });
+  }
+
+  function scrollParent(node: HTMLElement): HTMLElement | null {
+    for (let current = node.parentElement; current; current = current.parentElement) {
+      const { overflowY } = getComputedStyle(current);
+      if (/(auto|scroll)/.test(overflowY) && current.scrollHeight > current.clientHeight) return current;
+    }
+    return null;
+  }
+
+  function onHandlePointerDown(event: PointerEvent, index: number) {
+    if (disabled || drag || !list || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    event.preventDefault();
+    const origin = list.getBoundingClientRect();
+    (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+    drag = {
+      key: key(items[index]),
+      from: index,
+      to: index,
+      pointerId: event.pointerId,
+      slots: measure(),
+      startX: event.clientX - origin.left,
+      startY: event.clientY - origin.top,
+      listLeft: origin.left,
+      listTop: origin.top,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      dx: 0,
+      dy: 0
+    };
+    scroller = scrollParent(list);
+    edgePx = cssPixels(getComputedStyle(list).getPropertyValue('--sortable-edge'));
+    announcement = `Arrastrando «${itemLabel(items[index])}», posición ${position(index)}.`;
+    window.addEventListener('keydown', onWindowKeydown, true);
+    scrollFrame = requestAnimationFrame(autoScroll);
+  }
+
+  function update(clientX: number, clientY: number) {
+    if (!drag || !list) return;
+    // El origen se vuelve a medir: si la página o la hoja se desplazaron, la
+    // lista se movió y el puntero sigue apuntando al mismo sitio.
+    const origin = list.getBoundingClientRect();
+    const dx = layout === 'grid' ? clientX - origin.left - drag.startX : 0;
+    const dy = clientY - origin.top - drag.startY;
+    const slot = drag.slots[drag.from];
+    const to = targetIndex(layout, drag.slots, drag.from, { x: slot.x + slot.w / 2 + dx, y: slot.y + slot.h / 2 + dy });
+    drag = { ...drag, dx, dy, to, clientX, clientY };
+  }
+
+  function onHandlePointerMove(event: PointerEvent) {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    update(event.clientX, event.clientY);
+  }
+
+  async function finish() {
+    window.removeEventListener('keydown', onWindowKeydown, true);
+    cancelAnimationFrame(scrollFrame);
+    scroller = null;
+    settling = true;
+    drag = null;
+    await tick();
+    requestAnimationFrame(() => requestAnimationFrame(() => (settling = false)));
+  }
+
+  function onHandlePointerUp(event: PointerEvent) {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    const { from, to, key: itemKey } = drag;
+    commitMove(from, to, 'pointer');
+    finish();
+    focusHandle(itemKey);
+  }
+
+  function cancelDrag() {
+    if (!drag) return;
+    announcement = `Reordenación cancelada. «${itemLabel(items[drag.from])}» sigue en la posición ${position(drag.from)}.`;
+    finish();
+  }
+
+  function onWindowKeydown(event: KeyboardEvent) {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    cancelDrag();
+  }
+
+  // Cerca del borde del contenedor con scroll (o de la ventana), lo desplaza.
+  function autoScroll() {
+    if (!drag) return;
+    const edge = edgePx || 48;
+    const bounds = scroller ? scroller.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
+    const speed = edgeScrollSpeed(drag.clientY, bounds.top, bounds.bottom, edge);
+    if (speed) {
+      if (scroller) scroller.scrollTop += speed;
+      else window.scrollBy(0, speed);
+      update(drag.clientX, drag.clientY);
+    }
+    scrollFrame = requestAnimationFrame(autoScroll);
+  }
+
+  onDestroy(() => {
+    if (typeof window === 'undefined') return;
+    window.removeEventListener('keydown', onWindowKeydown, true);
+    cancelAnimationFrame(scrollFrame);
+  });
+
+  function transformFor(index: number, itemKey: string) {
+    if (!drag) return undefined;
+    if (itemKey === drag.key) return `translate(${drag.dx}px, ${drag.dy}px)`;
+    const offset = offsets?.[index];
+    return offset && (offset.x || offset.y) ? `translate(${offset.x}px, ${offset.y}px)` : undefined;
+  }
+</script>
+
+<div class="ui-sortable {className}">
+  <ul
+    class="ui-sortable__list ui-sortable__list--{layout} {listClass}"
+    class:ui-sortable__list--own={!listClass}
+    class:ui-sortable__list--bare={bare}
+    class:ui-sortable__list--dragging={!!drag}
+    class:ui-sortable__list--settling={settling}
+    aria-label={label}
+    bind:this={list}
+  >
+    {#each items as entry, index (key(entry))}
+      {@const itemKey = key(entry)}
+      {@const name = itemLabel(entry)}
+      <li
+        class="ui-sortable__item"
+        class:ui-sortable__item--dragging={drag?.key === itemKey}
+        style:transform={transformFor(index, itemKey)}
+      >
+        {#if !disabled}
+          <span class="ui-sortable__handle">
+            <IconButton
+              icon="arrastrar"
+              label={`Reordenar: ${name}`}
+              size="sm"
+              tooltipAlign="start"
+              aria-describedby={helpId}
+              data-sortable-handle={itemKey}
+              onkeydown={(event: KeyboardEvent) => onHandleKeydown(event, index)}
+              onpointerdown={(event: PointerEvent) => onHandlePointerDown(event, index)}
+              onpointermove={onHandlePointerMove}
+              onpointerup={onHandlePointerUp}
+              onpointercancel={cancelDrag}
+              onlostpointercapture={(event: PointerEvent) => drag && event.pointerId === drag.pointerId && cancelDrag()}
+            />
+          </span>
+        {/if}
+        <div class="ui-sortable__content">{@render itemSnippet(entry, index)}</div>
+        {#if moveButtons && !disabled}
+          <span class="ui-sortable__moves">
+            <IconButton icon="flecha-arriba" label={`Subir: ${name}`} size="sm" disabled={index === 0} data-sortable-move="-1" data-sortable-key={itemKey} onclick={() => moveBy(index, -1)} />
+            <IconButton icon="flecha-abajo" label={`Bajar: ${name}`} size="sm" tooltipAlign="end" disabled={index === items.length - 1} data-sortable-move="1" data-sortable-key={itemKey} onclick={() => moveBy(index, 1)} />
+          </span>
+        {/if}
+      </li>
+    {/each}
+  </ul>
+  <p class="sr-only" id={helpId}>Arrastra para reordenar, o usa las flechas con el asa enfocada. Inicio y Fin llevan al principio o al final.</p>
+  <div class="sr-only" aria-live="assertive" aria-atomic="true">{announcement}</div>
+</div>
+
+<style>
+  .ui-sortable__list { margin: 0; padding: 0; list-style: none; }
+  .ui-sortable__list--own.ui-sortable__list--list { display: flex; flex-direction: column; gap: var(--space-2); }
+  .ui-sortable__list--own.ui-sortable__list--grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
+    gap: var(--space-4);
+  }
+
+  /* El asa y los botones sm (32) dejan 6 px alrededor para su área de 44. */
+  .ui-sortable__item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+    padding: calc((var(--target-touch) - var(--button-h-sm)) / 2);
+    border: 1px solid var(--color-linea-sutil);
+    border-radius: var(--radius-sm);
+    background: var(--color-panel);
+    transition: transform var(--motion-base) var(--ease-emphasized), box-shadow var(--motion-fast) var(--ease-standard);
+  }
+  .ui-sortable__list--grid .ui-sortable__item { flex-direction: column; align-items: stretch; }
+
+  /* Sin marco: la pieza de dentro ya tiene el suyo. En la grilla el elemento se
+     estira con su fila, como la celda de la tarjeta (U8). */
+  .ui-sortable__list--bare .ui-sortable__item {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+  }
+  .ui-sortable__list--bare.ui-sortable__list--grid .ui-sortable__item { width: 100%; }
+  .ui-sortable__list--bare.ui-sortable__list--grid .ui-sortable__content { display: flex; flex-direction: column; }
+  .ui-sortable__list--bare .ui-sortable__item--dragging { background: var(--color-panel); border-radius: var(--radius-sm); }
+  .ui-sortable__list--grid .ui-sortable__handle { position: absolute; top: var(--space-2); left: var(--space-2); z-index: var(--layer-raised); }
+  .ui-sortable__list--grid .ui-sortable__moves { justify-content: center; }
+
+  .ui-sortable__content { flex: 1; min-width: 0; }
+  .ui-sortable__moves { display: flex; gap: var(--space-3); flex: none; }
+  .ui-sortable__handle { display: flex; flex: none; }
+
+  /* El gesto del asa es del ordenable: ni scroll ni zoom, ni selección de texto. */
+  .ui-sortable__handle :global(button) { touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+  .ui-sortable__list--grid .ui-sortable__handle :global(button) { background: var(--color-velo); }
+  .ui-sortable__list--dragging { user-select: none; -webkit-user-select: none; }
+  .ui-sortable__list--dragging .ui-sortable__handle :global(button) { cursor: grabbing; }
+
+  .ui-sortable__item--dragging {
+    z-index: var(--layer-float);
+    border-color: var(--color-acento-border);
+    box-shadow: var(--shadow-flotante);
+    transition: box-shadow var(--motion-fast) var(--ease-standard);
+  }
+  .ui-sortable__list--settling .ui-sortable__item { transition: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ui-sortable__item { transition: none; }
+  }
+</style>

@@ -1,0 +1,364 @@
+/* ==========================================================================
+   Tokens v2 (U4) — única fuente de valores literales de la interfaz.
+
+   - Los componentes y styles.css solo usan var(--…). `npm run lint:tokens`
+     rechaza colores, tamaños de fuente, radios y breakpoints literales fuera
+     de este archivo. Reglas y lista temporal de excepciones:
+     scripts/lint-tokens.exceptions.json y docs/modernizacion/u4-tokens-v2-2026-10-07.md.
+   - Si falta un valor, se añade aquí con su uso; no se inventa en el componente.
+   - Paleta y dirección visual son las de E04; U4 solo cierra las escalas.
+   ========================================================================== */
+
+:root {
+  /* ---- Paleta base -------------------------------------------------------- */
+  --color-fondo: #0e0e0e;
+  --color-panel: #161616;
+  --color-panel-raised: #1c1c1c;
+  --color-neutral: #282828;
+  --color-borde: #252525;
+  --color-texto: #f8ffee;
+  --color-texto-secundario: #a0a0a0;
+  --color-acento: #96f719;
+  --color-acento-hover: #baff4e;
+  --color-sobre-acento: var(--color-fondo);
+
+  /* ---- Superficies, líneas y texto con alfa (sobre --color-texto) ---------
+     Texto: el mínimo es --color-texto-tenue, que da ≥ 4.5:1 sobre fondo,
+     panel, panel-raised y neutral. --color-texto-desactivado no es para
+     texto que deba leerse: solo estados deshabilitados y separadores. */
+  --color-superficie-1: rgba(248, 255, 238, 0.03);
+  --color-superficie-2: rgba(248, 255, 238, 0.06);
+  --color-superficie-3: rgba(248, 255, 238, 0.1);
+  --color-linea-sutil: rgba(248, 255, 238, 0.06);
+  --color-linea: rgba(248, 255, 238, 0.1);
+  --color-linea-fuerte: rgba(248, 255, 238, 0.18);
+  --color-texto-alto: rgba(248, 255, 238, 0.8);
+  --color-texto-medio: rgba(248, 255, 238, 0.62);
+  --color-texto-tenue: rgba(248, 255, 238, 0.52);
+  --color-texto-desactivado: rgba(248, 255, 238, 0.32);
+
+  /* Acento con alfa */
+  --color-acento-tinte: rgba(150, 247, 25, 0.05);
+  --color-acento-dim: rgba(150, 247, 25, 0.1);
+  --color-acento-suave: rgba(150, 247, 25, 0.2);
+  --color-borde-hover: rgba(150, 247, 25, 0.28);
+  --color-acento-border: rgba(150, 247, 25, 0.35);
+  --color-acento-texto: rgba(150, 247, 25, 0.72);
+  --color-radar-relleno: rgba(150, 247, 25, 0.53);
+
+  /* Velos y sombras */
+  --color-velo: rgba(14, 14, 14, 0.88);
+  --color-velo-opaco: rgba(14, 14, 14, 0.97);
+  --color-sombra: rgba(0, 0, 0, 0.35);
+  --color-sombra-fuerte: rgba(0, 0, 0, 0.55);
+  --color-destello: rgba(255, 255, 255, 0.85);
+  --overlay-backdrop: rgba(0, 0, 0, 0.72);
+  --overlay-blur: 6px;
+  --shadow-flotante: 0 20px 50px var(--color-sombra-fuerte);
+
+  /* Estados */
+  --color-danger: #ff6464;
+  --color-danger-texto: #ffb1a8;
+  --color-danger-dim: rgba(255, 60, 60, 0.08);
+  --color-danger-borde: rgba(255, 100, 100, 0.3);
+  --color-aviso: #ffc05a;
+  --color-aviso-dim: rgba(255, 192, 90, 0.1);
+  --color-aviso-borde: rgba(255, 192, 90, 0.3);
+
+  /* Categorías del autocompletado (tipo de sugerencia) */
+  --color-cat-pais: #7dd3fc;
+  --color-cat-genero: #c4b5fd;
+  --color-cat-sello: #fcd34d;
+  --color-cat-lanzamiento: #fca5a5;
+  --color-cat-pais-dim: rgba(56, 189, 248, 0.1);
+  --color-cat-genero-dim: rgba(167, 139, 250, 0.1);
+  --color-cat-sello-dim: rgba(251, 191, 36, 0.08);
+  --color-cat-lanzamiento-dim: rgba(248, 113, 113, 0.08);
+  --color-cat-pais-borde: rgba(56, 189, 248, 0.32);
+  --color-cat-genero-borde: rgba(167, 139, 250, 0.32);
+  --color-cat-sello-borde: rgba(251, 191, 36, 0.3);
+  --color-cat-lanzamiento-borde: rgba(248, 113, 113, 0.3);
+
+  /* ---- Tipografía: 9 pasos -------------------------------------------------
+     El paso menor (12px) sube los metadatos de la tarjeta de 10.7px a 12px
+     (+12 %); con --color-texto-tenue su contraste pasa de ~2.6:1 a ≥ 4.5:1. */
+  --font-base: 'Work Sans', sans-serif;
+  --font-ui: var(--font-base);
+  --text-2xs: 0.75rem;   /* 12px · metadatos, etiquetas, insignias */
+  --text-xs: 0.8125rem;  /* 13px · texto de control secundario */
+  --text-sm: 0.875rem;   /* 14px · controles, texto auxiliar */
+  --text-md: 1rem;       /* 16px · lectura */
+  --text-lg: 1.125rem;   /* 18px · subtítulos */
+  --text-xl: 1.25rem;    /* 20px · títulos de sección */
+  --text-2xl: 1.5rem;    /* 24px · títulos de bloque */
+  --text-3xl: clamp(1.55rem, 2.2vw, 2rem);   /* 25–32px · título de tarjeta y de página */
+  --text-display: clamp(2rem, 5vw, 3rem);    /* 32–48px · portadas de página */
+  --text-code: 0.88em;   /* relativo: código en línea dentro de un párrafo */
+
+  /* Navegación principal: mayúsculas sostenidas */
+  --nav-font-size: var(--text-2xs);
+  --nav-font-weight: 700;
+  --nav-letter-spacing: 0.08em;
+  --nav-text-transform: uppercase;
+
+  /* ---- Espaciado: base 4/8 -------------------------------------------------- */
+  --space-1: 0.25rem;  /* 4 */
+  --space-2: 0.5rem;   /* 8 */
+  --space-3: 0.75rem;  /* 12 */
+  --space-4: 1rem;     /* 16 */
+  --space-5: 1.5rem;   /* 24 */
+  --space-6: 2rem;     /* 32 */
+  --space-7: 3rem;     /* 48 */
+  --space-8: 4rem;     /* 64 */
+  /* Alias de E04, mismos valores */
+  --spacing-xs: var(--space-2);
+  --spacing-sm: var(--space-4);
+  --spacing-md: var(--space-5);
+  --spacing-lg: var(--space-6);
+  --spacing-xl: var(--space-7);
+
+  /* ---- Radios: 4 valores más pill ----------------------------------------- */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-base: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  /* ---- Controles: 32 · 40 · 44 · 52 ------------------------------------------
+     Padding horizontal mayor que el vertical. Referencia: Comprar (44px,
+     1.5rem a los lados, radio sm). */
+  --control-h-sm: 32px;
+  --control-h-md: 40px;
+  --control-h-lg: 44px;
+  --control-h-xl: 52px;
+  --control-px-sm: var(--space-3);
+  --control-px-md: var(--space-4);
+  --control-px-lg: var(--space-5);
+  --control-px-xl: 1.75rem;
+  --control-radius: var(--radius-sm);
+  --control-font-size: var(--text-sm);
+  --target-touch: var(--control-h-lg);
+
+  /* ---- Primitivas (U5) --------------------------------------------------------
+     Botón: sm 32 · md 44 (Comprar) · lg 52. Cualquier control más bajo que
+     --target-touch amplía su área táctil hasta 44 sin cambiar su caja visible. */
+  --button-h-sm: var(--control-h-sm);
+  --button-h-md: var(--control-h-lg);
+  --button-h-lg: var(--control-h-xl);
+  --button-px-sm: var(--control-px-sm);
+  --button-px-md: var(--control-px-lg);
+  --button-px-lg: var(--control-px-xl);
+  /* Campo: md 44 · lg 52 (el texto de búsqueda del panel) */
+  --field-h-md: var(--control-h-lg);
+  --field-h-lg: var(--control-h-xl);
+  /* Chip: sm 24 (género, estado) · md 32 (filtro activo compacto) */
+  --chip-h-sm: 24px;
+  --chip-h-md: var(--control-h-sm);
+  --chip-px-sm: var(--space-2);
+  --chip-px-md: var(--space-3);
+  /* Iconos SVG: trazo con currentColor sobre una retícula de 24 */
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+  --icon-stroke: 1.75;
+  --icon-stroke-bold: 2.5;  /* junto a texto en negrita (800) */
+  /* Indicador de carga: tres puntos en horizontal */
+  --loader-dot: 8px;
+  --loader-dot-sm: 6px;
+  /* Ayudas emergentes de los iconos solos */
+  --tooltip-max-w: 16rem;
+
+  /* ---- Primitivas compuestas (U6) ----------------------------------------------
+     Diálogo: tres anchos; el alto nunca pasa del viewport menos el margen y el
+     cuerpo hace scroll dentro. */
+  --dialog-w-sm: 28rem;
+  --dialog-w-md: 40rem;
+  --dialog-w-lg: 60rem;
+  --dialog-gutter: var(--space-4);
+  /* Hoja inferior: altura según contenido, hasta --sheet-max-h; asa de arrastre */
+  --sheet-max-h: 88dvh;
+  --sheet-max-w: 40rem;
+  --sheet-top-gap: var(--space-3);
+  --sheet-handle-w: 42px;
+  --sheet-handle-h: 4px;
+  /* Menú "…" y lista del combobox, en el portal */
+  --menu-min-w: 12rem;
+  --menu-max-w: 20rem;
+  --listbox-max-h: 18rem;
+  --popover-gutter: var(--space-2);
+  /* Ordenable: distancia al borde que activa el auto-scroll al arrastrar */
+  --sortable-edge: var(--space-7);
+  /* Portada: fondo ambiental desenfocado (el mismo de la tarjeta, E04) */
+  --cover-ambient-opacity: 0.14;
+  --cover-ambient-blur: 55px;
+  --cover-ambient-saturate: 1.3;
+  --cover-fallback-opacity: 0.2;
+
+  /* ---- Shell y layouts (U7) ------------------------------------------------------
+     Contenedores: el ancho incluye el margen lateral (box-sizing: border-box).
+     wide es el ancho histórico del catálogo (.container); full llega al borde
+     del viewport conservando el margen. */
+  --container-narrow: 46rem;   /* 736 · lectura, formularios, cuenta */
+  --container-regular: 60rem;  /* 960 · perfil y colecciones propias */
+  --container-wide: 75rem;     /* 1200 · catálogo, artista, sello, colección, ficha */
+  --container-full: 100%;      /* herramienta (Estudio) */
+  --container-gutter: var(--space-5);
+  /* Ritmo vertical de una página: margen superior, inferior y separación
+     entre la cabecera de la página y su contenido. */
+  --page-pad-top: var(--space-7);
+  --page-pad-top-mobile: var(--space-5);
+  --page-pad-bottom: var(--space-8);
+  --page-header-gap: var(--space-6);
+  /* Cuenta: ancho del formulario y de la columna lateral en dos columnas */
+  --account-form-w: 26rem;
+  --account-aside-w: 22rem;
+  /* Lectura: medida de línea, interlineado y paso entre secciones */
+  --measure-reading: 68ch;
+  --leading-reading: 1.7;
+  --leading-heading: 1.15;
+  --reading-section-gap: var(--space-7);
+  --reading-toc-w: 13rem;
+  /* Herramienta (U15): barra lateral; tabla del Estudio con la densidad de la
+     consola de E07 (filas de 56 y portada de 40), ancho mínimo antes de
+     desplazarse en horizontal y alto máximo de las listas de un diálogo. */
+  --tool-sidebar-w: 15rem;
+  --tool-row-h: 3.5rem;
+  --tool-thumb: 2.5rem;
+  --tool-table-min-w: 48rem;
+  --tool-dialog-list-max-h: 16rem;
+  /* Editor del Estudio (U16): índice lateral fijo, portada de la sección
+     Medios y radar junto a sus cinco controles. */
+  --tool-index-w: 12rem;
+  --tool-cover: 6rem;
+  --tool-radar: 7rem;
+  /* Bandeja del Estudio (U17): ancho de la lista junto al detalle. */
+  --tool-inbox-list-w: 22rem;
+  /* Header: avatar del menú de cuenta y logo */
+  --avatar-sm: 28px;
+  --header-logo-h: 22px;
+  --header-logo-h-mobile: 20px;
+  --header-pad-block: 0.85rem;
+  /* Alto del header mientras se ve, para lo que es sticky debajo de él. Solo lo
+     fija el header en el Estudio (U16), donde el header también es sticky. */
+  --header-offset: 0px;
+
+  /* ---- Tarjeta y fila de lanzamiento (U8) -------------------------------------
+     Grilla: nunca más de 3 columnas; cada una mide al menos --card-min-w (el
+     tamaño de siempre). En una columna, la tarjeta no pasa de --card-single-max-w.
+     Título de la tarjeta: hasta --card-title-lines líneas.
+     Fila (modo lista): portada cuadrada de --row-cover. */
+  --card-min-w: 20rem;
+  --card-single-max-w: 34rem;
+  --card-grid-gap: 1.15rem;
+  --card-grid-max-cols: 3;
+  --card-pad: var(--space-4);
+  --card-title-lines: 2;
+  --row-cover: 56px;
+
+  /* ---- Colecciones y perfil (U14) ---------------------------------------------
+     Mosaico de colección: 2 × 2 portadas con --mosaic-gap entre ellas.
+     Columna de los mosaicos: al menos --mosaic-min-w (dos por fila a 390).
+     Interruptor (Checkbox variant="switch"): pista de --switch-w × --switch-h;
+     el pulgar deja --switch-inset por lado. */
+  --mosaic-gap: 2px;
+  --mosaic-min-w: 10rem;
+  --switch-w: 2.75rem;
+  --switch-h: var(--icon-lg);
+  --switch-inset: 3px;
+
+  /* ---- Bienvenida del inicio (U11) -------------------------------------------
+     Bloque editorial: ilustración a la izquierda e información a la derecha,
+     como la ficha. Por debajo de --breakpoint-mobile, la información primero y
+     la ilustración como banda al pie del bloque.
+     --welcome-art-ratio: proporción del hueco de la ilustración en dos columnas.
+     --welcome-art-ratio-narrow: la banda en una columna.
+     El arte se recorta (object-fit: cover) para llenar el hueco. */
+  --welcome-art-ratio: 4 / 3;
+  --welcome-art-ratio-narrow: 5 / 2;
+  --welcome-title-measure: 16ch;
+  --welcome-copy-measure: 46ch;
+
+  /* ---- Ficha de lanzamiento (U9) ---------------------------------------------
+     decisiones.md, "Ficha (2026-10-07, durante U9)". Dos columnas desde
+     --breakpoint-mobile (768): arriba, portada | información; al pie, la barra
+     de acciones a todo el ancho. La columna de la portada es cuadrada y la
+     portada lleva un marco uniforme (--ficha-frame) en los cuatro lados.
+     --ficha-cover-max: tope del bloque de la portada, marco incluido.
+     --ficha-info-min/max: la información cede ancho hasta el mínimo antes de
+       que la portada se achique; en el modal no pasa del máximo.
+     --ficha-min-h: en la página, lado mínimo de la portada aunque el
+       viewport sea más bajo (cabe el reproductor más alto, 352).
+     --ficha-bar-h: barra de acciones (Button md + relleno).
+     Por debajo de 768: una columna, portada enmarcada a todo el ancho y la
+     barra fija abajo (Button sm, con el área segura). */
+  --ficha-frame: var(--space-5);
+  --ficha-cover-max: 40rem;
+  --ficha-info-min: 22.5rem;
+  --ficha-info-max: 32rem;
+  --ficha-min-h: 24rem;
+  --ficha-bar-h: calc(var(--button-h-md) + 2 * var(--space-3));
+  --ficha-bar-h-compact: calc(var(--button-h-sm) + 2 * var(--space-3));
+
+  /* ---- Breakpoints ------------------------------------------------------------
+     Documentales: CSS no admite var() dentro de @media. El lint solo acepta
+     estos valores (y N−1 en max-width cuando la consulta complementa un
+     min-width). En TS se importan de $lib/ui/breakpoints. */
+  --breakpoint-compact: 480px;
+  --breakpoint-ficha: 680px;
+  --breakpoint-mobile: 768px;
+  --breakpoint-wide: 1024px;
+  --breakpoint-max: 1280px;
+
+  /* ---- Capas ---------------------------------------------------------------- */
+  --layer-raised: 1;
+  --layer-float: 10;     /* sobre sus vecinos: tarjeta con menú, tooltips, listas internas */
+  --layer-sticky: 100;
+  --layer-dropdown: 200;
+  --layer-overlay: 1000;
+  --layer-toast: 1100;
+
+  /* ---- Motion --------------------------------------------------------------- */
+  --motion-instant: 100ms;
+  --motion-fast: 140ms;
+  --motion-overlay: 180ms;
+  --motion-base: 200ms;
+  --motion-slow: 320ms;
+  --ease-standard: ease;
+  --ease-emphasized: cubic-bezier(0.22, 0.1, 0.25, 1);
+  /* Arranque rápido y frenada larga, sin rebote (y ≤ 1): lo que se despliega
+     desde su disparador (panel de búsqueda, U10b). */
+  --ease-expressive: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ---- Foco y área segura --------------------------------------------------- */
+  --focus-ring-color: var(--color-acento);
+  --focus-ring: 0 0 0 3px rgba(150, 247, 25, 0.42);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* ---- Barras de scroll ----------------------------------------------------- */
+  --scrollbar-size: 10px;
+  --scrollbar-thumb: rgba(248, 255, 238, 0.18);
+  --scrollbar-thumb-hover: rgba(150, 247, 25, 0.45);
+  --scrollbar-track: transparent;
+
+  /* ---- Densidad ------------------------------------------------------------------
+     Por defecto, la del sitio público. El Estudio (U15) aplica
+     data-density="compact" en su raíz (ToolLayout): misma paleta, controles y
+     filas más bajos. */
+  --density-control-h: var(--control-h-lg);
+  --density-control-px: var(--control-px-md);
+  --density-row-h: 56px;
+  --density-gap: var(--space-4);
+  --density-pad: var(--space-5);
+  --density-text: var(--text-md);
+  --density-label: var(--text-2xs);
+}
+
+[data-density='compact'] {
+  --density-control-h: var(--control-h-sm);
+  --density-control-px: var(--control-px-sm);
+  --density-row-h: 40px;
+  --density-gap: var(--space-2);
+  --density-pad: var(--space-4);
+  --density-text: var(--text-sm);
+  --density-label: var(--text-2xs);
+}
