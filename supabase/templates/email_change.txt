@@ -1,0 +1,9 @@
+Confirma el cambio de correo
+
+Se pidió cambiar el correo de tu cuenta de {{ .Email }} a {{ .NewEmail }}. Abre este enlace para completar el cambio:
+
+{{ .ConfirmationURL }}
+
+Si no pediste este cambio, ignora este correo: tu cuenta conserva el correo actual.
+
+Discótica
