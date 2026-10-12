@@ -1,0 +1,349 @@
+<script lang="ts">
+  import PageLayout from '$lib/layouts/PageLayout.svelte';
+  import { onMount, tick } from 'svelte';
+  import { page } from '$app/stores';
+  import StringListField from '$lib/components/StringListField.svelte';
+  import { user } from '$lib/stores/authStore';
+  import { supabase } from '$lib/supabase';
+  import {
+    RELEASE_TYPE_OPTIONS,
+    contributionFieldErrors,
+    createContributionDraft,
+    getProfileRole,
+    inspectSource,
+    loadContribution,
+    saveContributionDraft,
+    sourceProviderFor,
+    submitContribution,
+    type ContributionFieldErrors,
+    type ContributionPayload,
+    type ContributionStatus,
+    type DetectedMetadata,
+    type ProfileRole,
+    type ReleaseTypeSlug
+  } from '$lib/stores/contributionsStore';
+
+  const editorialEnabled = import.meta.env.VITE_EDITORIAL_ENABLED === 'true';
+  let sourceUrl = '';
+  let title = '';
+  let primaryArtists = [''];
+  let collaborators = [''];
+  let releaseType: ReleaseTypeSlug | '' = '';
+  let releaseDate = '';
+  let genres = [''];
+  let countries = [''];
+  let label = '';
+  let teamNote = '';
+  let detectedMetadata: DetectedMetadata = {};
+  let fieldsVisible = false;
+  let detectionState: 'idle' | 'loading' | 'available' | 'unavailable' = 'idle';
+  let draftId = '';
+  let resumedStatus: ContributionStatus | null = null;
+  let loadingDraft = false;
+  let busy: 'save' | 'submit' | '' = '';
+  let error = '';
+  let success = '';
+  let saved = '';
+  let fieldErrors: ContributionFieldErrors = {};
+  let sourceInput: HTMLInputElement;
+  let role: ProfileRole | '' = '';
+  let roleLoaded = false;
+
+  function listOrBlank(values?: string[]) {
+    return values?.length ? [...values] : [''];
+  }
+
+  function payload(): ContributionPayload {
+    return {
+      version: 2,
+      title: title.trim(),
+      primary_artists: primaryArtists.map((value) => value.trim()).filter(Boolean),
+      collaborators: collaborators.map((value) => value.trim()).filter(Boolean),
+      release_type: releaseType,
+      release_date: releaseDate,
+      genres: genres.map((value) => value.trim()).filter(Boolean),
+      countries: countries.map((value) => value.trim()).filter(Boolean),
+      ...(label.trim() ? { label: label.trim() } : {}),
+      ...(teamNote.trim() ? { team_note: teamNote.trim() } : {})
+    };
+  }
+
+  function populate(contribution: Awaited<ReturnType<typeof loadContribution>>) {
+    if (!contribution) return;
+    sourceUrl = contribution.source_url;
+    title = contribution.payload.title ?? '';
+    primaryArtists = listOrBlank(contribution.payload.primary_artists);
+    collaborators = listOrBlank(contribution.payload.collaborators);
+    releaseType = contribution.payload.release_type ?? '';
+    releaseDate = contribution.payload.release_date ?? '';
+    genres = listOrBlank(contribution.payload.genres);
+    countries = listOrBlank(contribution.payload.countries);
+    label = contribution.payload.label ?? '';
+    teamNote = contribution.payload.team_note ?? '';
+    detectedMetadata = contribution.detected_metadata ?? {};
+    detectionState = contribution.detected_metadata?.source_available === false ? 'unavailable' : 'available';
+    fieldsVisible = true;
+    draftId = contribution.id;
+    resumedStatus = contribution.status;
+  }
+
+  onMount(async () => {
+    if (!editorialEnabled) return;
+    try {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) return;
+      role = await getProfileRole(data.user.id);
+      if (role !== 'comunidad' && role !== 'colaborador') return;
+      const requestedId = $page.url.searchParams.get('draft');
+      if (!requestedId) return;
+      loadingDraft = true;
+      error = '';
+      const contribution = await loadContribution(requestedId);
+      if (!contribution || !['draft', 'changes_requested'].includes(contribution.status)) {
+        throw new Error('Este borrador no está disponible para edición.');
+      }
+      populate(contribution);
+    } catch (cause: any) {
+      error = cause?.message || 'No se pudo cargar el borrador.';
+    } finally {
+      loadingDraft = false;
+      roleLoaded = true;
+    }
+  });
+
+  async function detectar() {
+    if (detectionState === 'loading' || busy) return;
+    error = '';
+    saved = '';
+    fieldErrors = {};
+    const provider = sourceProviderFor(sourceUrl);
+    if (!provider) {
+      fieldErrors = { source: 'Usa una URL HTTPS de Bandcamp, Spotify o SoundCloud.' };
+      sourceInput.focus();
+      return;
+    }
+    detectionState = 'loading';
+    try {
+      const detected = await inspectSource(sourceUrl.trim());
+      detectedMetadata = { ...detected, provider };
+      title ||= detected.title ?? '';
+      primaryArtists = primaryArtists.some((value) => value.trim()) ? primaryArtists : listOrBlank(detected.artists);
+      releaseDate ||= detected.release_date ?? '';
+      detectionState = detected.source_available === false ? 'unavailable' : 'available';
+    } catch {
+      detectedMetadata = { provider, source_available: false };
+      detectionState = 'unavailable';
+    } finally {
+      fieldsVisible = true;
+    }
+  }
+
+  function requestInput() {
+    return {
+      sourceUrl: sourceUrl.trim(),
+      sourceProvider: sourceProviderFor(sourceUrl)!,
+      payload: payload(),
+      detectedMetadata
+    };
+  }
+
+  async function focusFirstInvalid(errors: ContributionFieldErrors) {
+    await tick();
+    const selectors: Partial<Record<keyof ContributionFieldErrors, string>> = {
+      source: '#source-url',
+      title: '#title',
+      primary_artists: '#artistas-principales-0',
+      release_type: '#release-type',
+      release_date: '#release-date',
+      genres: '#generos-0',
+      countries: '#paises-0'
+    };
+    const first = Object.keys(errors)[0] as keyof ContributionFieldErrors | undefined;
+    if (first) document.querySelector<HTMLElement>(selectors[first] ?? '')?.focus();
+  }
+
+  async function guardar() {
+    error = '';
+    saved = '';
+    fieldErrors = {};
+    if (!sourceProviderFor(sourceUrl)) {
+      fieldErrors = { source: 'Usa una URL HTTPS de Bandcamp, Spotify o SoundCloud.' };
+      await focusFirstInvalid(fieldErrors);
+      return;
+    }
+    busy = 'save';
+    try {
+      const contribution = draftId
+        ? await saveContributionDraft(draftId, requestInput())
+        : await createContributionDraft(requestInput());
+      draftId = contribution.id;
+      resumedStatus = 'draft';
+      saved = 'Borrador guardado. Puedes retomarlo desde tu perfil.';
+    } catch (cause: any) {
+      error = cause?.message || 'No se pudo guardar el borrador.';
+    } finally {
+      busy = '';
+    }
+  }
+
+  async function enviar() {
+    if (busy) return;
+    error = '';
+    saved = '';
+    success = '';
+    fieldErrors = contributionFieldErrors(sourceUrl, payload());
+    if (Object.keys(fieldErrors).length) {
+      error = 'Revisa los campos obligatorios indicados.';
+      await focusFirstInvalid(fieldErrors);
+      return;
+    }
+    busy = 'submit';
+    try {
+      if (!draftId) {
+        const contribution = await createContributionDraft(requestInput());
+        draftId = contribution.id;
+      }
+      await submitContribution(draftId, requestInput());
+      resumedStatus = 'pending';
+      success = 'Tu propuesta quedó pendiente de revisión. Puedes consultar su estado en tu perfil.';
+    } catch (cause: any) {
+      error = cause?.message || 'No se pudo enviar la propuesta. Intenta de nuevo.';
+    } finally {
+      busy = '';
+    }
+  }
+
+  async function submitForm() {
+    if (!fieldsVisible) {
+      await detectar();
+      return;
+    }
+    await enviar();
+  }
+</script>
+
+<svelte:head><title>Sugerir un lanzamiento — Discótica</title></svelte:head>
+
+<PageLayout container="narrow" eyebrow="Catálogo abierto" title="Sugerir un lanzamiento" description="Comparte una fuente y la revisaremos antes de incorporarla. Ninguna propuesta se publica automáticamente.">
+  {#if !editorialEnabled}
+    <section class="state-card"><h2>Sugerencias temporalmente cerradas</h2><p>Esta función todavía no está habilitada en este entorno.</p></section>
+  {:else if !$user}
+    <section class="state-card"><h2>Inicia sesión para proponer</h2><p><a href={`/auth/login?redirect=${encodeURIComponent($page.url.pathname + $page.url.search)}`}>Entrar</a> o <a href="/auth/registro">crear una cuenta</a>.</p></section>
+  {:else if !roleLoaded}
+    <p class="loading" role="status"><span class="spinner" aria-hidden="true"></span>Cargando permisos…</p>
+  {:else if role === 'admin'}
+    <section class="state-card"><h2>Usa la consola administrativa</h2><p>Las altas administrativas se crean y publican desde <a href="/admin/catalogo">Catálogo</a>; esta ruta conserva el flujo comunitario separado.</p></section>
+  {:else if role !== 'comunidad' && role !== 'colaborador'}
+    <section class="state-card" role="alert"><h2>No puedes crear propuestas</h2><p>Tu perfil no tiene un rol habilitado para este flujo.</p></section>
+  {:else if loadingDraft}
+    <p class="loading" role="status"><span class="spinner" aria-hidden="true"></span>Cargando borrador…</p>
+  {:else if success}
+    <section class="success" role="status">
+      <h2>Propuesta enviada</h2><p>{success}</p>
+      <a class="ui-button ui-button--secondary link-button" href={`/perfil/${$user.user_metadata?.username ?? ''}`}>Ver mi perfil</a>
+    </section>
+  {:else}
+    {#if error}<p class="alert" role="alert">{error}</p>{/if}
+    <form on:submit|preventDefault={submitForm} novalidate>
+      {#if resumedStatus === 'changes_requested'}
+        <div class="changes" role="status"><strong>Cambios solicitados</strong><p>Actualiza la propuesta y vuelve a enviarla. La nota editorial aparece en tu perfil.</p></div>
+      {/if}
+
+      <div class="source-step">
+        <label for="source-url">Enlace de la fuente <span aria-hidden="true">*</span></label>
+        <div class="source-row">
+          <input id="source-url" bind:this={sourceInput} type="url" bind:value={sourceUrl} placeholder="https://artista.bandcamp.com/album/…" aria-invalid={fieldErrors.source ? 'true' : undefined} aria-describedby="source-help source-error" />
+          <button class="ui-button ui-button--secondary" type="button" on:click={detectar} disabled={detectionState === 'loading' || !!busy}>
+            {#if detectionState === 'loading'}<span class="spinner" aria-hidden="true"></span>Leyendo…{:else}Detectar{/if}
+          </button>
+        </div>
+        <p id="source-help" class="help">Bandcamp, Spotify o SoundCloud. Recomendamos Bandcamp cuando esté disponible.</p>
+        {#if fieldErrors.source}<p id="source-error" class="field-error">{fieldErrors.source}</p>{/if}
+      </div>
+
+      {#if fieldsVisible}
+        {#if detectionState === 'unavailable'}
+          <p class="detection-note" role="status"><strong>Información no disponible.</strong> Puedes completar la propuesta manualmente; lo que ya escribiste se conserva.</p>
+        {/if}
+        {#if detectedMetadata.cover_url}
+          <figure class="cover-evidence">
+            <img src={String(detectedMetadata.cover_url)} alt="Portada detectada, pendiente de verificación" />
+            <figcaption>Portada detectada como evidencia de solo lectura; el equipo la verificará.</figcaption>
+          </figure>
+        {/if}
+
+        <div class="fields">
+          <label for="title">Título <span aria-hidden="true">*</span>
+            <input id="title" bind:value={title} maxlength="200" aria-invalid={fieldErrors.title ? 'true' : undefined} aria-describedby={fieldErrors.title ? 'title-error' : undefined} />
+            {#if fieldErrors.title}<small class="field-error" id="title-error">{fieldErrors.title}</small>{/if}
+          </label>
+
+          <StringListField legend="Artistas principales" bind:values={primaryArtists} required addLabel="Añadir artista principal" placeholder="Nombre del artista" error={fieldErrors.primary_artists ?? ''} />
+          <StringListField legend="Colaboradores" bind:values={collaborators} addLabel="Añadir colaborador" placeholder="Nombre del colaborador" />
+
+          <div class="two-columns">
+            <label for="release-type">Tipo <span aria-hidden="true">*</span>
+              <select id="release-type" bind:value={releaseType} aria-invalid={fieldErrors.release_type ? 'true' : undefined} aria-describedby={fieldErrors.release_type ? 'release-type-error' : detectedMetadata.type ? 'type-suggestion' : undefined}>
+                <option value="">Selecciona y confirma</option>
+                {#each RELEASE_TYPE_OPTIONS as option}<option value={option.value}>{option.label}</option>{/each}
+              </select>
+              {#if detectedMetadata.type}<small id="type-suggestion">La fuente sugiere “{detectedMetadata.type}”; confírmalo manualmente.</small>{/if}
+              {#if fieldErrors.release_type}<small class="field-error" id="release-type-error">{fieldErrors.release_type}</small>{/if}
+            </label>
+            <label for="release-date">Fecha <span aria-hidden="true">*</span>
+              <input id="release-date" type="date" bind:value={releaseDate} aria-invalid={fieldErrors.release_date ? 'true' : undefined} aria-describedby={fieldErrors.release_date ? 'release-date-error' : undefined} />
+              {#if fieldErrors.release_date}<small class="field-error" id="release-date-error">{fieldErrors.release_date}</small>{/if}
+            </label>
+          </div>
+
+          <div class="two-columns lists">
+            <StringListField legend="Géneros" bind:values={genres} required addLabel="Añadir género" placeholder="Ej. Ambient" error={fieldErrors.genres ?? ''} />
+            <StringListField legend="Países" bind:values={countries} required addLabel="Añadir país" placeholder="Ej. Colombia" error={fieldErrors.countries ?? ''} />
+          </div>
+
+          <label for="label">Sello <span class="optional">Opcional</span><input id="label" bind:value={label} maxlength="160" /></label>
+          <label for="team-note">Nota para el equipo <span class="optional">Opcional</span>
+            <textarea id="team-note" bind:value={teamNote} rows="4" maxlength="3000"></textarea>
+            <small>Contexto, créditos o información adicional</small>
+          </label>
+        </div>
+
+        {#if saved}<p class="saved" role="status">{saved}</p>{/if}
+        <div class="actions">
+          {#if resumedStatus !== 'changes_requested'}
+            <button class="ui-button ui-button--secondary" type="button" on:click={guardar} disabled={!!busy}>{busy === 'save' ? 'Guardando…' : 'Guardar borrador'}</button>
+          {/if}
+          <button class="ui-button ui-button--primary" type="submit" disabled={!!busy}>{busy === 'submit' ? 'Enviando…' : 'Enviar a revisión'}</button>
+        </div>
+      {/if}
+    </form>
+  {/if}
+</PageLayout>
+
+<style>
+  form { display: grid; gap: 1.3rem; margin-top: 2rem; }
+  label, .source-step > label { display: grid; gap: .45rem; font-size: var(--text-sm); font-weight: 750; }
+  label > span[aria-hidden="true"], .source-step > label span { color: var(--color-acento); }
+  input, textarea, select { box-sizing: border-box; width: 100%; min-height: var(--target-touch); padding: .72rem .8rem; border: 1px solid var(--color-linea-fuerte); border-radius: var(--radius-sm); background: var(--color-superficie-2); color: var(--color-texto); font: inherit; }
+  select { color-scheme: dark; } textarea { resize: vertical; }
+  input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--color-danger); }
+  small, .help { color: var(--color-texto-tenue); font-size: var(--text-2xs); font-weight: 400; line-height: 1.45; }
+  .optional { color: var(--color-texto-tenue); font-size: var(--text-2xs); font-weight: 500; }
+  .source-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .65rem; }
+  .help { margin: .45rem 0 0; } .field-error { margin: .35rem 0 0; color: var(--color-danger-texto); }
+  .fields { display: grid; gap: 1.25rem; padding-top: .25rem; }
+  .two-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
+  .actions { display: flex; flex-wrap: wrap; gap: .7rem; }
+  .actions button { min-width: 170px; }
+  .state-card, .success, .changes, .detection-note, .alert, .saved { margin-top: 1.5rem; padding: 1rem; border: 1px solid var(--color-linea); border-radius: var(--radius-base); background: var(--color-superficie-1); }
+  .state-card h2, .success h2 { margin: 0 0 .5rem; font-size: var(--text-lg); } .state-card p, .success p, .changes p { margin: 0; color: var(--color-texto-medio); line-height: 1.5; }
+  .alert { color: var(--color-danger-texto); border-color: var(--color-danger-borde); background: var(--color-danger-dim); }
+  .saved { color: var(--color-acento); border-color: var(--color-borde-hover); }
+  .detection-note { margin-top: 0; color: var(--color-texto-alto); }
+  .cover-evidence { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 1rem; margin: 0; padding: .8rem; border-radius: var(--radius-base); background: var(--color-superficie-1); }
+  .cover-evidence img { width: 96px; height: 96px; border-radius: var(--radius-sm); object-fit: cover; } .cover-evidence figcaption { color: var(--color-texto-tenue); font-size: var(--text-2xs); line-height: 1.45; }
+  .spinner { display: inline-block; width: .9em; height: .9em; margin-right: .45rem; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -.1em; }
+  .loading { margin-top: 2rem; color: var(--color-texto-medio); } .link-button { display: inline-flex; align-items: center; margin-top: 1rem; text-decoration: none; }
+  a { color: var(--color-acento); } @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 679px) { .source-row, .two-columns { grid-template-columns: 1fr; } .source-row button, .actions button { width: 100%; } .cover-evidence { grid-template-columns: 72px 1fr; } .cover-evidence img { width: 72px; height: 72px; } }
+</style>

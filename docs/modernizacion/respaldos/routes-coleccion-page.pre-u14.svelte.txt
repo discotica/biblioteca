@@ -1,0 +1,340 @@
+<script lang="ts">
+  import { onMount, tick } from 'svelte';
+  import { pageSlice, totalPagesFor } from '$lib/domain/homeSearchView';
+  import Pagination from '$lib/ui/Pagination.svelte';
+  import { fetchReleasesForCrate, fetchReleases, type Release } from '$lib/utils/catalogoStore';
+  import { slugFromLanzamiento } from '$lib/utils/slugLanzamiento';
+  import { quitarItem } from '$lib/stores/cratesStore';
+  import type { CrateItem } from '$lib/stores/cratesStore';
+  import LanzamientoCard from '$lib/components/LanzamientoCard.svelte';
+  import LanzamientoModal from '$lib/components/LanzamientoModal.svelte';
+  import PageLayout from '$lib/layouts/PageLayout.svelte';
+
+  export let data: {
+    crate: {
+      id: string;
+      name: string;
+      description: string | null;
+      slug: string;
+      is_public: boolean;
+      owner_id: string;
+      profiles: { username: string; display_name: string | null };
+    };
+    items: CrateItem[];
+    esDueno: boolean;
+  };
+
+  let lanzamientosPorSlug: Map<string, Release> = new Map();
+  let lanzamientosPorId: Map<string, Release> = new Map();
+  let cargando = true;
+  let copiado = false;
+  let items = data.items;
+  let lanzamientoActivo: Release | null = null;
+
+  onMount(async () => {
+    const todos = await fetchReleases();
+    for (const l of todos) {
+      if (l.id) lanzamientosPorId.set(l.id, l);
+      lanzamientosPorSlug.set(l.slug, l);
+      if (l.legacySlug) lanzamientosPorSlug.set(l.legacySlug, l);
+    }
+    // Los crates ya migrados guardan release_id y slug canónico; el TSV legado
+    // no conoce esos slugs con hash, por lo que completamos el mapa desde el
+    // catálogo canónico sin cambiar la fuente del resto de la página.
+    try {
+      const canonicos = await fetchReleasesForCrate(
+        items.map((item) => item.release_id ?? ''),
+        items.map((item) => item.lanzamiento_slug)
+      );
+      for (const l of canonicos) {
+        if (l.id) lanzamientosPorId.set(l.id, l);
+        if (l.slug) lanzamientosPorSlug.set(l.slug, l);
+      }
+    } catch (error) {
+      console.error('No se pudo resolver el catálogo canónico del crate:', error);
+    }
+    lanzamientosPorSlug = lanzamientosPorSlug;
+    lanzamientosPorId = lanzamientosPorId;
+    cargando = false;
+  });
+
+  function copiarUrl() {
+    const url = new URL(window.location.href);
+    url.searchParams.set('usuario', owner.username);
+    navigator.clipboard?.writeText(url)
+      ?.then(() => { copiado = true; setTimeout(() => (copiado = false), 1500); })
+      .catch(() => {});
+  }
+
+  async function quitar(item: CrateItem) {
+    await quitarItem(data.crate.id, item.id);
+    items = items.filter((i) => i.id !== item.id);
+  }
+
+  function abrirLanzamiento(lanzamiento: Release) {
+    lanzamientoActivo = lanzamiento;
+  }
+
+  function cerrarLanzamiento() {
+    lanzamientoActivo = null;
+  }
+
+  // Paginación numerada (U10), la misma del inicio. Quitar un elemento puede
+  // dejar la última página vacía: se acota al total.
+  let pagina = 1;
+  let grillaEl: HTMLElement | undefined;
+  $: totalPaginas = totalPagesFor(items.length);
+  $: paginaActual = Math.min(pagina, totalPaginas);
+  $: itemsVisibles = pageSlice(items, paginaActual);
+
+  async function irAPagina(next: number) {
+    pagina = next;
+    await tick();
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    grillaEl?.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'auto' : 'smooth' });
+  }
+
+  $: owner = data.crate.profiles;
+  $: titulo = data.crate.name;
+  $: migas = data.esDueno
+    ? [{ label: 'Mis colecciones', href: '/mis-colecciones' }, { label: titulo }]
+    : [
+        { label: `@${owner.username}`, href: `/perfil/${owner.username}` },
+        { label: 'Colecciones', href: `/perfil/${owner.username}#colecciones` },
+        { label: titulo }
+      ];
+</script>
+
+<svelte:head>
+  <title>{titulo} — Biblioteca Discótica</title>
+</svelte:head>
+
+<PageLayout breadcrumbs={migas} title={titulo} description={data.crate.description || undefined}>
+  {#snippet meta()}
+    <div class="crate-info">
+      <span class="badge" class:publico={data.crate.is_public} class:privado={!data.crate.is_public}>
+        {data.crate.is_public ? 'Pública' : 'Privada'}
+      </span>
+      <span class="conteo">{items.length} {items.length === 1 ? 'lanzamiento' : 'lanzamientos'}</span>
+    </div>
+  {/snippet}
+  {#snippet actions()}
+    {#if data.crate.is_public}
+      <button class="btn-compartir" on:click={copiarUrl}>
+        {copiado ? 'Copiado ✓' : 'Copiar link'}
+      </button>
+    {/if}
+  {/snippet}
+
+  {#if cargando}
+    <p class="estado">Cargando catálogo…</p>
+  {:else if items.length === 0}
+    <div class="vacio">
+      <p>Esta colección está vacía.</p>
+      {#if data.esDueno}
+        <a href="/" class="link-accion">Explorar el catálogo</a>
+      {/if}
+    </div>
+  {:else}
+    <div class="items-grid lanzamientos-grilla" bind:this={grillaEl}>
+      {#each itemsVisibles as item (item.id)}
+        {@const l = (item.release_id ? lanzamientosPorId.get(item.release_id) : undefined) ?? lanzamientosPorSlug.get(item.lanzamiento_slug)}
+        <article class="item-card">
+          {#if l}
+            <LanzamientoCard lanzamiento={l} onabrir={abrirLanzamiento} />
+            {#if item.note}
+              <p class="item-nota">“{item.note}”</p>
+            {/if}
+          {:else}
+            <div class="item-no-encontrado">
+              <span class="item-titulo item-titulo--roto">[lanzamiento eliminado]</span>
+              <code class="item-slug">{item.lanzamiento_slug}</code>
+            </div>
+          {/if}
+
+          {#if data.esDueno}
+            <button class="btn-quitar" on:click={() => quitar(item)} title="Quitar de esta colección" aria-label={`Quitar ${l?.title ?? 'lanzamiento'} de la colección`}>
+              ✕
+            </button>
+          {/if}
+        </article>
+      {/each}
+    </div>
+    {#if totalPaginas > 1}
+      <div class="paginacion">
+        <Pagination page={paginaActual} totalPages={totalPaginas} label="Paginación de la colección" onchange={irAPagina} />
+      </div>
+    {/if}
+  {/if}
+</PageLayout>
+
+{#if lanzamientoActivo}
+  {#key slugFromLanzamiento(lanzamientoActivo)}
+    <LanzamientoModal lanzamiento={lanzamientoActivo} on:cerrar={cerrarLanzamiento} />
+  {/key}
+{/if}
+
+<style>
+  .items-grid { scroll-margin-top: var(--spacing-lg); }
+  .paginacion { display: flex; justify-content: center; margin: var(--spacing-lg) 0; }
+
+
+
+
+
+
+
+
+  .crate-info {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+  }
+
+  .badge {
+    font-size: var(--text-2xs);
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: .2rem .55rem;
+    border-radius: var(--radius-xs);
+  }
+
+  .badge.publico {
+    background: var(--color-acento-dim);
+    color: var(--color-acento-texto);
+    border: 1px solid var(--color-acento-suave);
+  }
+
+  .badge.privado {
+    background: var(--color-superficie-2);
+    color: var(--color-texto-tenue);
+    border: 1px solid var(--color-linea);
+  }
+
+  .conteo {
+    font-size: var(--text-2xs);
+    color: var(--color-texto-tenue);
+    font-weight: 600;
+  }
+
+  .btn-compartir {
+    background: var(--color-superficie-2);
+    border: 1px solid var(--color-linea);
+    border-radius: var(--radius-sm);
+    color: var(--color-texto-tenue);
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    padding: .55rem 1rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all var(--motion-fast) ease;
+    white-space: nowrap;
+  }
+
+  .btn-compartir:hover {
+    background: var(--color-acento-dim);
+    border-color: var(--color-borde-hover);
+    color: var(--color-acento);
+  }
+
+  .estado {
+    color: var(--color-texto-tenue);
+    font-size: var(--text-sm);
+  }
+
+  .vacio {
+    padding: 3rem 0;
+    text-align: center;
+    color: var(--color-texto-tenue);
+    font-size: var(--text-md);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .link-accion {
+    color: var(--color-acento);
+    text-decoration: none;
+    font-weight: 700;
+    font-size: var(--text-sm);
+  }
+
+
+  /* La celda se estira con su fila (U8): la tarjeta ocupa el alto sobrante. */
+  .item-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+  }
+  .item-card > :global(.card) { flex: 1; }
+
+  .item-titulo {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-texto);
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color var(--motion-fast) ease;
+  }
+
+  .item-titulo:hover { color: var(--color-acento); }
+
+  .item-titulo--roto {
+    color: var(--color-danger-borde);
+    font-style: italic;
+  }
+
+  .item-nota {
+    margin: .55rem .65rem 0;
+    font-size: var(--text-2xs);
+    color: var(--color-texto-tenue);
+    font-style: italic;
+  }
+
+  .item-no-encontrado {
+    min-height: 180px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    background: var(--color-superficie-1);
+    border: 1px solid var(--color-linea-sutil);
+  }
+
+  .item-slug {
+    font-size: var(--text-2xs);
+    color: var(--color-texto-tenue);
+  }
+
+  .btn-quitar {
+    position: absolute;
+    z-index: 2;
+    top: .6rem;
+    right: .6rem;
+    background: var(--color-velo);
+    border: 1px solid var(--color-linea);
+    cursor: pointer;
+    color: var(--color-texto-tenue);
+    font-size: var(--text-xs);
+    padding: .3rem .5rem;
+    border-radius: var(--radius-xs);
+    transition: all var(--motion-fast) ease;
+    flex-shrink: 0;
+    font-family: inherit;
+  }
+
+  .btn-quitar:hover {
+    background: var(--color-danger-dim);
+    color: var(--color-danger);
+  }
+</style>

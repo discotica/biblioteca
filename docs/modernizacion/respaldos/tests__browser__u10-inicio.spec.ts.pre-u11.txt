@@ -1,0 +1,321 @@
+import { expect, test, type Page, type Route } from '@playwright/test';
+
+// U10 — Inicio y búsqueda: composición móvil en tres líneas, panel desktop,
+// radar, hoja de filtros, vista recordada, carga, vacío, error y la misma
+// paginación en artista, sello y colección.
+
+const countries = ['Colombia', 'Argentina', 'México', 'Chile', 'Perú', 'Brasil'];
+const genres = ['Electro', 'Ambient', 'House', 'Techno', 'Reggaetón'];
+
+function row(index: number) {
+  return {
+    id: `10101010-1010-4010-8010-${String(index + 1).padStart(12, '0')}`,
+    slug: `release-u10-${index + 1}`,
+    title: `Release U10 ${index + 1}`,
+    release_date: `20${String(10 + (index % 16))}-${String((index % 9) + 1).padStart(2, '0')}-15`,
+    type: index % 2 ? 'EP' : 'Álbum',
+    label: index < 15 ? 'Sello U10' : 'Otro sello',
+    review: '',
+    experimental: 2, denso: 3, sintetico: 1, bailable: 4, rapido: 2,
+    artists: [index < 15 ? 'Artista U10' : `Artista ${index + 1}`],
+    primary_artists: [index < 15
+      ? { id: 'artist-u10', slug: 'artista-u10', name: 'Artista U10', position: 0 }
+      : { id: `artist-${index}`, slug: `artista-${index}`, name: `Artista ${index + 1}`, position: 0 }],
+    collaborators: [],
+    credit_quality: 'verified',
+    genres: [genres[index % genres.length]],
+    countries: [countries[index % countries.length]],
+    buy_link: '',
+    cover: ''
+  };
+}
+
+const rows = Array.from({ length: 300 }, (_, index) => row(index));
+
+function fulfillRows(route: Route, body = rows) {
+  return route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    headers: { 'content-range': `0-${body.length - 1}/${body.length}` },
+    body: JSON.stringify(body)
+  });
+}
+
+test.beforeEach(async ({ page }) => {
+  await page.route('**/rest/v1/catalog_releases**', (route) => fulfillRows(route));
+  await page.route('**/rest/v1/rpc/resolve_release_slug', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+});
+
+async function box(page: Page, selector: string) {
+  const rect = await page.locator(selector).first().boundingBox();
+  if (!rect) throw new Error(`Sin caja para ${selector}`);
+  return rect;
+}
+
+test.describe('móvil', () => {
+  test.use({ hasTouch: true, isMobile: true });
+
+  test('U10: a 390×844 con un filtro, buscar / filtros / paginación y orden, y la portada asoma sin scroll', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/?pais=Colombia');
+    await page.locator('.card--grid').first().waitFor();
+
+    const search = await box(page, '.mobile-search-bar');
+    const pills = await box(page, '.active-pills-outside');
+    const pager = await box(page, '.results-bar .ui-pagination');
+    const order = await box(page, '.results-bar .ui-select__input');
+    const cover = await box(page, '.card--grid .portada');
+
+    expect(search.y + search.height).toBeLessThanOrEqual(pills.y + 1);
+    expect(pills.y + pills.height).toBeLessThanOrEqual(pager.y + 1);
+    expect(Math.abs(pager.y - order.y)).toBeLessThanOrEqual(1);
+    expect(pager.y + pager.height).toBeLessThanOrEqual(cover.y);
+    // La primera portada asoma: al menos un tercio de ella cabe en la primera pantalla.
+    expect(cover.y + cover.height / 3).toBeLessThan(844);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  });
+
+  test('U10: a 360 la paginación y el orden caben en una línea sin desbordar', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    await page.goto('/?pais=Colombia&genero=Techno&genero=Electro');
+    await page.locator('.card--grid').first().waitFor();
+
+    const bar = await box(page, '.results-bar__main');
+    const pager = await box(page, '.results-bar .ui-pagination');
+    const order = await box(page, '.results-bar .ui-select__input');
+    expect(bar.height).toBeLessThanOrEqual(45);
+    expect(Math.abs(pager.y - order.y)).toBeLessThanOrEqual(1);
+    expect(pager.x + pager.width).toBeLessThanOrEqual(order.x);
+    expect(order.x + order.width).toBeLessThanOrEqual(bar.x + bar.width + 0.5);
+    await expect(page.getByRole('button', { name: 'Página siguiente' }).first()).toHaveCSS('min-height', '44px');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+
+  test('U10: la hoja tiene × en la cabecera, ningún "Cerrar" de texto y "Ver N lanzamientos" fijo que cierra', async ({ page }) => {
+    // Sin la animación de entrada: se mide la posición final de la hoja.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/?pais=Colombia');
+    await page.locator('.card--grid').first().waitFor();
+    const trigger = page.getByRole('button', { name: /Buscar y filtrar/ });
+    await trigger.click();
+
+    const sheet = page.getByRole('dialog', { name: 'Filtros' });
+    const close = sheet.getByRole('button', { name: 'Cerrar', exact: true });
+    await expect(close).toBeFocused();
+    await expect(close).toHaveText('');
+    await expect(sheet.locator('.ui-sheet__header')).toContainText('Filtros');
+    await expect(sheet.getByRole('button', { name: /^Cerrar$/ })).toHaveCount(1);
+
+    // 300 lanzamientos, uno de cada seis es de Colombia: 50 exactos más aproximados.
+    const ver = sheet.locator('.ui-sheet__footer').getByRole('button', { name: /^Ver [\d.]+ lanzamientos?$/ });
+    await expect(ver).toBeVisible();
+    const panel = await sheet.locator('.ui-sheet__panel').boundingBox();
+    const footer = await sheet.locator('.ui-sheet__footer').boundingBox();
+    expect(Math.abs((footer!.y + footer!.height) - (panel!.y + panel!.height))).toBeLessThanOrEqual(1);
+    // Altura según contenido: con el radar plegado no llega al tope de 88dvh.
+    expect(panel!.height).toBeLessThan(844 * 0.88);
+
+    const reset = sheet.locator('.ui-sheet__footer').getByRole('button', { name: 'Reiniciar filtros' });
+    await expect(reset).toHaveText('Reiniciar');
+    const resetBox = (await reset.boundingBox())!;
+    const verBox = (await ver.boundingBox())!;
+    expect(Math.abs(resetBox.y - verBox.y)).toBeLessThanOrEqual(1);
+    await expect(page.locator('.resultados__total-pie')).toHaveCount(1);
+
+    const label = await ver.textContent();
+    await ver.click();
+    await expect(sheet).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    const total = await page.locator('.resultados__contador').textContent();
+    expect(total?.trim().replace(/.* de /, '')).toBe(label?.trim().replace('Ver ', ''));
+  });
+
+  test('U10: en la hoja, RADAR solo en el desplegable; cinco puntos por eje y "Aleatorizar" secundario', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await page.getByRole('button', { name: /Buscar y filtrar/ }).click();
+    const sheet = page.getByRole('dialog', { name: 'Filtros' });
+    const radar = sheet.locator('.sheet-radar');
+    await expect(radar.locator('summary')).toHaveText(/radar/i);
+    await radar.locator('summary').click();
+    await expect(radar.locator('.radar-title')).toHaveCount(0);
+    await expect(radar.getByText('Radar', { exact: true })).toHaveCount(1);
+
+    for (const axis of ['Experimental', 'Denso', 'Sintético', 'Bailable', 'Rápido']) {
+      await expect(radar.getByRole('group', { name: axis }).getByRole('button')).toHaveCount(5);
+    }
+    const pip = radar.getByRole('button', { name: 'Bailable: 3 de 5' });
+    const pipBox = await pip.boundingBox();
+    expect(pipBox!.width).toBeGreaterThanOrEqual(44);
+    expect(pipBox!.height).toBeGreaterThanOrEqual(44);
+    await pip.click();
+    await expect(page).toHaveURL(/radar_bailable=3/);
+    await expect(pip).toHaveAttribute('aria-pressed', 'true');
+
+    const randomize = radar.getByRole('button', { name: 'Aleatorizar' });
+    await expect(randomize).toHaveClass(/ui-btn--secondary/);
+    await expect(radar.getByRole('button', { name: 'Randomizar' })).toHaveCount(0);
+  });
+
+  test('U10: el selector de vista está en la línea de Buscar y se recuerda', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await page.locator('.card--grid').first().waitFor();
+    const toggle = page.locator('.mobile-search-row').getByRole('group', { name: 'Vista de resultados' });
+    await expect(toggle).toBeVisible();
+    await expect(page.locator('.results-bar').getByRole('group', { name: 'Vista de resultados' })).toBeHidden();
+
+    await toggle.getByRole('button', { name: 'Lista' }).click();
+    await expect(page.locator('.resultados__grid.lanzamientos-lista .fila')).toHaveCount(12);
+    await expect(page.locator('.card--grid')).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator('.resultados__grid .fila').first()).toBeVisible();
+    await expect(page.locator('.mobile-search-row').getByRole('button', { name: 'Lista' })).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+test.describe('desktop', () => {
+  test('U10: el panel es una sola caja compacta, el campo de texto mide 52 y "Reiniciar filtros" es secundario', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/?pais=Colombia');
+    await page.getByRole('button', { name: 'Buscar', exact: true }).click();
+
+    const panel = page.locator('.filtros-caja');
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('.filtros-panel')).toHaveCSS('border-top-width', '0px');
+    const field = await panel.locator('.busqueda-input-row').boundingBox();
+    expect(Math.round(field!.height)).toBeGreaterThanOrEqual(52);
+    await expect(panel.locator('.busqueda-input')).toHaveCSS('font-size', '16px');
+
+    const reset = panel.getByRole('button', { name: 'Reiniciar filtros' });
+    await expect(reset).toHaveClass(/ui-btn--accent/);
+    const resetBox = await reset.boundingBox();
+    expect(resetBox!.width).toBeGreaterThan(resetBox!.height);
+    await reset.click();
+    await expect(page).not.toHaveURL(/pais=/);
+
+    // Desktop: la vista y el orden van a la derecha de la paginación, en la misma línea.
+    const pager = await box(page, '.results-bar .ui-pagination');
+    const order = await box(page, '.results-bar .ui-select__input');
+    const view = await box(page, '.results-bar .ui-view-toggle');
+    expect(Math.abs(pager.y - order.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(order.y - view.y)).toBeLessThanOrEqual(1);
+    await expect(page.getByText('Ordenar por', { exact: true })).toBeVisible();
+    // Contador junto a la paginación superior; el del pie es solo para móvil.
+    const counter = page.locator('.results-bar .resultados__contador');
+    await expect(counter).toHaveText(/^1–12 de [\d.]+ lanzamientos$/);
+    const counterBox = (await counter.boundingBox())!;
+    expect(counterBox.x).toBeGreaterThan(pager.x + pager.width);
+    await expect(page.locator('.resultados__total-pie')).toBeHidden();
+  });
+
+  test('U10: la carga muestra el indicador horizontal sobre un esqueleto con la composición', async ({ page }) => {
+    await page.unroute('**/rest/v1/catalog_releases**');
+    let release: (() => Promise<void>) | undefined;
+    await page.route('**/rest/v1/catalog_releases**', (route) => new Promise<void>((resolve) => {
+      release = async () => { await fulfillRows(route); resolve(); };
+    }));
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    const status = page.getByRole('status', { name: 'Cargando catálogo' });
+    await expect(status).toBeVisible();
+    // Posición de layout (el pulso escala cada punto): los tres en una fila.
+    const dots = await page.locator('.ui-loading__dot').evaluateAll((nodes) => nodes.map((node) => (node as HTMLElement).offsetTop));
+    expect(dots).toHaveLength(3);
+    expect(new Set(dots).size).toBe(1);
+    await expect(page.locator('.resultados__carga .ui-skeleton--card')).toHaveCount(6);
+    await expect(page.locator('.resultados')).toHaveAttribute('aria-busy', 'true');
+    await expect.poll(() => Boolean(release)).toBe(true);
+    await release?.();
+    await expect(page.locator('.card--grid').first()).toBeVisible();
+    await expect(page.locator('.resultados__carga')).toHaveCount(0);
+  });
+
+  test('U10: el error ofrece Reintentar y el vacío ofrece quitar los filtros', async ({ page }) => {
+    await page.unroute('**/rest/v1/catalog_releases**');
+    let fail = true;
+    await page.route('**/rest/v1/catalog_releases**', (route) => fail
+      ? route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"fallo"}' })
+      : fulfillRows(route));
+    await page.goto('/');
+    const alert = page.getByRole('alert');
+    await expect(alert).toContainText('No pudimos cargar los lanzamientos.');
+    fail = false;
+    await alert.getByRole('button', { name: 'Reintentar' }).click();
+    await expect(page.locator('.card--grid').first()).toBeVisible();
+
+    await page.goto('/?texto=zzqxwvkkk');
+    const empty = page.locator('.resultados__vacio');
+    await expect(empty).toContainText('No encontramos lanzamientos con estos filtros.');
+    await empty.getByRole('button', { name: 'Quitar filtros' }).click();
+    await expect(page).not.toHaveURL(/texto=/);
+    await expect(page.locator('.card--grid').first()).toBeVisible();
+  });
+
+  test('U10: el anuncio de resultados sigue a la carga y a la búsqueda', async ({ page }) => {
+    await page.goto('/?pais=Colombia');
+    const live = page.locator('.resultados [aria-live="polite"]');
+    await expect(live).not.toHaveText(/Cargando/);
+    const first = await live.textContent();
+    await page.goto('/?pais=Chile&genero=House');
+    await expect(live).not.toHaveText(first ?? '');
+  });
+
+  test('U10: artista y sello usan la misma paginación que el inicio', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    for (const path of ['/artista/artista-u10', '/sello/sello-u10']) {
+      await page.goto(path);
+      const nav = page.getByRole('navigation', { name: 'Paginación de lanzamientos' });
+      await expect(nav).toHaveClass(/ui-pagination/);
+      await expect(page.locator('.card--grid')).toHaveCount(12);
+      // "x de y" (compacta) en todos los anchos: no se expande al cambiar de página.
+      await expect(nav).toContainText('1 de 2');
+      await expect(nav.getByRole('button', { name: 'Página 1' })).toHaveCount(0);
+      await nav.getByRole('button', { name: 'Página siguiente' }).click();
+      await expect(page.locator('.card--grid')).toHaveCount(3);
+      await expect(nav).toContainText('2 de 2');
+    }
+  });
+});
+
+test('U10: una colección de más de 12 lanzamientos usa la misma paginación', async ({ page }) => {
+  // Mismo patrón de simulación que u3-colecciones.spec.ts (colección pública).
+  const project = 'hgocyrzhgohetfpzbmfs';
+  const ownerId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';
+  const owner = { username: 'comunidad', display_name: 'Comunidad' };
+  const releases = rows.slice(0, 14);
+  const crate = {
+    id: 'cr-u10', owner_id: ownerId, name: 'Colección larga', description: null, slug: 'coleccion-larga', is_public: true,
+    created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', profiles: owner
+  };
+  const items = releases.map((release, index) => ({
+    id: `ci-u10-${index}`, crate_id: crate.id, release_id: release.id, lanzamiento_slug: release.slug, note: null,
+    added_at: `2026-09-${String(index + 1).padStart(2, '0')}T00:00:00Z`
+  }));
+  await page.unroute('**/rest/v1/catalog_releases**');
+  await page.route(`https://${project}.supabase.co/**`, (route) => {
+    const url = new URL(route.request().url());
+    const single = (route.request().headers().accept ?? '').includes('vnd.pgrst.object');
+    const reply = (body: unknown) => route.fulfill({
+      status: 200,
+      contentType: single ? 'application/vnd.pgrst.object+json' : 'application/json',
+      headers: Array.isArray(body) ? { 'content-range': `0-${Math.max(body.length - 1, 0)}/${body.length}` } : {},
+      body: JSON.stringify(body)
+    });
+    if (url.pathname === '/rest/v1/profiles') return reply({ id: ownerId, ...owner });
+    if (url.pathname === '/rest/v1/crates') return reply(single ? crate : [crate]);
+    if (url.pathname === '/rest/v1/crate_items') return reply(items);
+    if (url.pathname === '/rest/v1/catalog_releases') return reply(releases);
+    return reply([]);
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/coleccion/${crate.slug}?usuario=${owner.username}`);
+  const nav = page.getByRole('navigation', { name: 'Paginación de la colección' });
+  await expect(nav).toHaveClass(/ui-pagination/);
+  await expect(page.locator('.item-card')).toHaveCount(12);
+  await nav.getByRole('button', { name: 'Página siguiente' }).click();
+  await expect(page.locator('.item-card')).toHaveCount(2);
+  await expect(nav).toContainText('2 de 2');
+});

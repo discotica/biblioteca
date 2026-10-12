@@ -1,0 +1,78 @@
+<script lang="ts" module>
+  export type SearchPill = {
+    id: string;
+    label: string;
+    removeLabel: string;
+    kind: 'country' | 'genre' | 'text' | 'year' | 'type' | 'radar';
+    value?: unknown;
+  };
+</script>
+
+<script lang="ts">
+  // Filtros activos (U10). Una banda horizontal desplazable con chips
+  // compactos: en móvil y en la hoja siempre; en desktop las chips pasan a
+  // varias líneas si no caben. Sustituye la fila medida con "+N" de E15.
+  import { createEventDispatcher } from 'svelte';
+  import Chip from '$lib/ui/Chip.svelte';
+
+  export let pills: SearchPill[] = [];
+  /** responsive: banda bajo 768 y varias líneas desde 768 · band: siempre banda. */
+  export let layout: 'responsive' | 'band' = 'responsive';
+  export let label = 'Filtros activos';
+
+  const dispatch = createEventDispatcher<{ remove: SearchPill }>();
+</script>
+
+{#if pills.length}
+  <ul class="pills pills--{layout}" aria-label={label}>
+    {#each pills as pill (pill.id)}
+      <li>
+        <Chip
+          kind="filter"
+          class="chip-activo"
+          label={pill.label}
+          removeLabel={pill.removeLabel}
+          title={pill.label}
+          onremove={() => dispatch('remove', pill)}
+        />
+      </li>
+    {/each}
+  </ul>
+{/if}
+
+<style>
+  .pills {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+    margin: 0;
+    /* Las chips miden 32 y su área táctil 44: el relleno vertical la contiene
+       dentro de la banda, que recorta lo que sobresale al desplazarse. */
+    padding: calc((var(--target-touch) - var(--chip-h-md)) / 2) 0;
+    list-style: none;
+  }
+  .pills li { display: flex; flex: none; max-width: min(19rem, 72vw); }
+
+  .pills--band {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: var(--space-2);
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pills--band::-webkit-scrollbar { display: none; }
+
+  @media (max-width: 767px) {
+    .pills--responsive {
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .pills--responsive::-webkit-scrollbar { display: none; }
+  }
+  @media (min-width: 768px) {
+    .pills--responsive { flex-wrap: wrap; row-gap: calc(var(--target-touch) - var(--chip-h-md)); }
+  }
+</style>

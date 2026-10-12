@@ -1,0 +1,116 @@
+<script lang="ts">
+  import { createEventDispatcher } from 'svelte';
+  import { user } from '$lib/stores/authStore';
+  import { dialogOverlay } from '$lib/ui/overlay';
+  import { BETA_FEEDBACK_EMAIL, BETA_INVITATION_COPY } from '$lib/domain/betaInvitation';
+
+  export let name: string | null = null;
+  export let returnFocus: HTMLElement | null = null;
+
+  const dispatch = createEventDispatcher<{ close: void }>();
+  const titleId = 'beta-invitation-title';
+  const descriptionId = 'beta-invitation-description';
+  const reportLoginHref = `/auth/login?redirect=${encodeURIComponent('/reportar')}`;
+
+  function close() {
+    dispatch('close');
+  }
+</script>
+
+<!-- Keyboard handling and focus containment are provided by E04. -->
+<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+<div class="beta-invitation-backdrop" data-beta-invitation on:click|self={close}>
+  <div
+    class="beta-invitation"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby={titleId}
+    aria-describedby={descriptionId}
+    use:dialogOverlay={{ onClose: close, returnFocus }}
+  >
+    <button class="beta-invitation__close" data-overlay-initial-focus type="button" on:click={close} aria-label="Cerrar invitación beta">
+      <span aria-hidden="true">×</span>
+    </button>
+    <p class="beta-invitation__eyebrow">Discótica</p>
+    <h1 id={titleId}>{name ? `Hola, ${name}.` : BETA_INVITATION_COPY.genericTitle}</h1>
+    <p id={descriptionId}>{BETA_INVITATION_COPY.body}</p>
+    {#if BETA_INVITATION_COPY.launchDate}
+      <p class="beta-invitation__date">{BETA_INVITATION_COPY.launchDate}</p>
+    {/if}
+
+    <div class="beta-invitation__actions">
+      <button class="ui-button ui-button--primary" type="button" on:click={close}>{BETA_INVITATION_COPY.cta}</button>
+    </div>
+
+    <div class="beta-invitation__feedback">
+      <p>¿Prefieres escribirnos? Puedes contactarnos por correo durante la beta.</p>
+      <a href={`mailto:${BETA_FEEDBACK_EMAIL}`}>Escribir a {BETA_FEEDBACK_EMAIL}</a>
+      {#if $user}
+        <p>Si iniciaste sesión, también puedes usar el canal protegido de la plataforma.</p>
+        <a href="/reportar">Reportar un problema</a>
+      {:else}
+        <p>Para enviar un reporte protegido desde la plataforma, inicia sesión.</p>
+        <a href={reportLoginHref}>Iniciar sesión para reportar un problema</a>
+      {/if}
+    </div>
+  </div>
+</div>
+
+<style>
+  .beta-invitation-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--layer-overlay);
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+    background: var(--overlay-backdrop);
+    backdrop-filter: blur(var(--overlay-blur));
+    -webkit-backdrop-filter: blur(var(--overlay-blur));
+  }
+
+  .beta-invitation {
+    position: relative;
+    box-sizing: border-box;
+    width: min(100%, 34rem);
+    max-height: calc(100dvh - 2rem);
+    overflow: auto;
+    padding: clamp(1.5rem, 5vw, 2.25rem);
+    border: 1px solid var(--color-acento-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-panel-raised);
+    box-shadow: 0 28px 80px var(--color-sombra-fuerte);
+  }
+
+  .beta-invitation__close {
+    position: absolute;
+    top: .65rem;
+    right: .65rem;
+    display: grid;
+    place-items: center;
+    width: var(--target-touch);
+    min-height: var(--target-touch);
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--color-texto-secundario);
+    font-size: var(--text-2xl);
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .beta-invitation__close:hover { background: var(--color-superficie-3); color: var(--color-texto); }
+  .beta-invitation__eyebrow { margin: 0 3rem .55rem 0; color: var(--color-acento); font-size: var(--text-2xs); font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+  h1 { margin: 0; padding-right: 2rem; font-size: var(--text-3xl); line-height: 1.15; overflow-wrap: anywhere; }
+  h1 + p { margin: 1rem 0 0; color: var(--color-texto-alto); line-height: 1.55; }
+  .beta-invitation__date { margin: 1rem 0 0; color: var(--color-acento); font-size: var(--text-sm); }
+  .beta-invitation__actions { display: flex; margin-top: 1.4rem; }
+  .beta-invitation__feedback { display: grid; gap: .45rem; margin-top: 1.4rem; padding-top: 1.15rem; border-top: 1px solid var(--color-borde); color: var(--color-texto-medio); font-size: var(--text-sm); line-height: 1.45; }
+  .beta-invitation__feedback p { margin: 0; }
+  .beta-invitation__feedback a { width: fit-content; color: var(--color-acento); font-weight: 700; overflow-wrap: anywhere; }
+
+  @media (max-width: 480px) {
+    .beta-invitation { max-height: calc(100dvh - 1rem); padding: 1.35rem; }
+  }
+</style>

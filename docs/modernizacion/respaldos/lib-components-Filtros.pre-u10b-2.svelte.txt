@@ -1,0 +1,452 @@
+<script>
+  // U10: sin caja propia (la pone el panel o la hoja) y todos los controles
+  // con la altura y el radio del sistema. U10b: solo los controles; el campo
+  // de texto es SearchCombobox. Una grilla sin huecos: en el panel,
+  // País · Género / Tipo · Año · Reiniciar; en la hoja, País · Género /
+  // Tipo · Año y Reiniciar en su propia línea.
+  import Icon from '$lib/ui/Icon.svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
+  import { uniqueCountries, uniqueGenres, uniqueTypes, uniqueYears } from '$lib/domain/filterOptions';
+  import ResetFiltersButton from '$lib/components/home/ResetFiltersButton.svelte';
+
+  export let valores = {
+    pais: [],
+    genero: [],
+    texto: [],
+    año: '',
+    type: ''
+  };
+
+  export let lanzamientos = [];
+  /** 'panel' (desktop, 4 columnas) | 'sheet' (hoja móvil, 2 columnas). */
+  export let layout = 'panel';
+  /** La hoja lleva «Reiniciar» en su pie hasta U10b-2. */
+  export let showReset = true;
+  const dispatch = createEventDispatcher();
+
+  $: paisesUnicos = uniqueCountries(lanzamientos);
+  $: generosUnicos = uniqueGenres(lanzamientos);
+  $: tiposUnicos = uniqueTypes(lanzamientos);
+  $: añosUnicos = uniqueYears(lanzamientos);
+
+  function updateCampo(key, value) {
+    const nuevo = { ...valores, [key]: value };
+    dispatch('filtrar', nuevo);
+  }
+
+  function toggleEnLista(key, valor) {
+    const yaEstá = valores[key].includes(valor);
+    const nuevo = {
+      ...valores,
+      [key]: yaEstá ? valores[key].filter(v => v !== valor) : [...valores[key], valor]
+    };
+    dispatch('filtrar', nuevo);
+  }
+
+  let detPais, detGenero;
+
+  function handleClickOutside(e) {
+    if (detPais && !detPais.contains(e.target)) detPais.removeAttribute('open');
+    if (detGenero && !detGenero.contains(e.target)) detGenero.removeAttribute('open');
+  }
+
+  onMount(() => {
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  });
+</script>
+
+<section class="filtros-panel">
+  <div class="filtros-grilla filtros-grilla--{layout}">
+    <!-- País y Género: nubes de etiquetas plegables -->
+    <div class="cloud-campo">
+      <span class="campo-label">País</span>
+      <details class="cloud-dropdown" bind:this={detPais}>
+        <summary class="cloud-summary">
+          <span class="cloud-text">
+            {#if valores.pais.length > 0}{valores.pais.join(', ')}{:else}Seleccionar{/if}
+          </span>
+          {#if valores.pais.length > 0}
+            <span class="cloud-count">{valores.pais.length}</span>
+          {/if}
+          <span class="campo-chevron"><Icon name="chevron-abajo" size="sm" /></span>
+        </summary>
+        <div class="cloud-body">
+          <div class="tag-cloud">
+            {#each paisesUnicos as pais}
+              <button
+                type="button"
+                class="tag"
+                title={pais}
+                class:tag--active={valores.pais.includes(pais)}
+                on:click={() => toggleEnLista('pais', pais)}
+              >{pais}</button>
+            {/each}
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="cloud-campo">
+      <span class="campo-label">Género</span>
+      <details class="cloud-dropdown" bind:this={detGenero}>
+        <summary class="cloud-summary">
+          <span class="cloud-text">
+            {#if valores.genero.length > 0}{valores.genero.join(', ')}{:else}Seleccionar{/if}
+          </span>
+          {#if valores.genero.length > 0}
+            <span class="cloud-count">{valores.genero.length}</span>
+          {/if}
+          <span class="campo-chevron"><Icon name="chevron-abajo" size="sm" /></span>
+        </summary>
+        <div class="cloud-body">
+          <div class="tag-cloud">
+            {#each generosUnicos as genero}
+              <button
+                type="button"
+                class="tag"
+                title={genero}
+                class:tag--active={valores.genero.includes(genero)}
+                on:click={() => toggleEnLista('genero', genero)}
+              >{genero}</button>
+            {/each}
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <!-- Tipo y Año -->
+    <div class="campo">
+      <span class="campo-label">Tipo</span>
+      <details class="dropdown">
+        <summary><span class="campo-valor">{valores.type || 'Seleccionar'}</span><span class="campo-chevron"><Icon name="chevron-abajo" size="sm" /></span></summary>
+        <ul>
+          <li>
+            <button type="button" on:click={() => updateCampo('type', '')}>
+              Todos {#if !valores.type}<span class="tick"><Icon name="check" size="em" weight="bold" label="Seleccionado" /></span>{/if}
+            </button>
+          </li>
+          {#each tiposUnicos as tipo}
+            <li>
+              <button type="button" on:click={() => updateCampo('type', tipo)}>
+                {tipo}{#if valores.type === tipo} <span class="tick"><Icon name="check" size="em" weight="bold" label="Seleccionado" /></span>{/if}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      </details>
+    </div>
+
+    <div class="campo">
+      <span class="campo-label">Año</span>
+      <details class="dropdown">
+        <summary><span class="campo-valor">{valores.año || 'Seleccionar'}</span><span class="campo-chevron"><Icon name="chevron-abajo" size="sm" /></span></summary>
+        <ul>
+          <li>
+            <button type="button" on:click={() => updateCampo('año', '')}>
+              Todos {#if !valores.año}<span class="tick"><Icon name="check" size="em" weight="bold" label="Seleccionado" /></span>{/if}
+            </button>
+          </li>
+          {#each añosUnicos as año}
+            <li>
+              <button type="button" on:click={() => updateCampo('año', año)}>
+                {año}{#if String(valores.año) === String(año)} <span class="tick"><Icon name="check" size="em" weight="bold" label="Seleccionado" /></span>{/if}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      </details>
+    </div>
+
+    {#if showReset}
+      <div class="filtros-reset">
+        <ResetFiltersButton block={layout === 'panel'} on:click={() => dispatch('reset')} />
+      </div>
+    {/if}
+  </div>
+</section>
+
+<style>
+/* Grilla de controles. Panel: 4 columnas; País y Género ocupan 2 cada uno,
+   Tipo y Año 1, y Reiniciar las 2 que quedan, a la altura de los controles
+   (sin etiqueta encima). Hoja: 2 columnas y Reiniciar en su propia línea. */
+.filtros-grilla {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-3);
+  align-items: start;
+}
+
+.filtros-grilla--panel .cloud-campo { grid-column: span 2; }
+
+.filtros-reset { display: flex; min-width: 0; }
+
+.filtros-grilla--panel .filtros-reset {
+  grid-column: span 2;
+  align-self: end;
+}
+
+.filtros-grilla--sheet { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.filtros-grilla--sheet .filtros-reset { grid-column: 1 / -1; }
+
+/* En la hoja estrecha, País y Género se apilan: los nombres no caben. */
+@media (max-width: 680px) {
+  .filtros-grilla--sheet .cloud-campo { grid-column: 1 / -1; }
+}
+
+.cloud-campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.campo-label {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: .2px;
+  color: var(--color-texto-secundario);
+}
+
+.cloud-dropdown { position: relative; }
+
+.cloud-summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  min-height: var(--field-h-md);
+  box-sizing: border-box;
+  padding: 0 var(--space-3);
+  background: var(--color-sombra);
+  border: 1px solid var(--color-linea-fuerte);
+  border-radius: var(--control-radius);
+  color: var(--color-texto);
+  font-size: var(--text-sm);
+  font-family: var(--font-base);
+  position: relative;
+  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, background var(--motion-fast) ease;
+  user-select: none;
+  line-height: 1.15;
+}
+
+.cloud-summary::-webkit-details-marker { display: none; }
+.cloud-summary::marker { display: none; }
+
+.campo-chevron {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--color-texto-tenue);
+  pointer-events: none;
+  transition: transform var(--motion-fast) ease;
+}
+.cloud-dropdown[open] .campo-chevron,
+.dropdown[open] .campo-chevron { transform: rotate(180deg); color: var(--color-acento); }
+.campo-valor { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.cloud-dropdown[open] .cloud-summary {
+  border-color: var(--color-acento-border);
+  box-shadow: 0 0 0 3px var(--color-acento-dim);
+  background: var(--color-sombra);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.cloud-dropdown[open] .cloud-body {
+  border-color: var(--color-acento-border);
+}
+
+.cloud-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.cloud-count {
+  background: var(--color-acento-suave);
+  border: 1px solid var(--color-acento-border);
+  color: var(--color-acento);
+  border-radius: var(--radius-pill);
+  padding: .12rem .45rem;
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.cloud-body {
+  border: 1px solid var(--color-linea);
+  border-top: none;
+  border-radius: 0 0 var(--control-radius) var(--control-radius);
+  background: var(--color-velo-opaco);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: .65rem;
+  max-height: 180px;
+  overflow-y: auto;
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: var(--layer-float);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.cloud-body::-webkit-scrollbar { width: 4px; }
+.cloud-body::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: var(--radius-xs); }
+
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .32rem;
+}
+
+.tag {
+  appearance: none;
+  border: 1px solid var(--color-linea);
+  background: var(--color-superficie-1);
+  color: var(--color-texto-secundario);
+  border-radius: var(--radius-pill);
+  padding: .32rem .7rem;
+  font-family: var(--font-base);
+  font-size: var(--text-2xs);
+  cursor: pointer;
+  transition: border-color var(--motion-instant) ease, background var(--motion-instant) ease, color var(--motion-instant) ease;
+  line-height: 1;
+  /* An option longer than the column is cut with an ellipsis instead of widening it. */
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag:hover {
+  border-color: var(--color-acento-border);
+  background: var(--color-acento-dim);
+  color: var(--color-texto);
+}
+
+.tag--active {
+  background: var(--color-acento-suave);
+  border-color: var(--color-acento-texto);
+  color: var(--color-acento);
+  font-weight: 600;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+
+/* Dropdowns */
+.dropdown { position: relative; }
+
+.dropdown summary {
+  cursor: pointer;
+  min-height: var(--field-h-md);
+  box-sizing: border-box;
+  padding: 0 var(--space-3);
+  background: var(--color-sombra);
+  border: 1px solid var(--color-linea-fuerte);
+  border-radius: var(--control-radius);
+  color: var(--color-texto);
+  font-size: var(--text-sm);
+  font-family: var(--font-base);
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .75rem;
+  position: relative;
+  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, background var(--motion-fast) ease;
+  user-select: none;
+  line-height: 1.15;
+}
+
+.dropdown summary::-webkit-details-marker { display: none; }
+.dropdown summary::marker { display: none; }
+
+
+.dropdown[open] summary {
+  border-color: var(--color-acento-border);
+  box-shadow: 0 0 0 3px var(--color-acento-dim);
+  background: var(--color-sombra);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.dropdown ul {
+  margin: 0;
+  padding: .35rem;
+  list-style: none;
+  border: 1px solid var(--color-linea);
+  border-top: none;
+  border-radius: 0 0 var(--control-radius) var(--control-radius);
+  background: var(--color-velo-opaco);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  opacity: 0;
+  transform: translateY(-4px);
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--motion-overlay) ease, opacity var(--motion-fast) ease, transform var(--motion-fast) ease;
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: var(--layer-float);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.dropdown ul::-webkit-scrollbar { width: 4px; }
+.dropdown ul::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: var(--radius-xs); }
+
+.dropdown[open] ul {
+  opacity: 1;
+  transform: translateY(0);
+  max-height: 12rem;
+  overflow: auto;
+  border-color: var(--color-acento-border);
+}
+
+.dropdown li button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: .55rem .7rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-texto);
+  font-family: var(--font-base);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease;
+  text-align: left;
+}
+
+.dropdown li button:hover {
+  background: var(--color-superficie-2);
+  border-color: var(--color-linea);
+}
+
+.tick {
+  display: inline-flex;
+  vertical-align: -0.125em;
+  margin-left: .5rem;
+  color: var(--color-acento);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dropdown ul { transition: none; }
+}
+</style>

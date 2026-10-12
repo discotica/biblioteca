@@ -1,0 +1,200 @@
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+  import Icon from './Icon.svelte';
+
+  type Props = {
+    checked?: boolean;
+    /** Texto de la casilla. Puede llevar un enlace. */
+    children: Snippet;
+    name?: string;
+    id?: string;
+    /** Mensaje de error propio (no la burbuja nativa del navegador). */
+    error?: string;
+    /**
+     * checkbox (por defecto) o switch: interruptor que aplica al momento, como
+     * una preferencia (U14). Se anuncia como role="switch", activado o no.
+     */
+    variant?: 'checkbox' | 'switch';
+    /** Una línea de apoyo bajo el texto. */
+    hint?: string;
+    disabled?: boolean;
+    class?: string;
+    element?: HTMLInputElement;
+    [attribute: string]: unknown;
+  };
+
+  let {
+    checked = $bindable(false),
+    children,
+    name,
+    id,
+    error,
+    variant = 'checkbox',
+    hint,
+    disabled = false,
+    class: className = '',
+    element = $bindable(),
+    ...rest
+  }: Props = $props();
+
+  const uid = $props.id();
+  const inputId = $derived(id ?? `${uid}-checkbox`);
+  const errorId = `${uid}-error`;
+  const hintId = `${uid}-hint`;
+  const describedBy = $derived([hint ? hintId : '', error ? errorId : ''].filter(Boolean).join(' ') || undefined);
+</script>
+
+<div
+  class="ui-checkbox ui-checkbox--{variant} {className}"
+  class:ui-checkbox--error={!!error}
+  class:ui-checkbox--disabled={disabled}
+>
+  <label class="ui-checkbox__label" for={inputId}>
+    <span class="ui-checkbox__control">
+      <input
+        bind:this={element}
+        bind:checked
+        class="ui-checkbox__input"
+        type="checkbox"
+        role={variant === 'switch' ? 'switch' : undefined}
+        id={inputId}
+        {name}
+        {disabled}
+        aria-invalid={error ? 'true' : undefined}
+        aria-describedby={describedBy}
+        {...rest}
+      />
+      {#if variant === 'switch'}
+        <span class="ui-checkbox__track" aria-hidden="true"><span class="ui-checkbox__thumb"></span></span>
+      {:else}
+        <span class="ui-checkbox__box" aria-hidden="true">{#if checked}<Icon name="check" size="sm" />{/if}</span>
+      {/if}
+    </span>
+    <span class="ui-checkbox__text">
+      <span>{@render children()}</span>
+      {#if hint}<span class="ui-checkbox__hint" id={hintId}>{hint}</span>{/if}
+    </span>
+  </label>
+  {#if error}<p class="ui-checkbox__error" id={errorId}>{error}</p>{/if}
+</div>
+
+<style>
+  .ui-checkbox { display: flex; flex-direction: column; gap: var(--space-1); }
+
+  .ui-checkbox__label {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    min-height: var(--target-touch);
+    color: var(--color-texto-medio);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+    cursor: pointer;
+  }
+  .ui-checkbox--disabled .ui-checkbox__label { color: var(--color-texto-desactivado); cursor: not-allowed; }
+
+  /* La caja mide un icono; el input invisible cubre toda la fila (44 px de alto
+     como mínimo), así que el área táctil es la fila completa. */
+  .ui-checkbox__control {
+    display: inline-flex;
+    flex-shrink: 0;
+    margin-top: calc((1.5em - var(--icon-md)) / 2);
+  }
+  .ui-checkbox__input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: inherit;
+  }
+  .ui-checkbox__box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--icon-md);
+    height: var(--icon-md);
+    box-sizing: border-box;
+    border: 1px solid var(--color-linea-fuerte);
+    border-radius: var(--radius-xs);
+    background: var(--color-superficie-1);
+    color: var(--color-sobre-acento);
+    transition: background var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
+  }
+  .ui-checkbox__input:checked + .ui-checkbox__box {
+    border-color: var(--color-acento);
+    background: var(--color-acento);
+  }
+  .ui-checkbox__label:hover .ui-checkbox__input:not(:disabled) + .ui-checkbox__box { border-color: var(--color-acento-border); }
+  .ui-checkbox__input:focus-visible + .ui-checkbox__box {
+    outline: 2px solid var(--focus-ring-color);
+    outline-offset: 2px;
+    box-shadow: var(--focus-ring);
+  }
+  .ui-checkbox--error .ui-checkbox__box { border-color: var(--color-danger); }
+
+  /* Interruptor: la pista sustituye a la caja; el área táctil sigue siendo la fila. */
+  .ui-checkbox--switch .ui-checkbox__control { margin-top: calc((1.5em - var(--switch-h)) / 2); }
+  .ui-checkbox__track {
+    position: relative;
+    display: inline-block;
+    width: var(--switch-w);
+    height: var(--switch-h);
+    box-sizing: border-box;
+    border: 1px solid var(--color-linea-fuerte);
+    border-radius: var(--radius-pill);
+    background: var(--color-superficie-2);
+    transition: background var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
+  }
+  .ui-checkbox__thumb {
+    position: absolute;
+    top: calc(var(--switch-inset) - 1px);
+    left: calc(var(--switch-inset) - 1px);
+    width: calc(var(--switch-h) - 2 * var(--switch-inset));
+    height: calc(var(--switch-h) - 2 * var(--switch-inset));
+    border-radius: 50%;
+    background: var(--color-texto-medio);
+    transition: transform var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
+  }
+  .ui-checkbox__input:checked + .ui-checkbox__track {
+    border-color: var(--color-acento);
+    background: var(--color-acento);
+  }
+  .ui-checkbox__input:checked + .ui-checkbox__track .ui-checkbox__thumb {
+    transform: translateX(calc(var(--switch-w) - var(--switch-h)));
+    background: var(--color-sobre-acento);
+  }
+  .ui-checkbox__label:hover .ui-checkbox__input:not(:disabled):not(:checked) + .ui-checkbox__track { border-color: var(--color-acento-border); }
+  .ui-checkbox__input:focus-visible + .ui-checkbox__track {
+    outline: 2px solid var(--focus-ring-color);
+    outline-offset: 2px;
+    box-shadow: var(--focus-ring);
+  }
+  .ui-checkbox--disabled .ui-checkbox__track { opacity: .5; }
+
+  .ui-checkbox__text { display: flex; flex-direction: column; gap: var(--space-1); }
+  .ui-checkbox__hint { color: var(--color-texto-tenue); font-size: var(--text-xs); line-height: 1.45; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ui-checkbox__track, .ui-checkbox__thumb { transition: none; }
+  }
+
+  .ui-checkbox__text :global(a) {
+    position: relative;
+    z-index: 1;
+    color: var(--color-acento-texto);
+    text-decoration: underline;
+    text-underline-offset: .2em;
+  }
+
+  .ui-checkbox__error {
+    margin: 0;
+    padding-left: calc(var(--icon-md) + var(--space-3));
+    color: var(--color-danger-texto);
+    font-size: var(--text-2xs);
+    font-weight: 600;
+    line-height: 1.45;
+  }
+</style>

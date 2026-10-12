@@ -1,0 +1,172 @@
+<script module lang="ts">
+  import type { IconName } from '$lib/ui/icons';
+
+  export type ToolSection = {
+    label: string;
+    href: string;
+    icon?: IconName;
+    /** Pendientes de la sección (propuestas, reportes). */
+    count?: number;
+  };
+</script>
+
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+  import Icon from '$lib/ui/Icon.svelte';
+
+  type Props = {
+    /** Nombre de la herramienta, en la barra lateral ("Estudio"). */
+    name: string;
+    /** Secciones de la barra lateral. */
+    sections: ToolSection[];
+    /** href de la sección actual (aria-current="page"). */
+    current?: string;
+    /** Título de la vista (h1), sobre el contenido. */
+    title?: string;
+    /** Acciones de la vista, a la derecha del título. */
+    actions?: Snippet;
+    /** Pie de la barra lateral (volver al sitio, cuenta). */
+    sidebarFooter?: Snippet;
+    children?: Snippet;
+    class?: string;
+  };
+
+  let { name, sections, current, title, actions, sidebarFooter, children, class: className = '' }: Props = $props();
+</script>
+
+<!-- Densidad compacta y ancho completo: el lenguaje del Estudio (U15). -->
+<div class="l-container l-container--full l-tool {className}" data-density="compact">
+  <aside class="l-tool__sidebar">
+    <p class="l-tool__name">{name}</p>
+    <nav class="l-tool__nav" aria-label={name}>
+      <ul>
+        {#each sections as section}
+          <li>
+            <a class="l-tool__link" href={section.href} aria-current={section.href === current ? 'page' : undefined}>
+              {#if section.icon}<Icon name={section.icon} size="sm" />{/if}
+              <span class="l-tool__label">{section.label}</span>
+              {#if section.count}<span class="l-tool__count">{section.count}</span>{/if}
+            </a>
+          </li>
+        {/each}
+      </ul>
+    </nav>
+    {#if sidebarFooter}<div class="l-tool__sidebar-footer">{@render sidebarFooter()}</div>{/if}
+  </aside>
+
+  <div class="l-tool__main">
+    {#if title}
+      <header class="l-tool__header">
+        <h1 class="l-tool__title">{title}</h1>
+        {#if actions}<div class="l-tool__actions">{@render actions()}</div>{/if}
+      </header>
+    {/if}
+    {@render children?.()}
+  </div>
+</div>
+
+<style>
+  .l-tool {
+    display: grid;
+    grid-template-columns: var(--tool-sidebar-w) minmax(0, 1fr);
+    gap: var(--space-6);
+    padding-top: var(--space-5);
+    padding-bottom: var(--page-pad-bottom);
+  }
+
+  .l-tool__sidebar {
+    position: sticky;
+    top: var(--space-5);
+    align-self: start;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .l-tool__name {
+    margin: 0;
+    padding: 0 var(--space-3);
+    color: var(--color-texto-tenue);
+    font-size: var(--density-label);
+    font-weight: var(--nav-font-weight);
+    letter-spacing: var(--nav-letter-spacing);
+    text-transform: uppercase;
+  }
+
+  .l-tool__nav ul {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .l-tool__link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: var(--target-touch);
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-sm);
+    color: var(--color-texto-medio);
+    font-size: var(--density-text);
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .l-tool__link:hover { background: var(--color-superficie-2); color: var(--color-texto); }
+  .l-tool__link[aria-current='page'] { background: var(--color-acento-dim); color: var(--color-acento); }
+  .l-tool__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .l-tool__count {
+    min-width: var(--chip-h-sm);
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-pill);
+    background: var(--color-superficie-3);
+    color: var(--color-texto);
+    font-size: var(--text-2xs);
+    line-height: var(--chip-h-sm);
+    text-align: center;
+  }
+
+  .l-tool__sidebar-footer {
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--color-linea);
+  }
+
+  .l-tool__main { min-width: 0; }
+
+  .l-tool__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--density-pad);
+  }
+
+  .l-tool__title {
+    margin: 0;
+    color: var(--color-texto);
+    font-size: var(--text-2xl);
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    line-height: var(--leading-heading);
+  }
+
+  .l-tool__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+  /* Móvil: la barra lateral pasa a una fila de secciones desplazable. */
+  @media (max-width: 768px) {
+    .l-tool {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-4);
+      padding-top: var(--space-3);
+    }
+    .l-tool__sidebar { position: static; }
+    .l-tool__name { display: none; }
+    .l-tool__nav { overflow-x: auto; margin-inline: calc(-1 * var(--container-gutter)); padding-inline: var(--container-gutter); }
+    .l-tool__nav ul { flex-direction: row; }
+    .l-tool__sidebar-footer { display: none; }
+  }
+</style>

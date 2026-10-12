@@ -1,0 +1,121 @@
+<!-- Reconstruido en U12 desde la lectura del chat: sin las líneas en blanco del original. -->
+<script lang="ts">
+  import AccountLayout from '$lib/layouts/AccountLayout.svelte';
+  import { supabase } from '$lib/supabase';
+  let email = '';
+  let enviado = false;
+  let cargando = false;
+  async function recuperar() {
+    cargando = true;
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset?flow=recovery`
+    });
+    cargando = false;
+    enviado = true;
+  }
+</script>
+<svelte:head>
+  <title>Recuperar contraseña — Biblioteca Discótica</title>
+</svelte:head>
+<AccountLayout
+  title="Recuperar contraseña"
+  help={enviado ? undefined : 'Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.'}
+>
+    {#if enviado}
+      <div class="exito-msg">
+        <strong>Listo.</strong>
+        <p>Si ese email tiene una cuenta, recibirás un link para cambiar tu contraseña en los próximos minutos.</p>
+      </div>
+    {:else}
+      <form on:submit|preventDefault={recuperar} class="auth-form">
+        <label class="campo">
+          <span>Email</span>
+          <input
+            type="email"
+            bind:value={email}
+            autocomplete="email"
+            required
+            placeholder="tu@correo.com"
+          />
+        </label>
+        <button type="submit" class="btn-primary" disabled={cargando}>
+          {cargando ? 'Enviando…' : 'Enviar link'}
+        </button>
+      </form>
+    {/if}
+    {#snippet footer()}
+      <a href="/auth/login">Volver a entrar</a>
+    {/snippet}
+</AccountLayout>
+<style>
+  .auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+  .campo {
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+  }
+  .campo span {
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--color-texto-tenue);
+  }
+  .campo input {
+    background: var(--color-superficie-2);
+    border: 1px solid var(--color-linea);
+    border-radius: var(--radius-sm);
+    padding: .75rem 1rem;
+    color: var(--color-texto);
+    font-size: var(--text-md);
+    font-family: inherit;
+    transition: border-color var(--motion-fast) ease;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .campo input:focus {
+    outline: none;
+    border-color: var(--color-acento);
+  }
+  .campo input::placeholder {
+    color: var(--color-texto-tenue);
+  }
+  .btn-primary {
+    background: var(--color-acento);
+    color: var(--color-sobre-acento);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: .85rem 1rem;
+    font-size: var(--text-sm);
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity var(--motion-fast) ease;
+    font-family: inherit;
+    margin-top: .4rem;
+  }
+  .btn-primary:hover:not(:disabled) { opacity: .85; }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+  .exito-msg {
+    background: var(--color-acento-tinte);
+    border: 1px solid var(--color-acento-suave);
+    border-radius: var(--radius-base);
+    padding: 1.5rem;
+    color: var(--color-acento);
+  }
+  .exito-msg strong {
+    display: block;
+    font-size: var(--text-md);
+    margin-bottom: .5rem;
+  }
+  .exito-msg p {
+    font-size: var(--text-sm);
+    color: var(--color-texto-tenue);
+    margin: 0;
+  }
+</style>

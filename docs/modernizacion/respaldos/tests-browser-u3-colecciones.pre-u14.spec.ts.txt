@@ -1,0 +1,112 @@
+import { expect, test, type Page, type Route } from '@playwright/test';
+
+const project = 'hgocyrzhgohetfpzbmfs';
+const ownerId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';
+const owner = { username: 'comunidad', display_name: 'Comunidad' };
+
+function release(id: string, slug: string, title: string) {
+  return {
+    id, slug, title, release_date: '2026-08-09', type: 'Álbum', label: 'Sello U3', review: '',
+    experimental: 1, denso: 2, sintetico: 3, bailable: 4, rapido: 5,
+    artists: ['Artista U3'], primary_artists: [{ id: 'artist-u3', slug: 'artista-u3', name: 'Artista U3', position: 0 }],
+    collaborators: [], credit_quality: 'verified', genres: ['Ambient'], countries: ['Colombia'],
+    buy_link: 'https://example.test/comprar', cover: `https://example.test/${slug}.jpg`
+  };
+}
+
+const releases = [
+  release('11111111-1111-4111-8111-111111111113', 'u3-primero', 'Primer lanzamiento de la colección'),
+  release('22222222-2222-4222-8222-222222222213', 'u3-segundo', 'Segundo lanzamiento de la colección')
+];
+const crate = {
+  id: 'cr-u3', owner_id: ownerId, name: 'Para abrir el set', description: 'Intros lentas y percusión que crece.',
+  slug: 'para-abrir-el-set', is_public: true, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', profiles: owner
+};
+const items = releases.map((r, i) => ({
+  id: `ci-u3-${i}`, crate_id: crate.id, release_id: r.id, lanzamiento_slug: r.slug, note: null, added_at: `2026-09-0${i + 1}T00:00:00Z`
+}));
+
+function json(route: Route, body: unknown, single = false) {
+  return route.fulfill({
+    status: 200,
+    contentType: single ? 'application/vnd.pgrst.object+json' : 'application/json',
+    headers: Array.isArray(body) ? { 'content-range': `0-${Math.max(body.length - 1, 0)}/${body.length}` } : {},
+    body: JSON.stringify(body)
+  });
+}
+
+async function mockPublicCollection(page: Page) {
+  await page.route(`https://${project}.supabase.co/**`, (route) => {
+    const url = new URL(route.request().url());
+    const single = (route.request().headers().accept ?? '').includes('vnd.pgrst.object');
+    if (url.pathname === '/rest/v1/profiles') return json(route, { id: ownerId, ...owner }, single);
+    if (url.pathname === '/rest/v1/crates') return json(route, single ? crate : [crate], single);
+    if (url.pathname === '/rest/v1/crate_items') return json(route, items);
+    if (url.pathname === '/rest/v1/catalog_releases') return json(route, releases);
+    return json(route, []);
+  });
+  await page.route('https://example.test/**', (route) => route.fulfill({
+    status: 200, contentType: 'image/svg+xml',
+    body: '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="#96f719"/></svg>'
+  }));
+}
+
+async function authenticate(page: Page) {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({ sub: ownerId, role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url');
+  const session = {
+    access_token: `${header}.${payload}.signature`, refresh_token: 'fixture-refresh-token', expires_in: 3600,
+    expires_at: Math.floor(Date.now() / 1000) + 3600, token_type: 'bearer',
+    user: { id: ownerId, aud: 'authenticated', role: 'authenticated', email: 'comunidad@example.test', app_metadata: {}, user_metadata: { username: owner.username }, created_at: '2026-09-18T00:00:00Z' }
+  };
+  await page.context().addCookies([{
+    name: `sb-${project}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(session)).toString('base64url')}`,
+    domain: '127.0.0.1', path: '/', httpOnly: false, secure: false, sameSite: 'Lax'
+  }]);
+}
+
+async function collectionContent(page: Page) {
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(crate.name);
+  await expect(page.getByText('Cargando catálogo…')).toHaveCount(0);
+  return {
+    titulo: await page.getByRole('heading', { level: 1 }).textContent(),
+    // textContent: el texto fuente, sin las mayúsculas que añade el CSS.
+    cuerpo: ((await page.locator('.l-page').textContent()) ?? '').replace(/\s+/g, ' ').trim()
+  };
+}
+
+test('U3: un enlace viejo de colección pública abre la URL nueva con el mismo contenido', async ({ page }) => {
+  await mockPublicCollection(page);
+
+  await page.goto('/coleccion/para-abrir-el-set?usuario=comunidad');
+  const directo = await collectionContent(page);
+  expect(directo.cuerpo).toContain('Colecciones');
+  expect(directo.cuerpo).toContain('Pública');
+  expect(directo.cuerpo).toContain(releases[0].title);
+  expect(directo.cuerpo).toContain(releases[1].title);
+  expect(directo.cuerpo.toLowerCase()).not.toContain('crate');
+
+  await page.goto('/crate/para-abrir-el-set?usuario=comunidad#u3');
+  await expect(page).toHaveURL(/\/coleccion\/para-abrir-el-set\?usuario=comunidad#u3$/);
+  expect(await collectionContent(page)).toEqual(directo);
+
+  // La redirección reemplaza la entrada vieja: atrás no vuelve a /crate/….
+  await page.goBack();
+  await expect(page).toHaveURL(/\/coleccion\/para-abrir-el-set\?usuario=comunidad$/);
+});
+
+test('U3: /mis-crates redirige a /mis-colecciones y conserva query y hash', async ({ page }) => {
+  await authenticate(page);
+  await mockPublicCollection(page);
+  await page.goto('/mis-crates?crear=1#nueva');
+  await expect(page).toHaveURL(/\/mis-colecciones\?crear=1#nueva$/);
+  await expect(page.getByRole('dialog', { name: 'Nueva colección' })).toBeVisible();
+  // El diálogo es modal y saca la página del árbol accesible: se lee el h1 del DOM.
+  await expect(page.locator('h1')).toHaveText('Mis colecciones');
+});
+
+test('U3: sin sesión, /mis-crates termina en entrar con destino /mis-colecciones', async ({ page }) => {
+  await mockPublicCollection(page);
+  await page.goto('/mis-crates');
+  await expect(page).toHaveURL(/\/auth\/login\?redirect=\/mis-colecciones$/);
+});

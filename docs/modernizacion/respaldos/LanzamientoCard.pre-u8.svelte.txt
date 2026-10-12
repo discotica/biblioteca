@@ -1,0 +1,554 @@
+<script>
+
+  import RadarMini from './RadarMini.svelte';
+  import { createEventDispatcher } from 'svelte';
+  import CreditSummary from './CreditSummary.svelte';
+  import CoverFallback from './CoverFallback.svelte';
+  import { coverFailure } from '$lib/ui/coverFallback';
+  import { slugify } from '$lib/utils/slugify';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
+  import { slugFromLanzamiento } from '$lib/utils/slugLanzamiento';
+  import { normalizeReleaseDate } from '$lib/domain/releases';
+  import { createSearchState, parseSearchState, serializeSearchState } from '$lib/domain/searchState';
+  import { removeBetaInvitationParams, withoutBetaInvitationSearch } from '$lib/domain/betaInvitation';
+
+  export let lanzamiento;
+  export let openInModal = false;
+
+  const dispatch = createEventDispatcher();
+
+  let copied = false;
+
+  // Helpers seguros
+  const safeStr = (v) => (v ?? '').toString();
+  const asArray = (v) => (Array.isArray(v) ? v : (v ? [v] : []));
+
+  function clampList(arr, max = 3) {
+    const a = asArray(arr).filter(Boolean);
+    if (a.length <= max) return { items: a, more: 0 };
+    return { items: a.slice(0, max), more: a.length - max };
+  }
+
+  // slug estable
+  let slug = '';
+  $: slug = lanzamiento ? slugFromLanzamiento(lanzamiento) : '';
+  // Beta is root-only. Search filters remain shareable, invitation params do not.
+  $: qs = withoutBetaInvitationSearch($page?.url?.search ?? '');
+
+  // Normalizaciones para blindar rendering
+  $: cover = safeStr(lanzamiento?.cover).trim();
+  let coverFailed = false;
+  $: cover, (coverFailed = false);
+  $: title = safeStr(lanzamiento?.title).trim();
+  $: label = safeStr(lanzamiento?.label).trim();
+
+  // Radar siempre presente (evita crash en RadarMini si falta radar)
+  $: radar = {
+    experimental: Number(lanzamiento?.radar?.experimental ?? 0),
+    denso: Number(lanzamiento?.radar?.denso ?? 0),
+    sintetico: Number(lanzamiento?.radar?.sintetico ?? 0),
+    bailable: Number(lanzamiento?.radar?.bailable ?? 0),
+    rapido: Number(lanzamiento?.radar?.rapido ?? 0)
+  };
+
+  // año para grid
+  $: year = normalizeReleaseDate(lanzamiento?.release_date).year;
+
+  // clamp para grid
+  $: paisesGrid = clampList(lanzamiento?.country, 3);
+  $: generosGrid = clampList(lanzamiento?.genre, 3);
+
+  // CreditSummary owns the grid card's credits menu (E05); the card only lifts
+  // itself above the next grid row while that menu is open.
+  let creditsMenuOpen = false;
+
+function compartir() {
+  const path = `/lanzamiento/${slug}`;
+
+  // Base: usa el origin actual si existe, pero fuerza el dominio final
+  const base = (() => {
+    try {
+      // En browser: toma protocolo real (http/https), luego fuerza host
+      const u = new URL(window.location.href);
+      u.host = 'biblioteca.discotica.com';
+      u.pathname = '/';
+      u.search = '';
+      u.hash = '';
+      return u.toString().replace(/\/$/, ''); // sin slash final
+    } catch {
+      // fallback ultra seguro
+      return 'https://biblioteca.discotica.com';
+    }
+  })();
+
+  const url = `${base}${path}`;
+
+  navigator.clipboard?.writeText?.(url)
+    ?.then(() => {
+      copied = true;
+      setTimeout(() => (copied = false), 1500);
+    })
+    .catch(() => {});
+}
+
+
+  function irAlSello(labelStr) {
+    goto(`/sello/${slugify(labelStr)}${qs}`);
+  }
+
+  // ─────────────────────────────────────────────
+  // Navegación a búsqueda con filtros (género / país)
+  // Importante: NO setear p=1 -> evita volver a "mostrando 12"
+  // ─────────────────────────────────────────────
+  function buildSearchHrefWithParam(key, value) {
+    const v = safeStr(value).trim();
+    const parsed = parseSearchState($page?.url?.search ?? '');
+    const state = createSearchState({
+      ...parsed.state,
+      [key === 'pais' ? 'countries' : 'genres']: v ? [v] : [],
+      page: 1,
+      modal: null
+    });
+    const q = serializeSearchState(state, removeBetaInvitationParams(parsed.unknown)).toString();
+    return q ? `/?${q}` : '/';
+  }
+
+  function irABusquedaConFiltro(key, value) {
+    goto(buildSearchHrefWithParam(key, value), { invalidateAll: true });
+  }
+
+  function onFiltroClick(key, value, event) {
+    event.preventDefault();
+    event.stopPropagation();
+    irABusquedaConFiltro(key, value);
+  }
+
+  function handleDetailNav(event) {
+    if (!openInModal) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dispatch('abrir', lanzamiento);
+  }
+
+</script>
+
+
+<article
+  class="card card--grid {$$props.class}"
+  class:card--menu-open={creditsMenuOpen}
+  style={`--fondo-cover: url('${cover}')`}
+>
+  <header class="cover-container">
+    <a class="cover-link" href={`/lanzamiento/${slug}${qs}`} aria-label={`Abrir ${title || 'lanzamiento'}`} on:click={handleDetailNav}>
+      {#if cover && !coverFailed}
+        <img
+          class="cover"
+          src={cover}
+          alt={`Portada de ${title || 'lanzamiento'}`}
+          loading="lazy"
+          decoding="async"
+          use:coverFailure={() => (coverFailed = true)}
+        />
+      {:else}
+        <span class="cover" role="img" aria-label={`Portada no disponible para ${title || 'lanzamiento'}`}><CoverFallback /></span>
+      {/if}
+    </a>
+
+    <div class="cover-dim" aria-hidden={true}></div>
+
+    <div class="radar-overlay" aria-hidden={true}>
+      <div class="radar-scale">
+        <RadarMini valores={radar} />
+      </div>
+    </div>
+  </header>
+
+  <section class="info info--grid">
+
+    <!-- E05: groups, roles and artist URLs come from the E03 Release contract. -->
+    <CreditSummary release={lanzamiento} bind:open={creditsMenuOpen} />
+
+    <!-- Row 2: Title + Share -->
+    <div class="grid-title">
+      <h3 class="titulo titulo--grid">
+        <a
+          class="titulo-link"
+          href={`/lanzamiento/${slug}${qs}`}
+          on:click|preventDefault={(e) => openInModal ? dispatch('abrir', lanzamiento) : goto(`/lanzamiento/${slug}${qs}`)}
+          aria-label={`Abrir ${title || 'lanzamiento'}`}
+        >
+          {title}
+        </a>
+      </h3>
+
+      <button
+        class="share-button share-button--grid"
+        type="button"
+        on:click|stopPropagation={compartir}
+        aria-label="Copiar enlace"
+      >
+        <img src="/img/share.svg" alt="" aria-hidden={true} />
+        {#if copied}
+          <span class="tooltip" role="status" aria-live="polite">Copiado</span>
+        {/if}
+      </button>
+    </div>
+
+    <!-- Row 3: Year · Country · Label -->
+    <div class="grid-meta-row">
+      {#if year}<span class="year">{year}</span>{/if}
+      {#each paisesGrid.items.slice(0,1) as c (`kr-pais-${c}`)}
+        <a
+          class="kicker-meta kicker-meta--pais"
+          href={buildSearchHrefWithParam('pais', c)}
+          on:click={(e) => onFiltroClick('pais', c, e)}
+        >{c}</a>
+      {/each}
+      {#if label}
+        <a
+          class="kicker-meta kicker-meta--sello"
+          href={`/sello/${slugify(label)}${qs}`}
+          on:click|preventDefault|stopPropagation={() => irAlSello(label)}
+        >{label}</a>
+      {/if}
+    </div>
+
+    <div class="chips-meta">
+      {#each generosGrid.items as g (`gen-${g}`)}
+        <a
+          class="chip-meta chip-meta--genero"
+          href={buildSearchHrefWithParam('genero', g)}
+          on:click={(e) => onFiltroClick('genero', g, e)}
+        >{g}</a>
+      {/each}
+      {#if generosGrid.more}<span class="chip-more">+{generosGrid.more}</span>{/if}
+    </div>
+  </section>
+
+</article>
+
+
+<style>
+  /* ─── Shell ─── */
+  .card {
+    display: flex;
+    flex-direction: column;
+    background: var(--color-panel);
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radius-base);
+    width: 100%;
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* Blurred ambient cover behind the card */
+  .card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: var(--fondo-cover);
+    background-size: cover;
+    background-position: center;
+    opacity: 0.14;
+    filter: blur(55px) saturate(1.3);
+    z-index: 0;
+    pointer-events: none;
+    transition: opacity var(--motion-slow) ease;
+  }
+
+  /* ─── Cover image area ─── */
+  .cover-container {
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+    background: var(--color-panel);
+  }
+
+  .cover-container::before {
+    content: "";
+    display: block;
+    padding-top: 100%;
+  }
+
+  .cover-link {
+    position: absolute;
+    inset: 0;
+    display: block;
+    z-index: 1;
+  }
+
+  .cover {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+    z-index: 1;
+    transition: transform var(--motion-slow) cubic-bezier(.25,.1,.25,1), opacity var(--motion-slow) ease;
+  }
+
+  .cover-dim {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: transparent;
+    transition: background var(--motion-slow) ease;
+    pointer-events: none;
+  }
+
+  .radar-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    opacity: 0;
+    transition: opacity var(--motion-slow) ease;
+    pointer-events: none;
+  }
+  .radar-overlay * { pointer-events: none; }
+
+  @media (pointer: coarse) {
+    .radar-overlay {
+      pointer-events: auto;
+      cursor: pointer;
+    }
+  }
+
+  .radar-scale {
+    transform: scale(1.6);
+    transition: transform var(--motion-slow) ease;
+  }
+
+  .cover-container:hover .cover       { transform: scale(1.05); opacity: .18; }
+  .cover-container:hover .cover-dim   { background: var(--color-sombra-fuerte); }
+  .cover-container:hover .radar-overlay { opacity: 1; }
+
+  /* ─── GRID variant ─── */
+  .card--grid {
+    cursor: pointer;
+    /* overflow: visible so the artist dropdown isn't clipped;
+       cover-container keeps its own overflow:hidden for the image */
+    overflow: visible;
+    transition: border-color var(--motion-base) ease, box-shadow var(--motion-base) ease;
+  }
+
+  .card--grid:hover {
+    border-color: var(--color-borde-hover);
+    box-shadow: 0 8px 32px var(--color-sombra-fuerte);
+  }
+
+  .card--menu-open {
+    z-index: var(--layer-float);
+  }
+
+  .card--grid:hover::before { opacity: 0.22; }
+
+  .info--grid {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px 16px 15px;
+    border-radius: 0 0 var(--radius-base) var(--radius-base);
+  }
+
+  /* The whole info area opens the release: the title link stretches over it and
+     every other control sits above (z-index 2). The cover keeps its own link and hover. */
+  .info--grid .titulo-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    cursor: pointer;
+  }
+  .info--grid .kicker-meta,
+  .info--grid .chip-meta,
+  .info--grid .share-button {
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Row 2: title + share */
+  .grid-title {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .titulo--grid {
+    flex: 1;
+    font-size: var(--text-md);
+    font-weight: 650;
+    line-height: 1.2;
+    letter-spacing: -0.005em;
+    margin: 0;
+    font-style: normal;
+    color: var(--color-texto);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+  }
+
+  /* Row 3: year · country · label. U4 subió el texto a --text-2xs sin cambiar el
+     alto de la tarjeta: line-height conserva la caja anterior (10.72px × 1.6). */
+  .grid-meta-row {
+    display: flex;
+    line-height: 1.43;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+
+  .year {
+    font-size: var(--text-2xs);
+    font-weight: 400;
+    color: var(--color-texto-tenue);
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
+  }
+
+  .kicker-meta {
+    font-size: var(--text-2xs);
+    font-weight: 500;
+    color: var(--color-texto-tenue);
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+    transition: color var(--motion-fast);
+    font-family: var(--font-base);
+  }
+  .kicker-meta:hover { color: var(--color-texto-medio); }
+
+  .kicker-meta--pais { color: var(--color-texto-tenue); }
+
+  .kicker-meta--sello {
+    font-style: italic;
+    color: var(--color-texto-tenue);
+  }
+  .kicker-meta--sello:hover { color: var(--color-texto-tenue); }
+
+  /* dot separator between every meta-row item except the last */
+  .grid-meta-row > :not(:last-child)::after {
+    content: "·";
+    margin-left: 5px;
+    color: var(--color-texto-desactivado);
+    font-style: normal;
+    pointer-events: none;
+  }
+
+  /* Chip meta row (replaces 3-col dl) */
+  .chips-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding-top: 1px;
+  }
+
+  .chip-meta {
+    font-size: var(--text-2xs);
+    color: var(--color-texto-tenue);
+    text-decoration: none;
+    padding: 2px 7px;
+    border-radius: var(--radius-xs);
+    border: 1px solid transparent;
+    background: var(--color-superficie-1);
+    line-height: 1.315; /* caja anterior: 10.88px × 1.45 */
+    transition: color var(--motion-fast), border-color var(--motion-fast), background var(--motion-fast);
+    white-space: nowrap;
+    font-family: var(--font-base);
+  }
+  .chip-meta:hover {
+    color: var(--color-texto-medio);
+    border-color: var(--color-linea);
+    background: var(--color-superficie-2);
+  }
+
+  .chip-meta--genero {
+    color: var(--color-acento-texto);
+  }
+  .chip-meta--genero:hover {
+    color: var(--color-acento);
+    border-color: var(--color-acento-suave);
+    background: var(--color-acento-tinte);
+  }
+
+  .chip-more {
+    font-size: var(--text-2xs);
+    line-height: 1.315;
+    font-weight: 700;
+    color: var(--color-texto-tenue);
+    border: 1px solid var(--color-linea-sutil);
+    padding: 2px 5px;
+    border-radius: var(--radius-pill);
+    white-space: nowrap;
+    align-self: center;
+  }
+
+
+  /* ─── Share button ─── */
+  .share-button {
+    position: relative;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .share-button--grid {
+    background: var(--color-acento);
+    border: none;
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    padding: 0;
+    border-radius: var(--radius-xs);
+    margin-top: 1px;
+    transition: background var(--motion-fast), transform var(--motion-instant);
+  }
+  .share-button--grid:hover { background: var(--color-acento-hover); transform: scale(1.06); }
+  .share-button--grid img  { width: 11px; height: 11px; filter: brightness(0.2); }
+
+  .tooltip {
+    position: absolute;
+    bottom: 110%;
+    right: 0;
+    background: var(--color-panel-raised);
+    border: 1px solid var(--color-borde);
+    color: var(--color-texto-secundario);
+    font-size: var(--text-2xs);
+    padding: 0.2rem 0.45rem;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    z-index: var(--layer-float);
+  }
+
+  /* Declarada después de .titulo--grid: en la tarjeta prevalecen estos valores. */
+  .titulo {
+    margin: 0;
+    line-height: 1.1;
+    font-size: var(--text-3xl);
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    color: var(--color-texto);
+  }
+
+  .titulo-link {
+    text-decoration: none;
+    color: inherit;
+    transition: color var(--motion-fast);
+  }
+  .titulo-link:hover { color: var(--color-texto-alto); }
+</style>

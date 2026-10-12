@@ -1,0 +1,81 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { browser } from '$app/environment';
+  import LanzamientoVista from '$lib/components/LanzamientoVista.svelte';
+  import PageLayout from '$lib/layouts/PageLayout.svelte';
+  import { catalogCrumb } from '$lib/layouts/crumbs';
+  import ErrorState from '$lib/ui/ErrorState.svelte';
+  import LoadingIndicator from '$lib/ui/LoadingIndicator.svelte';
+  import { recommendReleases } from '$lib/domain/releaseRecommendations';
+  import { fetchReleases, resolveReleaseBySlug, type Release } from '$lib/utils/catalogoStore';
+
+  export let data;
+
+  let lanzamiento: Release | null = null;
+  let cargando = true;
+  let mensajeError = '';
+  // Si se llegó desde el catálogo, la miga vuelve a esa misma búsqueda.
+  let catalogSearch = '';
+  let requestedSlug = '';
+  let requestVersion = 0;
+  let catalogo: Release[] = [];
+  $: recommendations = lanzamiento ? recommendReleases(lanzamiento, catalogo) : [];
+
+  onMount(() => {
+    try {
+      const from = new URL(document.referrer);
+      if (from.origin === window.location.origin && from.pathname === '/') catalogSearch = from.search;
+    } catch {
+      // Sin referrer o inválido: la miga lleva al catálogo completo.
+    }
+  });
+
+  async function cargarLanzamiento(slug: string) {
+    requestedSlug = slug;
+    const version = ++requestVersion;
+    cargando = true;
+    mensajeError = '';
+    lanzamiento = null;
+    try {
+      const [resolution, releases] = await Promise.all([resolveReleaseBySlug(slug), fetchReleases()]);
+      if (version !== requestVersion) return;
+      lanzamiento = resolution.status === 'resolved' ? resolution.release : null;
+      catalogo = releases;
+      if (!lanzamiento) mensajeError = 'No encontramos este lanzamiento en el catálogo.';
+    } catch (error) {
+      if (version !== requestVersion) return;
+      console.error('No fue posible resolver el lanzamiento:', error);
+      mensajeError = 'No fue posible cargar este lanzamiento. Intenta de nuevo.';
+    } finally {
+      if (version === requestVersion) cargando = false;
+    }
+  }
+
+  $: if (browser && data?.slug && data.slug !== requestedSlug) void cargarLanzamiento(data.slug);
+</script>
+
+<svelte:head>
+  <title>{lanzamiento ? `${lanzamiento.title} — Biblioteca Discótica` : 'Lanzamiento — Biblioteca Discótica'}</title>
+</svelte:head>
+
+{#if cargando}
+  <div class="cargando">
+    <LoadingIndicator label="Cargando lanzamiento" />
+  </div>
+{:else if lanzamiento}
+  <PageLayout breadcrumbs={[catalogCrumb(catalogSearch), { label: lanzamiento.title }]}>
+    <LanzamientoVista {lanzamiento} {recommendations} />
+  </PageLayout>
+{:else}
+  <PageLayout container="narrow">
+    <ErrorState heading="h1" message="No pudimos abrir este lanzamiento" detail={mensajeError} actionLabel="Volver al catálogo" actionHref="/" />
+  </PageLayout>
+{/if}
+
+<style>
+  .cargando {
+    display: grid;
+    place-items: center;
+    min-height: 60vh;
+  }
+</style>

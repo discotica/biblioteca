@@ -1,0 +1,278 @@
+<script lang="ts">
+  // Propuestas del Estudio (U15). Es la vista de la estación editorial de E10,
+  // ahora dentro del layout del Estudio y sin los reportes, que tienen su
+  // sección. Su rediseño en bandeja es U17. El layout ya comprobó sesión y rol.
+  import { onMount, tick } from 'svelte';
+  import { page } from '$app/stores';
+  import { dialogOverlay } from '$lib/ui/overlay';
+  import { Button, LoadingIndicator, Notice } from '$lib/ui';
+  import Icon from '$lib/ui/Icon.svelte';
+  import { ToolHeader } from '$lib/layouts';
+  import { getStudioContext } from '$lib/components/estudio/context';
+  import { studioProposalsHref, studioReleaseHref } from '$lib/domain/studio';
+  import {
+    CONTRIBUTION_STATUS_LABELS,
+    RELEASE_TYPE_OPTIONS,
+    loadEditorialQueue,
+    loadReleaseContributions,
+    prepareContributionForAdmin,
+    reviewContribution,
+    type Contribution
+  } from '$lib/stores/contributionsStore';
+
+  const studio = getStudioContext();
+  const role = studio.role;
+  const userId = studio.userId;
+  const catalogAvailable = studio.sections.includes('catalogo');
+
+  let loaded = false;
+  let queue: Contribution[] = [];
+  let error = '';
+  let flash = '';
+  /** Lanzamiento creado por la última aprobación, para abrirlo en el Catálogo. */
+  let approvedReleaseId: string | null = null;
+  let busy = '';
+  let notes: Record<string, string> = {};
+  let approvalTarget: Contribution | null = null;
+  /** ?lanzamiento=<uuid>: las propuestas que crearon ese lanzamiento. */
+  let releaseFilter: string | null = null;
+
+  $: communityQueue = queue.filter((item) => item.queue_kind === 'community' && item.status === 'pending');
+  $: priorityQueue = queue.filter((item) => item.queue_kind === 'collaborator' || item.status === 'ready_for_admin');
+  $: if (loaded && $page.url.searchParams.get('lanzamiento') !== releaseFilter) void load();
+
+  async function load() {
+    releaseFilter = $page.url.searchParams.get('lanzamiento');
+    loaded = false;
+    error = '';
+    try {
+      queue = releaseFilter ? await loadReleaseContributions(releaseFilter) : await loadEditorialQueue();
+    } catch (cause: any) {
+      queue = [];
+      error = cause?.message || 'No se pudieron cargar las propuestas.';
+    } finally {
+      loaded = true;
+    }
+  }
+
+  onMount(load);
+
+  function releaseType(value: string) {
+    return RELEASE_TYPE_OPTIONS.find((option) => option.value === value)?.label ?? (value || 'Sin confirmar');
+  }
+
+  function display(value: unknown) {
+    if (Array.isArray(value)) return value.length ? value.join(', ') : '—';
+    return typeof value === 'string' && value.trim() ? value : '—';
+  }
+
+  function detected(item: Contribution, key: 'title' | 'artists' | 'type' | 'release_date') {
+    return display(item.detected_metadata?.[key]);
+  }
+
+  function confirmed(item: Contribution, key: 'title' | 'artists' | 'type' | 'release_date') {
+    if (key === 'artists') return display(item.payload.primary_artists);
+    if (key === 'type') return releaseType(item.payload.release_type);
+    return display(item.payload[key]);
+  }
+
+  function differs(item: Contribution, key: 'title' | 'artists' | 'type' | 'release_date') {
+    const before = detected(item, key).toLocaleLowerCase('es');
+    const after = confirmed(item, key).toLocaleLowerCase('es');
+    return before !== '—' && before !== after;
+  }
+
+  /** Solo las propuestas en cola admiten acciones; las resueltas se consultan. */
+  const open = (item: Contribution) => item.status === 'pending' || item.status === 'ready_for_admin';
+
+  async function preparar(item: Contribution) {
+    busy = item.id;
+    error = '';
+    flash = '';
+    approvedReleaseId = null;
+    try {
+      const updated = await prepareContributionForAdmin(item.id, item.payload, notes[item.id] ?? '');
+      queue = role === 'colaborador'
+        ? queue.filter((entry) => entry.id !== item.id)
+        : queue.map((entry) => entry.id === item.id ? updated : entry);
+      flash = `${item.payload.title || 'La propuesta'} quedó lista para administración.`;
+      studio.refreshCounts();
+    } catch (cause: any) {
+      error = cause?.message || 'No se pudo preparar la propuesta.';
+    } finally {
+      busy = '';
+    }
+  }
+
+  async function decide(item: Contribution, action: 'approved' | 'rejected' | 'changes_requested') {
+    error = '';
+    flash = '';
+    approvedReleaseId = null;
+    const note = notes[item.id]?.trim() ?? '';
+    if (action !== 'approved' && !note) {
+      error = action === 'rejected' ? 'Escribe una nota antes de rechazar.' : 'Escribe una nota para solicitar cambios.';
+      await tick();
+      document.getElementById(`note-${item.id}`)?.focus();
+      return;
+    }
+    busy = item.id;
+    try {
+      const updated = await reviewContribution(item.id, action, note);
+      queue = releaseFilter ? queue.map((entry) => entry.id === item.id ? updated : entry) : queue.filter((entry) => entry.id !== item.id);
+      flash = `${item.payload.title || 'La propuesta'}: ${CONTRIBUTION_STATUS_LABELS[updated.status]}.`;
+      approvedReleaseId = action === 'approved' ? updated.release_id : null;
+      approvalTarget = null;
+      studio.refreshCounts();
+    } catch (cause: any) {
+      error = cause?.message || 'No se pudo registrar la decisión.';
+      if (action === 'approved') approvalTarget = null;
+    } finally {
+      busy = '';
+    }
+  }
+</script>
+
+<svelte:head><title>Propuestas · Estudio — Discótica</title></svelte:head>
+
+<ToolHeader
+  title="Propuestas"
+  description={releaseFilter
+    ? 'Propuestas que crearon este lanzamiento.'
+    : role === 'admin'
+      ? 'Las colas comunitaria y prioritaria se revisan por separado. La base de datos conserva la autorización y cada transición.'
+      : 'Prepara propuestas de la comunidad para la revisión final de administración.'}
+>
+  {#snippet actions()}
+    {#if releaseFilter}
+      <Button size="sm" variant="secondary" href={studioProposalsHref()}>Ver todas</Button>
+      {#if catalogAvailable}<Button size="sm" variant="secondary" href={studioReleaseHref(releaseFilter)}>Abrir el lanzamiento</Button>{/if}
+    {/if}
+  {/snippet}
+</ToolHeader>
+
+{#if error}<Notice tone="error" class="propuestas__notice">{error}</Notice>{/if}
+{#if flash && approvedReleaseId && catalogAvailable}
+  <Notice tone="success" class="propuestas__notice">
+    {flash}
+    {#snippet actions()}
+      <Button size="sm" variant="secondary" href={studioReleaseHref(approvedReleaseId!)}>Abrir el lanzamiento en el Catálogo</Button>
+    {/snippet}
+  </Notice>
+{:else if flash}
+  <Notice tone="success" class="propuestas__notice">{flash}</Notice>
+{/if}
+
+{#if !loaded}
+  <div class="propuestas__loading"><LoadingIndicator label="Cargando propuestas" /></div>
+{:else if releaseFilter}
+  <section class="queue" aria-labelledby="release-heading">
+    <div class="queue-heading"><div><p>Lanzamiento</p><h2 id="release-heading">Propuestas de este lanzamiento</h2></div><span>{queue.length}</span></div>
+    {#if queue.length === 0}<p class="empty">Ninguna propuesta creó este lanzamiento: se cargó desde el catálogo.</p>{:else}<div class="cards">{#each queue as item (item.id)}{@render ReviewCard(item)}{/each}</div>{/if}
+  </section>
+{:else}
+  {#if role === 'admin'}
+    <section class="queue" aria-labelledby="priority-heading">
+      <div class="queue-heading"><div><p>Revisión final</p><h2 id="priority-heading">Cola prioritaria</h2></div><span>{priorityQueue.length}</span></div>
+      <p class="queue-help">Aportes de colaboradores y propuestas comunitarias ya preparadas.</p>
+      {#if priorityQueue.length === 0}<p class="empty">No hay propuestas en la cola prioritaria.</p>{:else}<div class="cards">{#each priorityQueue as item (item.id)}{@render ReviewCard(item)}{/each}</div>{/if}
+    </section>
+  {:else if priorityQueue.length}
+    <section class="queue" aria-labelledby="own-priority-heading">
+      <div class="queue-heading"><div><p>Sin auto-revisión</p><h2 id="own-priority-heading">Mis aportes prioritarios</h2></div><span>{priorityQueue.length}</span></div>
+      <p class="queue-help">Tus propuestas pasan directamente a administración. Aquí no aparecen controles de revisión.</p>
+      <div class="cards">{#each priorityQueue as item (item.id)}{@render ReviewCard(item)}{/each}</div>
+    </section>
+  {/if}
+
+  <section class="queue" aria-labelledby="community-heading">
+    <div class="queue-heading"><div><p>{role === 'admin' ? 'Decisión administrativa' : 'Preparación colaborativa'}</p><h2 id="community-heading">Cola comunitaria</h2></div><span>{communityQueue.length}</span></div>
+    <p class="queue-help">{role === 'admin' ? 'Propuestas pendientes creadas por la comunidad.' : 'Puedes preparar aportes comunitarios ajenos para la revisión final de administración.'}</p>
+    {#if communityQueue.length === 0}<p class="empty">No hay propuestas comunitarias pendientes.</p>{:else}<div class="cards">{#each communityQueue as item (item.id)}{@render ReviewCard(item)}{/each}</div>{/if}
+  </section>
+{/if}
+
+{#snippet ReviewCard(item: Contribution)}
+  <article class="card">
+    <div class="card-head">
+      <div><span class="status">{CONTRIBUTION_STATUS_LABELS[item.status]}</span><h3>{item.payload.title || 'Propuesta sin título'}</h3></div>
+      <span class="provider">{item.source_provider ?? 'Fuente'}</span>
+    </div>
+    <a class="source-link" href={item.source_url} target="_blank" rel="noreferrer">Abrir fuente original<span class="source-link__icon"><Icon name="flecha-externa" size="em" /></span></a>
+    {#if item.release_id && catalogAvailable}<a class="source-link release-link" href={studioReleaseHref(item.release_id)}>Abrir el lanzamiento en el Catálogo</a>{/if}
+
+    <div class="comparison" aria-label="Comparación entre detección y datos confirmados">
+      <div class="comparison-head"><span>Campo</span><span>Detectado</span><span>Confirmado</span></div>
+      {#each [['title','Título'], ['artists','Principales'], ['type','Tipo'], ['release_date','Fecha']] as row}
+        <div class:changed={differs(item, row[0] as any)} class="comparison-row"><strong>{row[1]}</strong><span>{detected(item, row[0] as any)}</span><span>{confirmed(item, row[0] as any)}</span></div>
+      {/each}
+    </div>
+
+    <dl class="details">
+      <div><dt>Colaboradores</dt><dd>{display(item.payload.collaborators)}</dd></div>
+      <div><dt>Géneros</dt><dd>{display(item.payload.genres)}</dd></div>
+      <div><dt>Países</dt><dd>{display(item.payload.countries)}</dd></div>
+      <div><dt>Sello</dt><dd>{display(item.payload.label)}</dd></div>
+    </dl>
+    {#if item.detected_metadata?.cover_url}<div class="cover"><img src={String(item.detected_metadata.cover_url)} alt="Portada detectada para {item.payload.title}" /><p>Evidencia detectada; verificar antes de publicar.</p></div>{/if}
+    {#if item.payload.team_note}<div class="author-note"><strong>Nota para el equipo</strong><p>{item.payload.team_note}</p></div>{/if}
+    {#if item.reviewer_note && !open(item)}<div class="author-note"><strong>Nota de la revisión</strong><p>{item.reviewer_note}</p></div>{/if}
+
+    {#if !open(item)}
+      <!-- Resuelta: solo consulta. -->
+    {:else if role === 'colaborador' && item.queue_kind === 'community' && item.status === 'pending' && item.author_id !== userId}
+      <label class="note" for={`note-${item.id}`}>Nota interna <span>Opcional</span><textarea id={`note-${item.id}`} bind:value={notes[item.id]} rows="3" placeholder="Evidencia o contexto para administración"></textarea></label>
+      <button class="ui-button ui-button--primary" on:click={() => preparar(item)} disabled={busy === item.id}>{busy === item.id ? 'Preparando…' : 'Marcar lista para administración'}</button>
+    {:else if role === 'admin'}
+      <label class="note" for={`note-${item.id}`}>Nota para la persona autora <span>Obligatoria al pedir cambios o rechazar</span><textarea id={`note-${item.id}`} bind:value={notes[item.id]} rows="3"></textarea></label>
+      <div class="actions">
+        <button class="ui-button ui-button--primary" on:click={() => approvalTarget = item} disabled={busy === item.id}>Revisar publicación</button>
+        <button class="ui-button ui-button--secondary" on:click={() => decide(item, 'changes_requested')} disabled={busy === item.id}>Solicitar cambios</button>
+        <button class="ui-button ui-button--destructive" on:click={() => decide(item, 'rejected')} disabled={busy === item.id}>Rechazar</button>
+      </div>
+    {:else}
+      <p class="no-actions">Pendiente de revisión administrativa.</p>
+    {/if}
+  </article>
+{/snippet}
+
+{#if approvalTarget}
+  <div class="backdrop" role="presentation" on:click|self={() => approvalTarget = null}>
+    <div class="approval-dialog" role="dialog" aria-modal="true" aria-labelledby="approval-title" aria-describedby="approval-description" use:dialogOverlay={{ onClose: () => approvalTarget = null }}>
+      <p class="kicker">Publicación final</p><h2 id="approval-title">{approvalTarget.payload.title}</h2>
+      <p id="approval-description">Confirma el lanzamiento que se publicará con estos datos.</p>
+      <dl class="summary">
+        <div><dt>Principales</dt><dd>{display(approvalTarget.payload.primary_artists)}</dd></div>
+        <div><dt>Colaboradores</dt><dd>{display(approvalTarget.payload.collaborators)}</dd></div>
+        <div><dt>Tipo</dt><dd>{releaseType(approvalTarget.payload.release_type)}</dd></div>
+        <div><dt>Fecha</dt><dd>{approvalTarget.payload.release_date}</dd></div>
+        <div><dt>Géneros</dt><dd>{display(approvalTarget.payload.genres)}</dd></div>
+        <div><dt>Países</dt><dd>{display(approvalTarget.payload.countries)}</dd></div>
+      </dl>
+      <div class="dialog-actions"><button class="ui-button ui-button--secondary" data-overlay-initial-focus on:click={() => approvalTarget = null}>Volver</button><button class="ui-button ui-button--primary" on:click={() => approvalTarget && decide(approvalTarget, 'approved')} disabled={busy === approvalTarget.id}>{busy === approvalTarget.id ? 'Publicando…' : 'Aprobar y publicar'}</button></div>
+    </div>
+  </div>
+{/if}
+
+<style>
+  :global(.propuestas__notice) { margin-bottom: var(--density-pad); }
+  .propuestas__loading { display: grid; place-items: center; min-height: 16rem; }
+  .kicker { margin: 0 0 .45rem; color: var(--color-acento); font-size: var(--text-2xs); font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+  .queue { max-width: var(--container-wide); margin-top: 2.4rem; } .queue:first-of-type { margin-top: 0; } .queue-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; padding-bottom: .7rem; border-bottom: 1px solid var(--color-linea); } .queue-heading p { margin: 0 0 .2rem; color: var(--color-texto-tenue); font-size: var(--text-2xs); font-weight: 750; text-transform: uppercase; letter-spacing: .1em; } .queue-heading h2 { margin: 0; font-size: var(--text-xl); } .queue-heading > span { min-width: 2rem; padding: .25rem .5rem; border-radius: var(--radius-pill); background: var(--color-superficie-2); text-align: center; font-weight: 750; }
+  .queue-help { margin: .7rem 0 1rem; color: var(--color-texto-tenue); font-size: var(--text-xs); line-height: 1.45; }
+  .empty { padding: 1.4rem 0; color: var(--color-texto-tenue); }
+  .cards { display: grid; gap: 1rem; }
+  .card { min-width: 0; padding: 1.15rem; border: 1px solid var(--color-linea); border-radius: var(--radius-base); background: var(--color-superficie-1); }
+  .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; } .card-head h3 { margin: .35rem 0 .2rem; overflow-wrap: anywhere; font-size: var(--text-lg); } .status { display: inline-block; padding: .15rem .45rem; border: 1px solid var(--color-borde-hover); border-radius: var(--radius-pill); color: var(--color-acento); font-size: var(--text-2xs); font-weight: 750; } .provider { color: var(--color-texto-tenue); font-size: var(--text-2xs); text-transform: capitalize; }
+  .source-link { display: inline-flex; min-height: var(--target-touch); align-items: center; color: var(--color-acento); font-size: var(--text-2xs); }
+  .source-link__icon { display: inline-flex; margin-left: .2em; }
+  .release-link { margin-left: var(--space-4); }
+  .comparison { margin: .7rem 0 1rem; overflow: hidden; border: 1px solid var(--color-linea); border-radius: var(--radius-sm); } .comparison-head, .comparison-row { display: grid; grid-template-columns: minmax(90px,.65fr) 1fr 1fr; gap: .7rem; padding: .55rem .7rem; } .comparison-head { color: var(--color-texto-tenue); background: var(--color-superficie-1); font-size: var(--text-2xs); font-weight: 750; text-transform: uppercase; } .comparison-row { border-top: 1px solid var(--color-linea-sutil); font-size: var(--text-2xs); line-height: 1.4; } .comparison-row strong { color: var(--color-texto-tenue); } .comparison-row.changed { box-shadow: inset 3px 0 var(--color-aviso); }
+  .details, .summary { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .7rem; margin: 0; } .details > div, .summary > div { min-width: 0; } dt { color: var(--color-texto-tenue); font-size: var(--text-2xs); font-weight: 750; text-transform: uppercase; } dd { margin: .18rem 0 0; overflow-wrap: anywhere; color: var(--color-texto-alto); font-size: var(--text-2xs); }
+  .cover { display: flex; align-items: center; gap: .7rem; margin-top: 1rem; } .cover img { width: 62px; height: 62px; border-radius: var(--radius-sm); object-fit: cover; } .cover p { color: var(--color-texto-tenue); font-size: var(--text-2xs); }
+  .author-note, .no-actions { margin-top: 1rem; padding: .7rem; border-left: 2px solid var(--color-acento-border); background: var(--color-superficie-1); color: var(--color-texto-medio); font-size: var(--text-2xs); } .author-note p { margin: .25rem 0 0; white-space: pre-wrap; }
+  .note { display: grid; gap: .4rem; margin-top: 1rem; color: var(--color-texto-medio); font-size: var(--text-2xs); font-weight: 700; } .note > span { color: var(--color-texto-tenue); font-weight: 400; } textarea { box-sizing: border-box; width: 100%; padding: .65rem .7rem; border: 1px solid var(--color-linea-fuerte); border-radius: var(--radius-sm); background: var(--color-superficie-1); color: var(--color-texto); font: inherit; resize: vertical; }
+  .actions, .dialog-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+  .backdrop { position: fixed; inset: 0; z-index: var(--layer-overlay); display: grid; place-items: center; padding: 1rem; background: var(--overlay-backdrop); backdrop-filter: blur(var(--overlay-blur)); }
+  .approval-dialog { width: min(560px, 100%); max-height: calc(100dvh - 2rem); overflow: auto; box-sizing: border-box; padding: 1.3rem; border: 1px solid var(--color-linea-fuerte); border-radius: var(--radius-base); background: var(--color-panel); box-shadow: 0 28px 80px var(--color-sombra-fuerte); } .approval-dialog h2 { margin: 0; overflow-wrap: anywhere; } .approval-dialog > p:not(.kicker) { color: var(--color-texto-tenue); line-height: 1.45; } .summary { padding: 1rem; border-radius: var(--radius-sm); background: var(--color-superficie-1); }
+  @media (max-width: 679px) { .comparison { overflow-x: auto; } .comparison-head, .comparison-row { min-width: 560px; } .details, .summary { grid-template-columns: 1fr; } .actions button, .dialog-actions button { width: 100%; } .release-link { margin-left: 0; } }
+</style>

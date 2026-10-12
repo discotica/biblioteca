@@ -1,0 +1,139 @@
+<script lang="ts">
+  import { createEventDispatcher, tick } from 'svelte';
+  import ReleaseDetail from './ReleaseDetail.svelte';
+  import ReleaseRecommendations from './ReleaseRecommendations.svelte';
+  import type { Release } from '$lib/domain/releases';
+  import type { ReleaseRecommendation } from '$lib/domain/releaseRecommendations';
+  import { dialogOverlay } from '$lib/ui/overlay';
+
+  export let lanzamiento: Release;
+  export let returnFocus: HTMLElement | null = null;
+  export let recommendations: ReleaseRecommendation[] = [];
+
+  const dispatch = createEventDispatcher<{
+    cerrar: void;
+    recomendar: { recommendation: ReleaseRecommendation; trigger: HTMLElement | null };
+  }>();
+  let dialogElement: HTMLElement;
+  let previousSlug = lanzamiento.slug;
+  $: titleId = `release-title-${lanzamiento.slug}-modal`;
+  $: descriptionId = `release-description-${lanzamiento.slug}-modal`;
+
+  $: if (lanzamiento.slug !== previousSlug) {
+    previousSlug = lanzamiento.slug;
+    void focusReplacementTitle();
+  }
+
+  async function focusReplacementTitle() {
+    await tick();
+    dialogElement?.querySelector<HTMLElement>(`#${CSS.escape(titleId)}`)?.focus({ preventScroll: true });
+  }
+
+  function close() {
+    dispatch('cerrar');
+  }
+</script>
+
+<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+<div class="backdrop release-modal-backdrop" data-release-modal-backdrop on:click|self={close}>
+  <div
+    class="release-modal"
+    bind:this={dialogElement}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby={titleId}
+    aria-describedby={descriptionId}
+    use:dialogOverlay={{ onClose: close, returnFocus }}
+  >
+    <p class="sr-only" id={descriptionId}>Ficha del lanzamiento con créditos, metadata, reproductor y acciones.</p>
+    <button class="release-modal__close" data-overlay-initial-focus type="button" on:click={close} aria-label="Cerrar">
+      <svg width="14" height="14" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+        <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <ReleaseDetail release={lanzamiento} mode="modal" {titleId}>
+      <svelte:fragment slot="recommendations">
+        <ReleaseRecommendations
+          {recommendations}
+          mode="modal"
+          on:open={(event) => dispatch('recomendar', event.detail)}
+        />
+      </svelte:fragment>
+    </ReleaseDetail>
+  </div>
+</div>
+
+<style>
+  .release-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--layer-overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    box-sizing: border-box;
+    background: var(--overlay-backdrop);
+    backdrop-filter: blur(var(--overlay-blur));
+    animation: release-modal-fade var(--motion-overlay) ease;
+  }
+
+  .release-modal {
+    position: relative;
+    width: min(1060px, 100%);
+    height: min(720px, calc(100dvh - 2rem));
+    min-height: 0;
+    /* Not clipped: ReleaseDetail clips its own layout, so menus in its layer
+       can extend past the dialog edge while staying inside the dialog. */
+    overflow: visible;
+    border: 1px solid var(--color-linea-sutil);
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    background: var(--color-panel);
+    box-shadow: 0 28px 80px var(--color-sombra-fuerte);
+    animation: release-modal-enter var(--motion-overlay) var(--ease-emphasized);
+  }
+
+  .release-modal__close {
+    position: absolute;
+    z-index: calc(var(--layer-dropdown) + 2);
+    top: .8rem;
+    right: .8rem;
+    display: grid;
+    place-items: center;
+    width: var(--target-touch);
+    min-height: var(--target-touch);
+    padding: 0;
+    border: 1px solid var(--color-linea-fuerte);
+    border-radius: var(--radius-pill);
+    background: var(--color-velo);
+    color: var(--color-texto-alto);
+    cursor: pointer;
+  }
+
+  .release-modal__close:hover {
+    border-color: var(--color-acento-texto);
+    background: var(--color-acento-suave);
+    color: var(--color-acento);
+  }
+
+  @keyframes release-modal-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes release-modal-enter {
+    from { transform: translateY(18px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  @media (max-width: 680px) {
+    .release-modal-backdrop { padding: 0; }
+    .release-modal {
+      width: 100%;
+      height: 100dvh;
+      max-height: none;
+      border: 0;
+      border-radius: 0;
+    }
+  }
+</style>

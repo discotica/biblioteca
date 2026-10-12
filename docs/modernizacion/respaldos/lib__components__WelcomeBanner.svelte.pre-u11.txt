@@ -1,0 +1,62 @@
+<script lang="ts">
+  import { createEventDispatcher } from 'svelte';
+  import { WELCOME_CONTENT, type WelcomeContent } from '$lib/content/welcome';
+
+  export let content: WelcomeContent = WELCOME_CONTENT;
+
+  const dispatch = createEventDispatcher<{ close: void; explore: void }>();
+</script>
+
+<section class="welcome-banner" aria-labelledby="welcome-title" data-welcome-banner>
+  <div class="welcome-banner__copy">
+    <button
+      class="welcome-banner__close ui-icon-button"
+      type="button"
+      aria-label={content.closeLabel}
+      on:click={() => dispatch('close')}
+    >
+      <span aria-hidden="true">×</span>
+    </button>
+    <p class="welcome-banner__eyebrow">Biblioteca Discótica</p>
+    <h1 id="welcome-title">{content.title}</h1>
+    <p>{content.description}</p>
+    <button class="welcome-banner__cta ui-button ui-button--primary" type="button" on:click={() => dispatch('explore')}>
+      {content.cta}
+    </button>
+  </div>
+  <div class="welcome-banner__visual" role="img" aria-label={content.visualLabel}>
+    <span aria-hidden="true"></span>
+  </div>
+</section>
+
+<style>
+  .welcome-banner {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(11rem, .75fr);
+    gap: clamp(1rem, 4vw, 3rem);
+    align-items: center;
+    max-width: 1200px;
+    min-height: 15.5rem;
+    box-sizing: border-box;
+    margin: var(--spacing-md) auto var(--spacing-sm);
+    padding: clamp(1.25rem, 3.5vw, 2.5rem);
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radius-lg);
+    background: linear-gradient(115deg, var(--color-panel-raised), var(--color-panel));
+  }
+  .welcome-banner__copy { min-width: 0; }
+  .welcome-banner__eyebrow { margin: 0 0 .55rem; color: var(--color-acento); font-size: var(--text-2xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  h1 { max-width: 19ch; margin: 0; font-size: var(--text-3xl); line-height: 1.08; letter-spacing: -.035em; }
+  .welcome-banner__copy > p:not(.welcome-banner__eyebrow) { max-width: 50ch; margin: .9rem 0 1.2rem; color: var(--color-texto-secundario); }
+  .welcome-banner__cta { color: var(--color-fondo); }
+  .welcome-banner__close { position: absolute; top: .65rem; right: .65rem; z-index: 1; }
+  .welcome-banner__close span { font-size: var(--text-2xl); font-weight: 400; line-height: 1; }
+  .welcome-banner__visual { min-height: 10rem; aspect-ratio: 4 / 3; display: grid; place-items: center; overflow: hidden; border: 1px dashed var(--color-acento-border); border-radius: var(--radius-base); background: var(--color-acento-dim); }
+  .welcome-banner__visual span { width: 42%; aspect-ratio: 1; border: 1px solid var(--color-acento-border); border-radius: 50%; box-shadow: 0 0 0 1.25rem var(--color-acento-tinte), 0 0 0 2.5rem var(--color-acento-tinte); }
+  @media (max-width: 768px) {
+    .welcome-banner { grid-template-columns: 1fr; min-height: 0; margin-top: var(--spacing-sm); padding: 1.25rem; }
+    .welcome-banner__visual { min-height: 4.5rem; max-height: 6rem; aspect-ratio: auto; }
+    .welcome-banner__visual span { height: 2.4rem; width: auto; }
+  }
+</style>

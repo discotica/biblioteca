@@ -1,0 +1,634 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { replaceState } from '$app/navigation';
+  import { page as pageStore } from '$app/stores';
+  import RadarMini from '$lib/components/RadarMini.svelte';
+  import { slugifyReleaseIdentity } from '$lib/domain/releases';
+  import { matchByName, takeAdminHandoff, type AdminHandoff } from '$lib/domain/adminHandoff';
+  import { user } from '$lib/stores/authStore';
+  import { dialogOverlay } from '$lib/ui/overlay';
+  import { BELOW_MOBILE_QUERY } from '$lib/ui/breakpoints';
+  import {
+    blankCatalog,
+    createArtist,
+    createGenre,
+    createLabel,
+    createCatalog,
+    dictionaries,
+    findArtistsByNames,
+    getAdminRole,
+    getArtistsByIds,
+    getCatalogHistory,
+    getCatalogRelease,
+    listCatalog,
+    revertCatalog,
+    saveCatalog,
+    searchArtists,
+    type Artist,
+    type CatalogHistory,
+    type CatalogSnapshot,
+    type CatalogStatus,
+    type DictionaryEntry
+  } from '$lib/services/adminCatalog';
+
+  type Tab = 'edit' | 'history';
+  type DialogKind = 'publish' | 'archive' | 'revert' | 'artist' | 'label' | 'genre' | null;
+  type CreditKind = 'artist_ids' | 'collaborator_ids';
+  type CreditEditor = { kind: CreditKind; replaceId?: string } | null;
+
+  const enabled = import.meta.env.VITE_ADMIN_CATALOG_ENABLED === 'true';
+  const radarKeys = ['experimental', 'denso', 'sintetico', 'bailable', 'rapido'] as const;
+  const statusLabels: Record<CatalogStatus, string> = {
+    draft: 'Borrador',
+    published: 'Publicado',
+    archived: 'Archivado'
+  };
+  const creditGroups: Array<{ kind: CreditKind; title: string; required: boolean }> = [
+    { kind: 'artist_ids', title: 'Artistas principales', required: true },
+    { kind: 'collaborator_ids', title: 'Colaboradores', required: false }
+  ];
+
+  let role = '';
+  let ready = false;
+  let busy = false;
+  let loading = false;
+  let mobile = false;
+  let error = '';
+  let notice = '';
+  let query = '';
+  let page = 1;
+  let total = 0;
+  let filtersOpen = false;
+  let statuses: CatalogStatus[] = [];
+  let typeIds: string[] = [];
+  let searchTimer: ReturnType<typeof setTimeout> | undefined;
+  let items: CatalogSnapshot[] = [];
+  let checkedIds: string[] = [];
+  let selected: CatalogSnapshot | null = null;
+  let labelText = '';
+  let history: CatalogHistory[] = [];
+  let activeTab: Tab = 'edit';
+  let observation = '';
+  let dialog: DialogKind = null;
+  let pendingHistory: CatalogHistory | null = null;
+  let artistName = '';
+  let dictionaryName = '';
+  let dictionaryReason = '';
+  let artistQuery = '';
+  let artistResults: Artist[] = [];
+  let artistSearching = false;
+  let artistSearchTimer: ReturnType<typeof setTimeout> | undefined;
+  let creditEditor: CreditEditor = null;
+  let selectedCreditIds: string[] = [];
+  let draggedCreditIds: string[] = [];
+  let lastCreditSelection: { kind: CreditKind; index: number } | null = null;
+  let artists: Artist[] = [];
+  let labels: DictionaryEntry[] = [];
+  let genres: DictionaryEntry[] = [];
+  let countries: DictionaryEntry[] = [];
+  let types: DictionaryEntry[] = [];
+
+  const isAdmin = () => enabled && role === 'admin';
+  const toggle = <T,>(values: T[], value: T) =>
+    values.includes(value) ? values.filter((current) => current !== value) : [...values, value];
+  const artistOf = (id: string) => artists.find((artist) => artist.id === id);
+  const nameOf = (entries: DictionaryEntry[], id: string | null) => entries.find((entry) => entry.id === id)?.name ?? 'Sin asignar';
+  const selectedArtistNames = (ids: string[]) => ids.map((id) => artistOf(id)?.name ?? 'Artista sin resolver').join(', ');
+
+  function normalize(value: string) {
+    return value.trim().toLocaleLowerCase('es').normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ');
+  }
+  function formatDate(value: string | null, includeTime = false) {
+    if (!value) return 'Sin fecha';
+    const parsed = new Date(value.length === 10 ? `${value}T12:00:00` : value);
+    return new Intl.DateTimeFormat('es-CO', includeTime ? { dateStyle: 'medium', timeStyle: 'short' } : { day: '2-digit', month: 'short', year: 'numeric' }).format(parsed);
+  }
+  function primaryLink(snapshot = selected) {
+    return snapshot?.links.find((link) => link.is_primary) ?? null;
+  }
+  function inferProvider(url: string) {
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      if (host.includes('bandcamp.com')) return 'Bandcamp';
+      if (host.includes('spotify.com')) return 'Spotify';
+      if (host.includes('soundcloud.com')) return 'SoundCloud';
+    } catch {
+      // La validación muestra el error cuando la persona termina de editar.
+    }
+    return 'Enlace';
+  }
+  function missingFields(snapshot: CatalogSnapshot) {
+    const missing: string[] = [];
+    if (!snapshot.title.trim()) missing.push('Título');
+    if (!snapshot.slug.trim()) missing.push('Identificador interno');
+    if (!snapshot.release_date) missing.push('Fecha');
+    if (!snapshot.release_type_id) missing.push('Tipo');
+    if (!snapshot.label_id) missing.push('Sello');
+    if (!snapshot.artist_ids.length) missing.push('Artista principal');
+    if (!snapshot.genre_ids.length) missing.push('Género');
+    if (!snapshot.country_ids.length) missing.push('País');
+    if (!snapshot.cover_url || !/^https:\/\//i.test(snapshot.cover_url)) missing.push('Portada');
+    const primaryLinks = snapshot.links.filter((link) => link.is_primary);
+    if (primaryLinks.length !== 1 || !primaryLinks[0].provider.trim() || !/^https:\/\//i.test(primaryLinks[0].url)) missing.push('Link de compra');
+    return missing;
+  }
+  function completion(snapshot: CatalogSnapshot) {
+    return Math.round(((10 - missingFields(snapshot).length) / 10) * 100);
+  }
+  function validate(snapshot: CatalogSnapshot, publishing = false) {
+    if (!snapshot.title.trim()) return 'El título es obligatorio.';
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*(?:--[a-z0-9]+)?$/.test(snapshot.slug)) return 'No pudimos generar el identificador interno. Revisa el título.';
+    if (!snapshot.artist_ids.length) return 'Selecciona al menos un artista principal.';
+    if (snapshot.artist_ids.some((id) => snapshot.collaborator_ids.includes(id))) return 'Un artista no puede ser principal y colaborador a la vez.';
+    if (publishing && missingFields(snapshot).length) return `Completa antes de publicar: ${missingFields(snapshot).join(', ')}.`;
+    if (snapshot.cover_url && !/^https:\/\//i.test(snapshot.cover_url)) return 'La portada debe usar HTTPS.';
+    if (snapshot.links.some((link) => !link.provider.trim() || !/^https:\/\//i.test(link.url))) return 'Cada enlace requiere proveedor y una URL HTTPS válida.';
+    if (snapshot.links.filter((link) => link.is_primary).length > 1) return 'Solo puede haber un enlace principal.';
+    return '';
+  }
+  function assignSnapshot(snapshot: CatalogSnapshot) {
+    selected = snapshot;
+    labelText = snapshot.label_id ? nameOf(labels, snapshot.label_id) : '';
+  }
+  async function ensureArtists(ids: string[]) {
+    const known = new Set(artists.map((artist) => artist.id));
+    const missing = [...new Set(ids)].filter((id) => id && !known.has(id));
+    if (missing.length) artists = [...artists, ...(await getArtistsByIds(missing))];
+  }
+  async function loadList() {
+    if (!isAdmin()) return;
+    loading = true;
+    error = '';
+    try {
+      const result = await listCatalog({ query, statuses, qualities: [], typeIds, page });
+      items = result.items;
+      total = result.total;
+      await ensureArtists(items.flatMap((item) => [...item.artist_ids, ...item.collaborator_ids]));
+    } catch (cause: any) {
+      error = cause?.code === '42501' ? 'El servidor denegó el acceso administrativo.' : cause.message || 'No se pudo cargar el catálogo.';
+    } finally {
+      loading = false;
+    }
+  }
+  function scheduleListSearch() {
+    clearTimeout(searchTimer);
+    page = 1;
+    searchTimer = setTimeout(loadList, 260);
+  }
+  async function openRelease(id: string) {
+    loading = true;
+    error = '';
+    notice = '';
+    try {
+      const snapshot = await getCatalogRelease(id);
+      history = await getCatalogHistory(id);
+      await ensureArtists([...snapshot.artist_ids, ...snapshot.collaborator_ids]);
+      assignSnapshot(snapshot);
+      activeTab = 'edit';
+      observation = '';
+      creditEditor = null;
+      selectedCreditIds = [];
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (cause: any) {
+      error = cause.message || 'No se pudo abrir el lanzamiento.';
+    } finally {
+      loading = false;
+    }
+  }
+  function closeEditor() {
+    selected = null;
+    history = [];
+    observation = '';
+    error = '';
+    notice = '';
+    creditEditor = null;
+    selectedCreditIds = [];
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  function newRelease() {
+    assignSnapshot(blankCatalog());
+    history = [];
+    observation = '';
+    activeTab = 'edit';
+    error = '';
+    notice = '';
+    creditEditor = null;
+    selectedCreditIds = [];
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  /**
+   * Rellena el lanzamiento nuevo con lo que se escribió en Sugerir (U13). Solo
+   * elige lo que ya existe en el catálogo; lo demás se nombra en el aviso para
+   * crearlo aquí con sus herramientas, como siempre.
+   */
+  async function applyHandoff(handoff: AdminHandoff | null) {
+    if (!handoff || !selected) return;
+    const found = await findArtistsByNames([...handoff.primaryArtists, ...handoff.collaborators]).catch(() => [] as Artist[]);
+    artists = [...artists, ...found.filter((artist) => !artists.some((known) => known.id === artist.id))];
+    const primary = matchByName(found, handoff.primaryArtists);
+    const guests = matchByName(found, handoff.collaborators);
+    const genreMatch = matchByName(genres, handoff.genres);
+    const countryMatch = matchByName(countries, handoff.countries);
+    const typeMatch = matchByName(types, handoff.releaseType ? [handoff.releaseType] : []);
+    updateTitle(handoff.title);
+    if (!selected) return;
+    selected.release_date = handoff.releaseDate || null;
+    selected.release_type_id = typeMatch.ids[0] ?? null;
+    selected.artist_ids = primary.ids;
+    selected.collaborator_ids = guests.ids.filter((id) => !primary.ids.includes(id));
+    selected.genre_ids = genreMatch.ids;
+    selected.country_ids = countryMatch.ids;
+    if (/^https:\/\//i.test(handoff.coverUrl)) selected.cover_url = handoff.coverUrl;
+    selected = { ...selected };
+    if (handoff.label) updateLabel(handoff.label);
+    if (handoff.sourceUrl) updateBuyLink(handoff.sourceUrl);
+    observation = handoff.note.trim() || 'Alta desde Sugerir.';
+    const pending = [
+      ...primary.missing.map((name) => `${name} (artista)`),
+      ...guests.missing.map((name) => `${name} (colaborador)`),
+      ...genreMatch.missing.map((name) => `${name} (género)`),
+      ...countryMatch.missing.map((name) => `${name} (país)`),
+      ...(handoff.label && !selected.label_id ? [`${handoff.label} (sello)`] : [])
+    ];
+    notice = pending.length
+      ? `Datos traídos de Sugerir. Aún no existen en el catálogo, créalos aquí: ${pending.join(', ')}.`
+      : 'Datos traídos de Sugerir. Revisa y crea el borrador.';
+  }
+  async function refreshSelected(id = selected?.id) {
+    if (!id) return;
+    const snapshot = await getCatalogRelease(id);
+    history = await getCatalogHistory(id);
+    await ensureArtists([...snapshot.artist_ids, ...snapshot.collaborator_ids]);
+    assignSnapshot(snapshot);
+    await loadList();
+  }
+  async function submit(operation: 'update' | 'publish' | 'archive' = 'update') {
+    if (!selected || mobile) return;
+    const invalid = validate(selected, operation === 'publish');
+    if (invalid) { error = invalid; return; }
+    if (!observation.trim()) { error = 'Añade una observación del cambio. El historial auditado la exige.'; return; }
+    busy = true;
+    error = '';
+    try {
+      const wasNew = !selected.id;
+      const outcome = selected.id ? await saveCatalog(selected, observation, operation) : await createCatalog(selected, observation);
+      await refreshSelected(outcome.release_id);
+      notice = operation === 'archive' ? 'Lanzamiento archivado.' : operation === 'publish' ? 'Lanzamiento publicado.' : wasNew ? 'Borrador creado.' : 'Cambios guardados.';
+      observation = '';
+    } catch (cause: any) {
+      if (cause?.code === '40001') {
+        await refreshSelected();
+        error = 'Otra persona editó este lanzamiento. Cargamos la versión más reciente; revisa el historial antes de guardar.';
+      } else error = cause.message || 'No se pudo guardar.';
+    } finally {
+      busy = false;
+      dialog = null;
+    }
+  }
+  async function submitRevert() {
+    if (!pendingHistory || !selected || mobile) return;
+    if (!observation.trim()) { error = 'Añade una observación para explicar la reversión.'; return; }
+    busy = true;
+    error = '';
+    try {
+      await revertCatalog(pendingHistory.change_set_id, pendingHistory.result_version, observation);
+      await refreshSelected();
+      notice = 'Cambio revertido mediante una nueva entrada auditada.';
+      observation = '';
+    } catch (cause: any) {
+      if (cause?.code === '40001') {
+        await refreshSelected();
+        error = 'No se revirtió porque existe una edición posterior. Cargamos el estado actual.';
+      } else error = cause.message || 'No se pudo revertir.';
+    } finally {
+      busy = false;
+      dialog = null;
+      pendingHistory = null;
+    }
+  }
+  function updateTitle(value: string) {
+    if (!selected) return;
+    selected.title = value;
+    if (!selected.id) selected.slug = slugifyReleaseIdentity(value);
+    selected = { ...selected };
+  }
+  function updateLabel(value: string) {
+    if (!selected) return;
+    labelText = value;
+    const match = labels.find((label) => normalize(label.name) === normalize(value));
+    selected.label_id = match?.id ?? null;
+    selected = { ...selected };
+  }
+  function updateBuyLink(value: string) {
+    if (!selected) return;
+    const provider = inferProvider(value);
+    const primaryIndex = selected.links.findIndex((link) => link.is_primary);
+    if (primaryIndex < 0) {
+      if (value) selected.links = [{ provider, url: value, is_primary: true }, ...selected.links];
+    } else if (!value) selected.links = selected.links.filter((_, index) => index !== primaryIndex);
+    else selected.links = selected.links.map((link, index) => index === primaryIndex ? { provider, url: value, is_primary: true } : link);
+    selected = { ...selected };
+  }
+  function toggleDictionary(key: 'genre_ids' | 'country_ids', id: string) {
+    if (!selected || mobile) return;
+    selected[key] = toggle(selected[key], id);
+    selected = { ...selected };
+  }
+  function beginCreditEditor(kind: CreditKind, replaceId?: string) {
+    creditEditor = { kind, replaceId };
+    artistQuery = replaceId ? artistOf(replaceId)?.name ?? '' : '';
+    artistResults = [];
+    artistName = '';
+  }
+  function closeCreditEditor() {
+    creditEditor = null;
+    artistQuery = '';
+    artistResults = [];
+  }
+  async function runArtistSearch() {
+    if (artistQuery.trim().length < 2) { artistResults = []; return; }
+    artistSearching = true;
+    try { artistResults = await searchArtists(artistQuery); }
+    catch (cause: any) { error = cause.message || 'No se pudo buscar artistas.'; }
+    finally { artistSearching = false; }
+  }
+  function scheduleArtistSearch() {
+    clearTimeout(artistSearchTimer);
+    artistSearchTimer = setTimeout(runArtistSearch, 220);
+  }
+  function chooseArtist(artist: Artist) {
+    if (!selected || !creditEditor || mobile) return;
+    const { kind, replaceId } = creditEditor;
+    const otherKind: CreditKind = kind === 'artist_ids' ? 'collaborator_ids' : 'artist_ids';
+    if (selected[otherKind].includes(artist.id) && artist.id !== replaceId) {
+      error = `${artist.name} ya está en el otro grupo de créditos.`;
+      return;
+    }
+    if (replaceId) selected[kind] = selected[kind].map((id) => id === replaceId ? artist.id : id).filter((id, index, values) => values.indexOf(id) === index);
+    else if (!selected[kind].includes(artist.id)) selected[kind] = [...selected[kind], artist.id];
+    if (!artists.some((entry) => entry.id === artist.id)) artists = [...artists, artist];
+    selected = { ...selected };
+    selectedCreditIds = [];
+    closeCreditEditor();
+  }
+  function removeCredit(kind: CreditKind, id: string) {
+    if (!selected || mobile) return;
+    selected[kind] = selected[kind].filter((value) => value !== id);
+    selected = { ...selected };
+    selectedCreditIds = selectedCreditIds.filter((value) => value !== id);
+  }
+  function moveCredits(ids: string[], targetKind: CreditKind) {
+    if (!selected || mobile || !ids.length) return;
+    const moving = [...new Set(ids)];
+    const target = selected[targetKind].filter((id) => !moving.includes(id));
+    selected.artist_ids = selected.artist_ids.filter((id) => !moving.includes(id));
+    selected.collaborator_ids = selected.collaborator_ids.filter((id) => !moving.includes(id));
+    selected[targetKind] = [...target, ...moving];
+    selected = { ...selected };
+    selectedCreditIds = [];
+    draggedCreditIds = [];
+  }
+  function selectCredit(event: MouseEvent, kind: CreditKind, id: string, index: number) {
+    if (event.shiftKey && lastCreditSelection?.kind === kind && selected) {
+      const start = Math.min(lastCreditSelection.index, index);
+      const end = Math.max(lastCreditSelection.index, index);
+      selectedCreditIds = [...new Set([...selectedCreditIds, ...selected[kind].slice(start, end + 1)])];
+    } else if (event.metaKey || event.ctrlKey) selectedCreditIds = toggle(selectedCreditIds, id);
+    else selectedCreditIds = [id];
+    lastCreditSelection = { kind, index };
+  }
+  function startCreditDrag(event: DragEvent, kind: CreditKind, id: string, index: number) {
+    if (!selectedCreditIds.includes(id)) {
+      selectedCreditIds = [id];
+      lastCreditSelection = { kind, index };
+    }
+    draggedCreditIds = [...selectedCreditIds];
+    event.dataTransfer?.setData('text/plain', id);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+  }
+  async function confirmArtist() {
+    if (!artistName.trim() || !selected || !creditEditor || mobile) return;
+    busy = true;
+    error = '';
+    try {
+      const result = await createArtist(artistName);
+      chooseArtist({ id: result.artist_id, name: result.name });
+      notice = result.created ? 'Artista creado y añadido al lanzamiento.' : 'Usamos la identidad canónica existente.';
+      dialog = null;
+      artistName = '';
+    } catch (cause: any) { error = cause.message || 'No se pudo crear el artista.'; }
+    finally { busy = false; }
+  }
+  function beginDictionaryCreate(kind: 'label' | 'genre', name = '') {
+    if (mobile) return;
+    dictionaryName = name;
+    dictionaryReason = '';
+    dialog = kind;
+  }
+  async function confirmDictionary() {
+    if (!selected || (dialog !== 'label' && dialog !== 'genre')) return;
+    if (!dictionaryName.trim()) { error = 'Escribe el nombre que quieres dar de alta.'; return; }
+    if (!dictionaryReason.trim()) { error = 'Añade una observación para auditar esta alta.'; return; }
+    const kind = dialog;
+    busy = true;
+    error = '';
+    try {
+      const result = kind === 'label'
+        ? await createLabel(dictionaryName, dictionaryReason)
+        : await createGenre(dictionaryName, dictionaryReason);
+      if (kind === 'label') {
+        labels = [...labels.filter((entry) => entry.id !== result.id), result].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+        selected.label_id = result.id;
+        labelText = result.name;
+      } else {
+        genres = [...genres.filter((entry) => entry.id !== result.id), result].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+        if (!selected.genre_ids.includes(result.id)) selected.genre_ids = [...selected.genre_ids, result.id];
+      }
+      selected = { ...selected };
+      notice = result.created ? `${kind === 'label' ? 'Sello' : 'Género'} creado y auditado.` : 'Usamos el valor canónico existente.';
+      dialog = null;
+      dictionaryName = '';
+      dictionaryReason = '';
+    } catch (cause: any) {
+      error = cause?.code === '42501' ? 'El servidor denegó el alta administrativa.' : cause.message || 'No se pudo crear el valor.';
+    } finally { busy = false; }
+  }
+  function diffFields(entry: CatalogHistory) {
+    const before = entry.before_state ?? {};
+    const after = entry.after_state ?? {};
+    return [...new Set([...Object.keys(before), ...Object.keys(after)])].filter((key) => key !== 'catalog_version' && JSON.stringify(before[key]) !== JSON.stringify(after[key]));
+  }
+
+  onMount(async () => {
+    const media = window.matchMedia(BELOW_MOBILE_QUERY);
+    const updateMobile = () => mobile = media.matches;
+    updateMobile();
+    media.addEventListener('change', updateMobile);
+    if (!$user || !enabled) {
+      ready = true;
+      return () => media.removeEventListener('change', updateMobile);
+    }
+    try {
+      role = await getAdminRole($user.id);
+      if (role === 'admin') {
+        const values = await dictionaries();
+        ({ labels, genres, countries, types } = values);
+        await loadList();
+        // ?nuevo: el último paso de Sugerir trae aquí a quien administra (U13), al
+        // lanzamiento nuevo con lo que rellenó. El parámetro se retira para que
+        // recargar no descarte lo escrito.
+        if ($pageStore.url.searchParams.has('nuevo')) {
+          newRelease();
+          await applyHandoff(takeAdminHandoff());
+          const url = new URL($pageStore.url);
+          url.searchParams.delete('nuevo');
+          replaceState(url, $pageStore.state);
+        }
+      }
+    } catch (cause: any) { error = cause.message || 'No se pudo comprobar el acceso.'; }
+    finally { ready = true; }
+    return () => {
+      media.removeEventListener('change', updateMobile);
+      clearTimeout(searchTimer);
+      clearTimeout(artistSearchTimer);
+    };
+  });
+</script>
+
+<svelte:head><title>Catálogo administrativo — Discótica</title></svelte:head>
+
+<div class="l-container l-container--full console-shell">
+  {#if !enabled}
+    <div class="gate"><span>Administración</span><h1>Consola desactivada</h1><p>El kill switch del entorno está apagado.</p></div>
+  {:else if !$user}
+    <div class="gate"><span>Administración</span><h1>Inicia sesión</h1><p>Necesitas una sesión administrativa para consultar esta ruta.</p><a class="button primary" href="/auth/login">Ir a iniciar sesión</a></div>
+  {:else if !ready}
+    <div class="gate"><div class="spinner"></div><h1>Comprobando acceso…</h1></div>
+  {:else if role !== 'admin'}
+    <div class="gate" role="alert"><span>Acceso restringido</span><h1>Esta consola es solo para administradores</h1><p>El servidor también denegará cualquier operación forzada.</p></div>
+  {:else if selected}
+    <header class="editor-topbar">
+      <button class="icon-button" on:click={closeEditor} aria-label="Volver al catálogo">←</button>
+      <div class="release-identity">
+        {#if selected.cover_url}<img src={selected.cover_url} alt="" />{:else}<div class="cover-placeholder">♪</div>{/if}
+        <div><p>{selected.id ? 'Editar lanzamiento' : 'Nuevo lanzamiento'}</p><h1>{selected.title || 'Sin título'}</h1><span>{selectedArtistNames(selected.artist_ids) || 'Añade un artista principal'}</span></div>
+      </div>
+      <div class="topbar-meta"><span class={`status status-${selected.status}`}>{statusLabels[selected.status]}</span>{#if selected.id}<small>v{selected.catalog_version}</small>{/if}</div>
+    </header>
+    {#if mobile}<div class="mobile-readonly" role="status">Vista de consulta. Abre esta ficha en desktop para editar.</div>{/if}
+    {#if error}<div class="flash error" role="alert">{error}<button on:click={() => error = ''} aria-label="Cerrar mensaje">×</button></div>{/if}
+    {#if notice}<div class="flash notice" role="status">{notice}<button on:click={() => notice = ''} aria-label="Cerrar mensaje">×</button></div>{/if}
+
+    <nav class="tabs" aria-label="Secciones del lanzamiento">
+      <button class:active={activeTab === 'edit'} on:click={() => activeTab = 'edit'}>Edición</button>
+      <button class:active={activeTab === 'history'} on:click={() => activeTab = 'history'}>Historial {#if history.length}<span>{history.length}</span>{/if}</button>
+    </nav>
+
+    <div class="editor-layout">
+      <main class="editor-main">
+        {#if activeTab === 'edit'}
+          <div class="editor-flow">
+            <section class="editor-section essentials-section">
+              <header class="section-heading"><div><p>Información</p><h2>Datos esenciales</h2></div><span>Lo necesario para identificar y publicar el lanzamiento.</span></header>
+              <div class="field-grid">
+                <label class="span-2">Título <span>*</span><input value={selected.title} on:input={(event) => updateTitle(event.currentTarget.value)} disabled={mobile} placeholder="Título del lanzamiento" /></label>
+                <label class="span-2 important-field">Link de compra o escucha <span>*</span><input value={primaryLink()?.url ?? ''} on:input={(event) => updateBuyLink(event.currentTarget.value)} disabled={mobile} placeholder="https://bandcamp.com/…" /><small>Detectamos el proveedor a partir de la URL.</small></label>
+                <label>Tipo <span>*</span><select bind:value={selected.release_type_id} disabled={mobile}><option value={null}>Selecciona un tipo</option>{#each types as type}<option value={type.id}>{type.name}</option>{/each}</select></label>
+                <label>Fecha de lanzamiento <span>*</span><input type="date" bind:value={selected.release_date} disabled={mobile} /></label>
+                <label class="span-2">Sello <span>*</span><input list="catalog-labels" value={labelText} on:input={(event) => updateLabel(event.currentTarget.value)} disabled={mobile} placeholder="Busca un sello existente" /><datalist id="catalog-labels">{#each labels as label}<option value={label.name}></option>{/each}</datalist>{#if labelText && !selected.label_id}<small class="field-warning">No coincide con un sello existente.</small>{#if !mobile}<button class="text-button dictionary-create" on:click={() => beginDictionaryCreate('label', labelText)}>Crear sello confirmado</button>{/if}{:else if !mobile}<button class="text-button dictionary-create" on:click={() => beginDictionaryCreate('label')}>Crear sello confirmado</button>{/if}</label>
+              </div>
+              <details class="optional-block"><summary>Reseña opcional</summary><label>Texto editorial<textarea rows="5" bind:value={selected.review} disabled={mobile} placeholder="Añade una reseña sólo cuando aporte contexto."></textarea></label></details>
+            </section>
+
+            <section class="editor-section">
+              <header class="section-heading"><div><p>Créditos</p><h2>Artistas del lanzamiento</h2></div><span>Arrastra entre grupos. Usa Shift para seleccionar varios.</span></header>
+              <div class="credit-columns">
+                {#each creditGroups as group}
+                  <section class:drop-target={draggedCreditIds.length > 0} class="credit-group" role="group" aria-label={group.title} on:dragover|preventDefault on:drop|preventDefault={() => moveCredits(draggedCreditIds, group.kind)}>
+                    <header><div><h3>{group.title}{#if group.required} <span>*</span>{/if}</h3><small>{selected[group.kind].length} asignados</small></div>{#if !mobile}<button class="button ghost" on:click={() => beginCreditEditor(group.kind)}>＋ Añadir</button>{/if}</header>
+                    <div class="credit-list" role="list" aria-label={group.title}>
+                      {#each selected[group.kind] as id, index}
+                        <div class:selected-credit={selectedCreditIds.includes(id)} class="credit-chip" role="listitem" draggable={!mobile} on:dragstart={(event) => startCreditDrag(event, group.kind, id, index)} on:dragend={() => draggedCreditIds = []}>
+                          <button class="credit-main" on:click={(event) => selectCredit(event, group.kind, id, index)} on:dblclick={() => beginCreditEditor(group.kind, id)} aria-label={`Seleccionar ${artistOf(id)?.name ?? 'artista'}`}><span class="drag-handle" aria-hidden="true">⠿</span><span class:secondary={group.kind === 'collaborator_ids'} class="avatar">{artistOf(id)?.name?.slice(0, 1) ?? '?'}</span><strong>{artistOf(id)?.name ?? 'Artista sin resolver'}</strong></button>
+                          {#if !mobile}<button class="chip-action" on:click={() => beginCreditEditor(group.kind, id)} aria-label={`Cambiar ${artistOf(id)?.name ?? 'artista'}`}>✎</button><button class="chip-action" on:click={() => moveCredits([id], group.kind === 'artist_ids' ? 'collaborator_ids' : 'artist_ids')} aria-label="Mover al otro grupo">⇄</button><button class="chip-action remove" on:click={() => removeCredit(group.kind, id)} aria-label={`Quitar ${artistOf(id)?.name ?? 'artista'}`}>×</button>{/if}
+                        </div>
+                      {/each}
+                      {#if !selected[group.kind].length}<p class="empty-inline">{group.required ? 'Añade al menos un artista principal.' : 'No hay colaboradores.'}</p>{/if}
+                    </div>
+                    {#if !mobile && creditEditor?.kind === group.kind}
+                      <div class="inline-finder">
+                        <div class="finder-top"><strong>{creditEditor.replaceId ? 'Cambiar identidad' : `Añadir a ${group.title.toLowerCase()}`}</strong><button on:click={closeCreditEditor} aria-label="Cerrar búsqueda">×</button></div>
+                        <input bind:value={artistQuery} on:input={scheduleArtistSearch} on:keydown={(event) => event.key === 'Enter' && runArtistSearch()} placeholder="Buscar artista…" />
+                        {#if artistSearching}<p class="finder-state">Buscando…</p>{:else if artistQuery.trim().length >= 2 && !artistResults.length}<p class="finder-state">No encontramos coincidencias.</p>{/if}
+                        {#if artistResults.length}<div class="artist-results">{#each artistResults as artist}<button on:click={() => chooseArtist(artist)}><span class="avatar">{artist.name.slice(0, 1)}</span><span><strong>{artist.name}</strong><small>{artist.slug}</small></span><b>Añadir</b></button>{/each}</div>{/if}
+                        <button class="create-identity" on:click={() => { artistName = artistQuery; dialog = 'artist'; }}>＋ Crear una identidad nueva</button>
+                      </div>
+                    {/if}
+                  </section>
+                {/each}
+              </div>
+            </section>
+
+            <section class="editor-section">
+              <header class="section-heading"><div><p>Clasificación</p><h2>Género, país y radar</h2></div></header>
+              <div class="cataloging-grid">
+                <fieldset><legend>Géneros <span>*</span></legend><div class="option-grid">{#each genres as genre}<label class:chosen={selected.genre_ids.includes(genre.id)}><input type="checkbox" checked={selected.genre_ids.includes(genre.id)} on:change={() => toggleDictionary('genre_ids', genre.id)} disabled={mobile} />{genre.name}</label>{/each}</div>{#if !mobile}<button class="text-button dictionary-create" on:click={() => beginDictionaryCreate('genre')}>＋ Crear género confirmado</button>{/if}</fieldset>
+                <fieldset><legend>Países <span>*</span></legend><div class="option-grid">{#each countries as country}<label class:chosen={selected.country_ids.includes(country.id)}><input type="checkbox" checked={selected.country_ids.includes(country.id)} on:change={() => toggleDictionary('country_ids', country.id)} disabled={mobile} />{country.name}</label>{/each}</div></fieldset>
+              </div>
+              <div class="radar-editor"><div class="radar-preview"><RadarMini valores={selected.radar} /></div><fieldset class="radar-fieldset"><legend>Radar</legend><div class="radar-grid">{#each radarKeys as key}<label><span>{key}</span><input type="range" min="0" max="5" step="1" bind:value={selected.radar[key]} disabled={mobile} /><output>{selected.radar[key]}</output></label>{/each}</div></fieldset></div>
+            </section>
+
+            <section class="editor-section media-section">
+              <header class="section-heading"><div><p>Portada</p><h2>Imagen del lanzamiento</h2></div></header>
+              <div class="media-layout">{#if selected.cover_url}<img src={selected.cover_url} alt={`Portada de ${selected.title || 'lanzamiento'}`} />{:else}<div class="large-placeholder">Sin portada</div>{/if}<label>URL de portada <span>*</span><input bind:value={selected.cover_url} disabled={mobile} placeholder="https://…" /><small>Por ahora, pega una URL segura. La detección automática se habilitará después.</small></label></div>
+            </section>
+          </div>
+        {:else}
+          <section class="editor-section history-section">
+            <header class="section-heading"><div><p>Auditoría</p><h2>Historial de cambios</h2></div><span>Cada entrada conserva actor, observación y versiones.</span></header>
+            {#if !selected.id}<p class="empty-state compact">El historial aparecerá después de crear el borrador.</p>{:else if !history.length}<p class="empty-state compact">Todavía no hay cambios auditados.</p>{:else}<div class="timeline">{#each history as entry}<article><div class="timeline-marker"></div><div class="history-card"><header><div><span class="operation">{entry.operation}</span><strong>{entry.reason}</strong></div><time>{formatDate(entry.created_at, true)}</time></header><p>{entry.actor.display_name || entry.actor.username} · versión {entry.base_version ?? '—'} → {entry.result_version}</p>{#if diffFields(entry).length}<div class="changed-fields">{#each diffFields(entry) as field}<span>{field.replaceAll('_', ' ')}</span>{/each}</div>{/if}<details><summary>Ver comparación técnica</summary><div class="compare"><section><span>Antes</span><pre>{JSON.stringify(entry.before_state, null, 2)}</pre></section><section><span>Después</span><pre>{JSON.stringify(entry.after_state, null, 2)}</pre></section></div></details>{#if entry.status === 'applied' && !mobile}<button class="text-button danger" on:click={() => { pendingHistory = entry; dialog = 'revert'; }}>Revertir este cambio</button>{:else if entry.status === 'reverted'}<span class="reverted">Revertido</span>{/if}</div></article>{/each}</div>{/if}
+          </section>
+        {/if}
+      </main>
+
+      <aside class="editor-sidebar">
+        <section class="completion-card"><div class="completion-top"><span>Completitud</span><strong>{completion(selected)}%</strong></div><div class="progress"><i style={`width:${completion(selected)}%`}></i></div>{#if missingFields(selected).length}<p>Falta completar:</p><ul>{#each missingFields(selected) as field}<li>{field}</li>{/each}</ul>{:else}<p class="complete">Listo para publicar.</p>{/if}</section>
+        <section class="snapshot-card"><span>Estado actual</span><div><strong>{statusLabels[selected.status]}</strong>{#if selected.id}<small>v{selected.catalog_version}</small>{/if}</div>{#if selected.id}<p>Última edición<br /><strong>{formatDate(selected.updated_at, true)}</strong></p><details><summary>Datos técnicos</summary><p class="mono">{selected.id}<br />{selected.slug}</p></details>{/if}</section>
+        {#if !mobile}<section class="save-card"><label>Observación del cambio <span>*</span><textarea rows="3" bind:value={observation} placeholder="¿Qué cambió?"></textarea><small>Esta nota se conserva en el historial auditado.</small></label><button class="button secondary full" on:click={() => submit()} disabled={busy}>{busy ? 'Guardando…' : selected.id ? 'Guardar cambios' : 'Crear borrador'}</button>{#if selected.id && selected.status !== 'published'}<button class="button primary full" on:click={() => { const invalid = validate(selected!, true); if (invalid) error = invalid; else dialog = 'publish'; }} disabled={busy || missingFields(selected).length > 0}>Publicar</button>{/if}{#if selected.id && selected.status !== 'archived'}<button class="text-button danger full" on:click={() => dialog = 'archive'} disabled={busy}>Archivar lanzamiento</button>{/if}</section>{/if}
+      </aside>
+    </div>
+  {:else}
+    <header class="console-header"><div><p>Administración</p><h1>Catálogo</h1><span>Busca, revisa y corrige los lanzamientos.</span></div><button class="button primary new-release" on:click={newRelease}><b>＋</b> Nuevo lanzamiento</button></header>
+    {#if error}<div class="flash error" role="alert">{error}<button on:click={() => error = ''} aria-label="Cerrar mensaje">×</button></div>{/if}
+    {#if notice}<div class="flash notice" role="status">{notice}<button on:click={() => notice = ''} aria-label="Cerrar mensaje">×</button></div>{/if}
+    <section class="catalog-toolbar" aria-label="Herramientas del catálogo"><div class="catalog-search"><span>⌕</span><input bind:value={query} on:input={scheduleListSearch} on:keydown={(event) => event.key === 'Enter' && loadList()} placeholder="Buscar por título, artista, sello o ID" /><kbd>Enter</kbd></div><button class:active={filtersOpen} class="button filter-button" on:click={() => filtersOpen = !filtersOpen}>Filtros {#if statuses.length + typeIds.length}<span>{statuses.length + typeIds.length}</span>{/if}</button><button class="button secondary" on:click={() => (page = 1, loadList())} disabled={loading}>Buscar</button></section>
+    {#if filtersOpen}<section class="filter-panel"><fieldset><legend>Estado</legend><div>{#each Object.entries(statusLabels) as [value, label]}<label class:chosen={statuses.includes(value as CatalogStatus)}><input type="checkbox" checked={statuses.includes(value as CatalogStatus)} on:change={() => statuses = toggle(statuses, value as CatalogStatus)} />{label}</label>{/each}</div></fieldset><fieldset><legend>Tipo</legend><div>{#each types as type}<label class:chosen={typeIds.includes(type.id)}><input type="checkbox" checked={typeIds.includes(type.id)} on:change={() => typeIds = toggle(typeIds, type.id)} />{type.name}</label>{/each}</div></fieldset><div class="filter-actions"><button class="text-button" on:click={() => { statuses = []; typeIds = []; }}>Limpiar</button><button class="button primary" on:click={() => { page = 1; filtersOpen = false; loadList(); }}>Aplicar filtros</button></div></section>{/if}
+    <section class="catalog-card"><header><div><h2>Todos los lanzamientos</h2><span>{total.toLocaleString('es-CO')} registros · orden cronológico global</span></div>{#if checkedIds.length}<div class="selection-info"><strong>{checkedIds.length}</strong> seleccionados <button on:click={() => checkedIds = []}>Limpiar</button></div>{/if}</header>
+      {#if loading}<div class="loading-table"><div class="spinner"></div><p>Cargando catálogo…</p></div>{:else if !items.length}<div class="empty-state"><strong>No encontramos lanzamientos</strong><p>Prueba otra búsqueda o limpia los filtros.</p></div>{:else}<div class="table-wrap"><table><thead><tr><th class="check-col"><span class="sr-only">Seleccionar</span></th><th>Lanzamiento</th><th>Artistas</th><th>Tipo</th><th>Sello</th><th>Fecha / edición</th><th>Estado</th><th class="action-col"></th></tr></thead><tbody>{#each items as item}<tr class:checked={checkedIds.includes(item.id)}><td class="check-col"><input type="checkbox" aria-label={`Seleccionar ${item.title}`} checked={checkedIds.includes(item.id)} on:change={() => checkedIds = toggle(checkedIds, item.id)} /></td><td><button class="release-cell" on:click={() => openRelease(item.id)}>{#if item.cover_url}<img src={item.cover_url} alt="" loading="lazy" />{:else}<span class="mini-placeholder">♪</span>{/if}<span><strong>{item.title || 'Sin título'}</strong><small>{item.slug}</small></span>{#if missingFields(item).length}<i title={`${missingFields(item).length} campos pendientes`}>!</i>{/if}</button></td><td class="artists-cell">{selectedArtistNames(item.artist_ids) || 'Sin artista'}</td><td>{nameOf(types, item.release_type_id)}</td><td>{nameOf(labels, item.label_id)}</td><td class="date-cell"><strong>{formatDate(item.release_date)}</strong><small>Editado {formatDate(item.updated_at, true)}</small></td><td><span class={`status status-${item.status}`}>{statusLabels[item.status]}</span></td><td class="action-col"><button class="row-arrow" on:click={() => openRelease(item.id)} aria-label={`Editar ${item.title}`}>›</button></td></tr>{/each}</tbody></table></div><nav class="pagination" aria-label="Paginación"><div>Mostrando {(page - 1) * 25 + 1}–{Math.min(page * 25, total)} de {total.toLocaleString('es-CO')}</div><div><button on:click={() => { page -= 1; loadList(); }} disabled={page === 1 || loading} aria-label="Página anterior">←</button><span>Página {page} de {Math.max(1, Math.ceil(total / 25))}</span><button on:click={() => { page += 1; loadList(); }} disabled={page * 25 >= total || loading} aria-label="Página siguiente">→</button></div></nav>{/if}
+    </section>
+  {/if}
+</div>
+
+{#if dialog}<div class="backdrop" role="presentation" on:click|self={() => dialog = null}><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" use:dialogOverlay={{ onClose: () => dialog = null }}><button class="dialog-close" on:click={() => dialog = null} aria-label="Cerrar">×</button><span class:danger-icon={dialog === 'archive' || dialog === 'revert'} class="dialog-icon">{dialog === 'artist' || dialog === 'label' || dialog === 'genre' ? '＋' : dialog === 'publish' ? '✓' : '!'}</span><h2 id="dialog-title">{dialog === 'artist' ? 'Crear nueva identidad' : dialog === 'label' ? 'Crear sello confirmado' : dialog === 'genre' ? 'Crear género confirmado' : dialog === 'publish' ? 'Publicar lanzamiento' : dialog === 'archive' ? 'Archivar lanzamiento' : 'Revertir cambio'}</h2>
+  {#if dialog === 'artist'}<p>Confirma que la identidad no aparece en la búsqueda. El servicio normaliza el nombre para evitar duplicados.</p><label>Nombre artístico<input data-overlay-initial-focus bind:value={artistName} placeholder="Nombre exacto" /></label><div class="dialog-actions"><button class="button secondary" on:click={() => dialog = null}>Cancelar</button><button class="button primary" on:click={confirmArtist} disabled={busy || !artistName.trim()}>Crear y añadir</button></div>
+  {:else if dialog === 'label' || dialog === 'genre'}<p>Confirma esta alta administrativa. El servidor normaliza el nombre, evita duplicados y registra actor, razón y resultado.</p><label>{dialog === 'label' ? 'Nombre del sello' : 'Nombre del género'}<input data-overlay-initial-focus bind:value={dictionaryName} placeholder={dialog === 'label' ? 'Nombre del sello' : 'Nombre del género'} /></label><label>Observación de la alta <span>*</span><textarea rows="3" bind:value={dictionaryReason} placeholder="¿Por qué se crea este valor?"></textarea></label><div class="dialog-actions"><button class="button secondary" on:click={() => dialog = null}>Cancelar</button><button class="button primary" on:click={confirmDictionary} disabled={busy || !dictionaryName.trim() || !dictionaryReason.trim()}>Confirmar y auditar</button></div>
+  {:else if dialog === 'publish'}<p><strong>{selected?.title}</strong> quedará visible en el catálogo. Se registrarán la observación y la versión actual.</p><div class="preview-row"><span>Artistas</span><strong>{selectedArtistNames(selected?.artist_ids ?? [])}</strong></div><div class="preview-row"><span>Fecha</span><strong>{formatDate(selected?.release_date ?? null)}</strong></div><div class="dialog-actions"><button class="button secondary" on:click={() => dialog = null}>Seguir editando</button><button class="button primary" data-overlay-initial-focus on:click={() => submit('publish')} disabled={busy}>Confirmar publicación</button></div>
+  {:else if dialog === 'archive'}<p>El lanzamiento dejará de aparecer públicamente. Su identidad, colecciones e historial se conservarán.</p><div class="dialog-actions"><button class="button secondary" on:click={() => dialog = null}>Cancelar</button><button class="button danger-button" data-overlay-initial-focus on:click={() => submit('archive')} disabled={busy}>Archivar</button></div>
+  {:else}<p>Se restaurará el estado anterior mediante un nuevo cambio auditado. No se sobrescribirán ediciones posteriores.</p><div class="dialog-actions"><button class="button secondary" on:click={() => dialog = null}>Cancelar</button><button class="button danger-button" data-overlay-initial-focus on:click={submitRevert} disabled={busy}>Revertir cambio</button></div>{/if}
+</div></div>{/if}
+
+<style>
+  :global(body){background:var(--color-fondo)}.console-shell{padding-block:var(--space-6) var(--page-pad-bottom);color:var(--color-texto)}.console-header,.editor-topbar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:24px}.console-header p,.section-heading p,.release-identity p{margin:0 0 4px;color:var(--color-acento);font-size:var(--text-2xs);font-weight:800;letter-spacing:.12em;text-transform:uppercase}.console-header h1{margin:0 0 7px;font-size:var(--text-display);line-height:1;letter-spacing:-.035em}.console-header>div>span{color:var(--color-texto-tenue);font-size:var(--text-xs)}.button,.icon-button,.text-button,.row-arrow{border:0;font:inherit;cursor:pointer}.button{min-height:var(--control-h-md);padding:0 var(--control-px-md);border-radius:var(--radius-sm);display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:var(--text-2xs);font-weight:750}.button.primary{background:var(--color-acento);color:var(--color-sobre-acento)}.button.secondary{background:var(--color-panel-raised);color:var(--color-texto);border:1px solid var(--color-linea)}.button.ghost{min-height:var(--control-h-sm);padding:0 var(--control-px-sm);background:var(--color-panel-raised);color:var(--color-texto-alto);border:1px solid var(--color-linea);font-size:var(--text-2xs)}.button:disabled,.text-button:disabled{opacity:.45;cursor:not-allowed}.new-release b{font-size:var(--text-lg);font-weight:400}
+  .catalog-toolbar{display:grid;grid-template-columns:minmax(280px,1fr) auto auto;gap:9px;margin-bottom:12px}.catalog-search{height:var(--control-h-md);border:1px solid var(--color-linea);background:var(--color-panel);border-radius:var(--radius-sm);display:flex;align-items:center;padding:0 12px;gap:9px}.catalog-search>span{color:var(--color-texto-tenue);font-size:var(--text-xl);transform:rotate(-20deg)}.catalog-search input{flex:1;min-width:0;min-height:0;padding:0;background:transparent;border:0;color:var(--color-texto);font:inherit;font-size:var(--text-xs);outline:0}.catalog-search kbd{border:1px solid var(--color-linea);border-radius:var(--radius-xs);padding:2px 5px;color:var(--color-texto-tenue);font:inherit;font-size:var(--text-2xs)}.filter-button{background:var(--color-panel);color:var(--color-texto-alto);border:1px solid var(--color-linea)}.filter-button.active{border-color:var(--color-acento-texto);color:var(--color-acento-hover)}.filter-button span{min-width:17px;height:17px;border-radius:var(--radius-sm);display:grid;place-items:center;background:var(--color-acento);color:var(--color-sobre-acento);font-size:var(--text-2xs)}.filter-panel{margin-bottom:12px;padding:16px;display:grid;grid-template-columns:1fr 2fr auto;gap:22px;background:var(--color-panel);border:1px solid var(--color-borde);border-radius:var(--radius-sm)}.filter-panel fieldset,.cataloging-grid fieldset,.radar-fieldset{border:0;padding:0;margin:0}.filter-panel legend{margin-bottom:9px;color:var(--color-texto-tenue);font-size:var(--text-2xs);text-transform:uppercase;letter-spacing:.08em}.filter-panel fieldset>div,.option-grid{display:flex;flex-wrap:wrap;gap:6px}.filter-panel label,.option-grid label{position:relative;display:flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid var(--color-linea);border-radius:var(--radius-sm);color:var(--color-texto-medio);font-size:var(--text-2xs);cursor:pointer}.filter-panel label.chosen,.option-grid label.chosen{background:var(--color-acento-dim);border-color:var(--color-acento-border);color:var(--color-acento-hover)}.filter-panel input,.option-grid input{position:absolute;opacity:0;pointer-events:none}.filter-actions{display:flex;align-items:end;gap:9px}.text-button{padding:6px 0;background:transparent;color:var(--color-texto-medio);font-size:var(--text-2xs);font-weight:700}.text-button:hover{color:var(--color-acento)}.text-button.danger{color:var(--color-danger)}.text-button.full{width:100%;text-align:center}
+  .catalog-card{overflow:hidden;background:var(--color-panel);border:1px solid var(--color-borde);border-radius:var(--radius-sm)}.catalog-card>header{height:58px;padding:0 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--color-borde)}.catalog-card>header h2{margin:0 0 3px;font-size:var(--text-sm)}.catalog-card>header span{color:var(--color-texto-tenue);font-size:var(--text-2xs)}.selection-info{color:var(--color-texto-medio);font-size:var(--text-2xs)}.selection-info strong,.selection-info button{color:var(--color-acento)}.selection-info button{margin-left:9px;background:none;border:0;font:inherit;cursor:pointer}.table-wrap{overflow:auto}table{width:100%;min-width:1040px;border-collapse:collapse;table-layout:fixed}th{height:36px;padding:0 11px;background:var(--color-panel);color:var(--color-texto-tenue);font-size:var(--text-2xs);text-transform:uppercase;letter-spacing:.08em;text-align:left;font-weight:750}td{height:60px;padding:6px 11px;border-top:1px solid var(--color-borde);color:var(--color-texto-alto);font-size:var(--text-2xs);vertical-align:middle}tbody tr:hover,tbody tr.checked{background:var(--color-panel)}.check-col{width:26px}.check-col input{width:14px;height:14px;min-height:0;padding:0;accent-color:var(--color-acento)}.action-col{width:32px}.catalog-card th:nth-child(2),.catalog-card td:nth-child(2){width:30%}.catalog-card th:nth-child(3),.catalog-card td:nth-child(3){width:21%}.catalog-card th:nth-child(4),.catalog-card td:nth-child(4){width:9%}.catalog-card th:nth-child(5),.catalog-card td:nth-child(5){width:13%}.catalog-card th:nth-child(6),.catalog-card td:nth-child(6){width:12%}.catalog-card th:nth-child(7),.catalog-card td:nth-child(7){width:9%}.release-cell{width:100%;min-width:0;display:flex;align-items:center;gap:9px;background:none;border:0;color:inherit;text-align:left;cursor:pointer}.release-cell img,.mini-placeholder{width:40px;height:40px;flex:0 0 40px;border-radius:var(--radius-xs);object-fit:cover;background:var(--color-neutral);display:grid;place-items:center;color:var(--color-texto-tenue)}.release-cell>span:not(.mini-placeholder){min-width:0;flex:1}.release-cell strong{display:block;overflow:hidden;color:var(--color-texto);font-size:var(--text-2xs);white-space:nowrap;text-overflow:ellipsis}.release-cell small{display:block;overflow:hidden;margin-top:2px;color:var(--color-texto-tenue);font-size:var(--text-2xs);white-space:nowrap;text-overflow:ellipsis}.release-cell i{width:17px;height:17px;flex:0 0 17px;border-radius:50%;display:grid;place-items:center;background:var(--color-aviso-dim);color:var(--color-aviso);font-style:normal;font-size:var(--text-2xs)}.artists-cell{overflow:hidden;color:var(--color-texto);white-space:nowrap;text-overflow:ellipsis}.date-cell{font-variant-numeric:tabular-nums}.date-cell strong,.date-cell small{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.date-cell strong{color:var(--color-texto-alto);font-size:var(--text-2xs)}.date-cell small{margin-top:3px;color:var(--color-texto-tenue);font-size:var(--text-2xs)}.status{display:inline-flex;align-items:center;padding:4px 8px;border-radius:var(--radius-lg);font-size:var(--text-2xs);font-weight:750}.status-draft{background:var(--color-neutral);color:var(--color-texto-alto)}.status-published{background:var(--color-acento-dim);color:var(--color-acento-hover)}.status-archived{background:var(--color-danger-dim);color:var(--color-danger-texto)}.row-arrow{width:28px;height:28px;border-radius:var(--radius-sm);background:transparent;color:var(--color-texto-tenue);font-size:var(--text-xl)}.row-arrow:hover{background:var(--color-neutral);color:var(--color-acento)}.pagination{height:54px;padding:0 16px;border-top:1px solid var(--color-borde);display:flex;align-items:center;justify-content:space-between;color:var(--color-texto-tenue);font-size:var(--text-2xs)}.pagination>div:last-child{display:flex;align-items:center;gap:11px}.pagination button{width:var(--control-h-sm);height:var(--control-h-sm);border:1px solid var(--color-linea);border-radius:var(--radius-sm);background:var(--color-panel-raised);color:var(--color-texto-alto);cursor:pointer}.pagination button:disabled{opacity:.35}.loading-table,.empty-state{min-height:260px;display:grid;place-content:center;text-align:center;color:var(--color-texto-tenue)}.empty-state.compact{min-height:180px}.empty-state strong{color:var(--color-texto-alto)}
+  .spinner{width:22px;height:22px;margin:auto;border:2px solid var(--color-linea);border-top-color:var(--color-acento);border-radius:50%;animation:spin .7s linear infinite}.flash{margin:0 0 12px;padding:10px 13px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-radius:var(--radius-sm);font-size:var(--text-2xs)}.flash.error{background:var(--color-danger-dim);color:var(--color-danger-texto);border:1px solid var(--color-danger-borde)}.flash.notice{background:var(--color-acento-dim);color:var(--color-acento-hover);border:1px solid var(--color-acento-border)}.flash button{background:none;border:0;color:inherit;font-size:var(--text-lg);cursor:pointer}.gate{min-height:55vh;display:grid;place-content:center;text-align:center}.gate>span{color:var(--color-acento);text-transform:uppercase;font-size:var(--text-2xs);font-weight:800;letter-spacing:.1em}.gate h1{margin:8px 0}.gate p{color:var(--color-texto-tenue)}.gate .button{margin:auto}
+  .editor-topbar{position:relative}.icon-button{width:var(--control-h-md);height:var(--control-h-md);flex:0 0 var(--control-h-md);border-radius:var(--radius-sm);background:var(--color-panel-raised);border:1px solid var(--color-linea);color:var(--color-texto);font-size:var(--text-xl)}.release-identity{min-width:0;flex:1;display:flex;align-items:center;gap:12px}.release-identity img,.cover-placeholder{width:50px;height:50px;flex:0 0 50px;border-radius:var(--radius-sm);object-fit:cover;background:var(--color-neutral);display:grid;place-items:center;color:var(--color-texto-tenue)}.release-identity h1{margin:0 0 3px;font-size:var(--text-xl);line-height:1.15;letter-spacing:-.02em}.release-identity>div{min-width:0}.release-identity>div>span{display:block;overflow:hidden;max-width:62vw;color:var(--color-texto-tenue);font-size:var(--text-2xs);white-space:nowrap;text-overflow:ellipsis}.topbar-meta{display:flex;align-items:center;gap:9px}.topbar-meta small{color:var(--color-texto-tenue)}.tabs{margin-bottom:18px;display:flex;gap:2px;border-bottom:1px solid var(--color-borde)}.tabs button{height:var(--control-h-lg);padding:0 15px;background:transparent;border:0;border-bottom:2px solid transparent;color:var(--color-texto-tenue);font:inherit;font-size:var(--text-2xs);font-weight:700;cursor:pointer}.tabs button.active{color:var(--color-texto);border-color:var(--color-acento)}.tabs button span{margin-left:6px;padding:2px 6px;border-radius:var(--radius-sm);background:var(--color-neutral);font-size:var(--text-2xs)}
+  .editor-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px;align-items:start}.editor-flow{display:grid;gap:14px}.editor-section{padding:24px;background:var(--color-panel);border:1px solid var(--color-borde);border-radius:var(--radius-sm)}.history-section{min-height:540px}.section-heading{margin-bottom:20px;padding-bottom:17px;display:flex;align-items:end;justify-content:space-between;gap:20px;border-bottom:1px solid var(--color-borde)}.section-heading h2{margin:0;font-size:var(--text-lg)}.section-heading>span{color:var(--color-texto-tenue);font-size:var(--text-2xs);text-align:right}.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.field-grid label,.media-layout label,.dialog label,.save-card label,.optional-block label{display:grid;gap:6px;color:var(--color-texto-medio);font-size:var(--text-2xs);font-weight:700}label>span,legend span,h3 span{color:var(--color-acento)}label small{color:var(--color-texto-tenue);font-weight:400}label small.field-warning{color:var(--color-aviso)}.span-2{grid-column:1/-1}.important-field input{border-color:var(--color-acento-border)}input,select,textarea{width:100%;box-sizing:border-box;border:1px solid var(--color-linea);border-radius:var(--radius-sm);background:var(--color-fondo);color:var(--color-texto);padding:9px 10px;font:inherit;font-size:var(--text-2xs);outline:0}input,select{min-height:var(--control-h-md)}input[type=checkbox],input[type=range]{min-height:0;padding:0}textarea{resize:vertical;line-height:1.5}input:focus,select:focus,textarea:focus{border-color:var(--color-acento-texto);box-shadow:0 0 0 3px var(--color-acento-dim)}input:disabled,select:disabled,textarea:disabled{opacity:.75;color:var(--color-texto-medio)}.optional-block{margin-top:16px;padding-top:15px;border-top:1px solid var(--color-borde)}.optional-block summary{color:var(--color-texto-tenue);font-size:var(--text-2xs);font-weight:700;cursor:pointer}.optional-block label{margin-top:12px}
+  .credit-columns{display:grid;grid-template-columns:1fr 1fr;gap:14px}.credit-group{min-width:0;overflow:hidden;border:1px solid var(--color-borde);border-radius:var(--radius-sm);transition:border-color var(--motion-fast),background var(--motion-fast)}.credit-group.drop-target{border-color:var(--color-acento-border)}.credit-group>header{min-height:54px;padding:0 13px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--color-borde)}.credit-group h3{margin:0 0 2px;font-size:var(--text-2xs)}.credit-group header small{color:var(--color-texto-tenue);font-size:var(--text-2xs)}.credit-list{min-height:92px;padding:7px}.credit-chip{display:flex;align-items:center;gap:2px;border-radius:var(--radius-sm);border:1px solid transparent}.credit-chip:hover{background:var(--color-panel-raised)}.credit-chip.selected-credit{background:var(--color-acento-tinte);border-color:var(--color-borde-hover)}.credit-main{min-width:0;flex:1;padding:7px 5px;display:flex;align-items:center;gap:8px;background:transparent;border:0;color:var(--color-texto-alto);text-align:left;cursor:grab}.credit-main strong{overflow:hidden;font-size:var(--text-2xs);white-space:nowrap;text-overflow:ellipsis}.drag-handle{color:var(--color-texto-tenue);font-size:var(--text-xs)}.avatar{width:28px;height:28px;flex:0 0 28px;border-radius:50%;display:grid;place-items:center;background:var(--color-acento-dim);color:var(--color-acento-hover);font-weight:800;font-size:var(--text-2xs)}.avatar.secondary{background:var(--color-neutral);color:var(--color-texto-medio)}.chip-action{width:26px;height:26px;padding:0;flex:0 0 26px;border:0;border-radius:var(--radius-xs);background:transparent;color:var(--color-texto-tenue);font-size:var(--text-xs);cursor:pointer}.chip-action:hover{background:var(--color-neutral);color:var(--color-texto-alto)}.chip-action.remove:hover{color:var(--color-danger)}.empty-inline,.finder-state{margin:0;padding:9px;color:var(--color-texto-tenue);font-size:var(--text-2xs)}.inline-finder{padding:11px;border-top:1px solid var(--color-borde);background:var(--color-panel)}.finder-top{margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;color:var(--color-texto-alto);font-size:var(--text-2xs)}.finder-top button{border:0;background:transparent;color:var(--color-texto-tenue);cursor:pointer}.artist-results{max-height:190px;overflow:auto;margin-top:7px;scrollbar-width:thin;scrollbar-color:var(--scrollbar-thumb) var(--scrollbar-track)}.artist-results>button{width:100%;padding:7px 3px;display:flex;align-items:center;gap:8px;border:0;border-bottom:1px solid var(--color-borde);background:transparent;color:var(--color-texto-alto);text-align:left;cursor:pointer}.artist-results>button:hover{background:var(--color-panel-raised)}.artist-results>button>span:nth-child(2){min-width:0;flex:1}.artist-results strong,.artist-results small{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.artist-results strong{font-size:var(--text-2xs)}.artist-results small{color:var(--color-texto-tenue);font-size:var(--text-2xs)}.artist-results b{color:var(--color-acento);font-size:var(--text-2xs)}.create-identity{width:100%;margin-top:8px;padding:8px;border:1px dashed var(--color-linea-fuerte);border-radius:var(--radius-sm);background:transparent;color:var(--color-texto-medio);font:inherit;font-size:var(--text-2xs);text-align:left;cursor:pointer}.create-identity:hover{color:var(--color-acento);border-color:var(--color-acento-texto)}
+  .cataloging-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.cataloging-grid legend,.radar-fieldset legend{margin-bottom:9px;font-size:var(--text-2xs);font-weight:750}.option-grid{max-height:210px;overflow:auto;padding:1px;scrollbar-width:thin;scrollbar-color:var(--scrollbar-thumb) var(--scrollbar-track)}.option-grid::-webkit-scrollbar,.artist-results::-webkit-scrollbar{width:6px;height:6px}.option-grid::-webkit-scrollbar-thumb,.artist-results::-webkit-scrollbar-thumb{background:var(--scrollbar-thumb);border-radius:var(--radius-sm)}.option-grid::-webkit-scrollbar-track,.artist-results::-webkit-scrollbar-track{background:var(--scrollbar-track)}.radar-editor{margin-top:22px;padding-top:19px;display:grid;grid-template-columns:145px 1fr;align-items:center;gap:22px;border-top:1px solid var(--color-borde)}.radar-preview{min-height:145px;display:grid;place-items:center;border-radius:var(--radius-sm);background:var(--color-fondo)}.radar-preview :global(.radar-mini){max-width:132px}.radar-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.radar-grid label{padding:10px;display:grid;gap:8px;background:var(--color-panel);border:1px solid var(--color-borde);border-radius:var(--radius-sm)}.radar-grid label>span{color:var(--color-texto-medio);font-size:var(--text-2xs);text-transform:capitalize}.radar-grid input{accent-color:var(--color-acento)}.radar-grid output{color:var(--color-acento);font-size:var(--text-lg);font-weight:800}.media-layout{display:grid;grid-template-columns:170px 1fr;gap:20px;align-items:start}.media-layout img,.large-placeholder{width:170px;aspect-ratio:1;border-radius:var(--radius-sm);object-fit:cover;background:var(--color-panel-raised);display:grid;place-items:center;color:var(--color-texto-tenue);font-size:var(--text-2xs)}
+  .editor-sidebar{position:sticky;top:16px;display:grid;gap:10px}.editor-sidebar>section{padding:14px;background:var(--color-panel);border:1px solid var(--color-borde);border-radius:var(--radius-sm)}.completion-top{display:flex;justify-content:space-between;color:var(--color-texto-tenue);font-size:var(--text-2xs)}.completion-top strong{color:var(--color-texto)}.progress{height:5px;overflow:hidden;margin:10px 0 12px;background:var(--color-neutral);border-radius:var(--radius-xs)}.progress i{height:100%;display:block;background:var(--color-acento);border-radius:var(--radius-xs)}.completion-card p{margin:0 0 7px;color:var(--color-texto-tenue);font-size:var(--text-2xs)}.completion-card ul{margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px;list-style:none}.completion-card li{padding:3px 5px;border-radius:var(--radius-xs);background:var(--color-neutral);color:var(--color-texto-medio);font-size:var(--text-2xs)}.completion-card p.complete{color:var(--color-acento)}.snapshot-card>span{color:var(--color-texto-tenue);font-size:var(--text-2xs);text-transform:uppercase;letter-spacing:.08em}.snapshot-card>div{margin:7px 0 12px;display:flex;justify-content:space-between}.snapshot-card>div strong{font-size:var(--text-2xs)}.snapshot-card>div small{color:var(--color-texto-medio)}.snapshot-card p{padding-top:10px;border-top:1px solid var(--color-borde);color:var(--color-texto-tenue);font-size:var(--text-2xs)}.snapshot-card p strong{color:var(--color-texto-alto)}.snapshot-card summary{color:var(--color-texto-tenue);font-size:var(--text-2xs);cursor:pointer}.snapshot-card .mono{overflow-wrap:anywhere;font-family:monospace}.save-card{display:grid;gap:9px}.save-card label small{color:var(--color-texto-tenue);font-size:var(--text-2xs);font-weight:400}.button.full{width:100%}.danger-button{background:var(--color-danger-borde);color:var(--color-texto)}
+  .timeline{position:relative;margin-left:7px}.timeline:before{content:'';position:absolute;left:4px;top:5px;bottom:5px;width:1px;background:var(--color-neutral)}.timeline>article{position:relative;margin-bottom:14px;padding-left:26px}.timeline-marker{position:absolute;left:0;top:16px;width:9px;height:9px;border-radius:50%;background:var(--color-acento);box-shadow:0 0 0 4px var(--color-panel-raised)}.history-card{padding:14px;border:1px solid var(--color-borde);border-radius:var(--radius-sm)}.history-card header{display:flex;justify-content:space-between;gap:14px}.history-card header>div{display:grid;gap:4px}.history-card header strong{font-size:var(--text-2xs)}.history-card time{color:var(--color-texto-tenue);font-size:var(--text-2xs);white-space:nowrap}.operation{color:var(--color-acento);font-size:var(--text-2xs);text-transform:uppercase;letter-spacing:.08em}.history-card>p{color:var(--color-texto-tenue);font-size:var(--text-2xs)}.changed-fields{margin:9px 0;display:flex;flex-wrap:wrap;gap:4px}.changed-fields span{padding:3px 5px;border-radius:var(--radius-xs);background:var(--color-neutral);color:var(--color-texto-medio);font-size:var(--text-2xs)}.history-card details{margin:9px 0}.history-card summary{color:var(--color-texto-medio);font-size:var(--text-2xs);cursor:pointer}.compare{margin-top:7px;display:grid;grid-template-columns:1fr 1fr;gap:7px}.compare section{min-width:0}.compare section>span,.reverted{color:var(--color-texto-tenue);font-size:var(--text-2xs)}.compare pre{max-height:300px;overflow:auto;padding:7px;background:var(--color-fondo);font-size:var(--text-2xs);white-space:pre-wrap}
+  .mobile-readonly{display:none}.backdrop{position:fixed;inset:0;z-index:var(--layer-overlay);padding:16px;display:grid;place-items:center;background:var(--overlay-backdrop);backdrop-filter:blur(5px)}.dialog{position:relative;width:min(100%,450px);padding:24px;background:var(--color-panel);border:1px solid var(--color-linea);border-radius:var(--radius-base);box-shadow:0 24px 70px var(--color-sombra-fuerte)}.dialog-close{position:absolute;right:11px;top:9px;width:31px;height:31px;border:0;background:transparent;color:var(--color-texto-tenue);font-size:var(--text-xl);cursor:pointer}.dialog-icon{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--color-acento-dim);color:var(--color-acento);font-size:var(--text-lg)}.dialog-icon.danger-icon{background:var(--color-danger-dim);color:var(--color-danger)}.dialog h2{margin:13px 0 7px;font-size:var(--text-lg)}.dialog>p{color:var(--color-texto-tenue);font-size:var(--text-2xs);line-height:1.6}.dialog-actions{margin-top:18px;display:flex;justify-content:flex-end;gap:8px}.preview-row{padding:9px 0;display:flex;justify-content:space-between;gap:15px;border-top:1px solid var(--color-borde);font-size:var(--text-2xs)}.preview-row span{color:var(--color-texto-tenue)}.preview-row strong{text-align:right}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@keyframes spin{to{transform:rotate(360deg)}}
+  @media(max-width:1023px){.editor-layout{grid-template-columns:1fr}.editor-sidebar{position:static;grid-template-columns:1fr 1fr}.save-card{grid-column:1/-1}.radar-grid{grid-template-columns:repeat(3,1fr)}.filter-panel{grid-template-columns:1fr 1fr}.filter-actions{grid-column:1/-1}}
+  @media(max-width:767px){.console-shell{padding-block:var(--space-4) var(--page-pad-bottom)}.console-header{align-items:flex-start}.console-header h1{font-size:var(--text-3xl)}.console-header>div>span{font-size:var(--text-2xs)}.new-release{display:none}.catalog-toolbar{grid-template-columns:1fr auto}.catalog-toolbar>.secondary,.catalog-search kbd{display:none}.filter-panel{grid-template-columns:1fr}.filter-actions{grid-column:auto}.catalog-card{border-radius:var(--radius-sm)}.catalog-card>header{height:54px}.table-wrap{overflow:visible}table,thead,tbody,tr,td{display:block}table{min-width:0}thead{display:none}tbody tr{position:relative;display:grid;grid-template-columns:1fr auto;padding:9px 10px;border-top:1px solid var(--color-borde)}td{width:auto!important;height:auto;padding:3px 0;border:0}td.check-col{display:none}td:nth-child(2){grid-column:1/-1}.release-cell img,.mini-placeholder{width:46px;height:46px;flex-basis:46px}.release-cell strong{font-size:var(--text-xs)}.artists-cell{max-width:calc(100vw - 100px);padding-left:55px}td:nth-child(4),td:nth-child(5),td:nth-child(6){display:inline;padding-left:55px;color:var(--color-texto-tenue)}.date-cell{font-size:var(--text-2xs)}td:nth-child(7){position:absolute;right:10px;top:48px}.action-col{position:absolute;right:5px;top:10px}.pagination{padding:0 9px}.pagination>div:first-child{display:none}.pagination>div:last-child{width:100%;justify-content:space-between}.editor-topbar{gap:9px;align-items:flex-start}.release-identity img,.cover-placeholder{width:43px;height:43px;flex-basis:43px}.release-identity h1{font-size:var(--text-md)}.topbar-meta small{display:none}.tabs{margin-inline:-11px;padding-inline:11px}.editor-section{margin-inline:-11px;padding:17px 13px;border-left:0;border-right:0;border-radius:0}.section-heading{align-items:start}.section-heading>span{display:none}.editor-sidebar{grid-template-columns:1fr}.mobile-readonly{margin-bottom:11px;padding:9px 10px;display:block;border-radius:var(--radius-sm);background:var(--color-aviso-dim);color:var(--color-aviso);font-size:var(--text-2xs)}.field-grid,.credit-columns,.cataloging-grid,.radar-editor,.media-layout,.compare{grid-template-columns:1fr}.span-2{grid-column:auto}.credit-main{cursor:default}.radar-preview{max-width:220px}.radar-grid{grid-template-columns:1fr}.media-layout img,.large-placeholder{width:min(100%,260px)}.history-card header{display:grid}.dialog{padding:21px 17px}.dialog-actions{flex-direction:column-reverse}.dialog-actions .button{width:100%}}
+</style>

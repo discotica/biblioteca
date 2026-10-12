@@ -1,0 +1,114 @@
+<script>
+  // Línea 1 del inicio en móvil (E15, U10): «Buscar» y el selector de vista.
+  // Es la única línea sticky; su visibilidad la decide mobileSearchChrome.
+  import { createEventDispatcher } from 'svelte';
+  import Icon from '$lib/ui/Icon.svelte';
+  import ViewToggle from '$lib/ui/ViewToggle.svelte';
+
+  export let visible = true;
+  export let expanded = false;
+  export let count = 0;
+  export let buttonEl = null;
+  /** 'grid' | 'list' */
+  export let view = 'grid';
+
+  const dispatch = createEventDispatcher();
+</script>
+
+<div
+  class="mobile-search-anchor l-container l-container--wide"
+  class:mobile-search-anchor--hidden={!visible}
+  data-search-visible={visible}
+>
+  <div class="mobile-search-row">
+    <button
+      class="mobile-search-bar"
+      type="button"
+      bind:this={buttonEl}
+      aria-label="Abrir filtros de búsqueda — Buscar y filtrar"
+      aria-haspopup="dialog"
+      aria-expanded={expanded}
+      on:click={(event) => dispatch('open', event.currentTarget)}
+    >
+      <Icon name="buscar" size="md" weight="bold" />
+      <span>Buscar</span>
+      {#if count > 0}
+        <span class="mobile-search-badge" aria-label={`${count} filtros activos`}>{count}</span>
+      {/if}
+    </button>
+    <ViewToggle value={view} label="Vista de resultados" onchange={(mode) => dispatch('view', mode)} />
+  </div>
+</div>
+
+<style>
+  /* ---- Persistent mobile search surface ---- */
+  .mobile-search-anchor {
+    display: none;
+  }
+
+  .mobile-search-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .mobile-search-bar {
+    flex: 1;
+    min-width: 0;
+    min-height: var(--target-touch);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    border: 1px solid var(--color-acento-border);
+    border-radius: var(--control-radius);
+    background: var(--color-velo-opaco);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    color: var(--color-texto);
+    font: inherit;
+    font-size: var(--text-md);
+    font-weight: 750;
+    cursor: pointer;
+    box-shadow: 0 10px 30px var(--color-sombra);
+  }
+
+  .mobile-search-bar :global(.ui-icon) { color: var(--color-acento); }
+  .mobile-search-bar:hover { border-color: var(--color-acento-texto); }
+  .mobile-search-bar:focus-visible {
+    outline: 2px solid var(--focus-ring-color);
+    outline-offset: 2px;
+    box-shadow: var(--focus-ring);
+  }
+  .mobile-search-badge {
+    display: inline-grid;
+    min-width: 1.45rem;
+    min-height: 1.45rem;
+    padding: 0 .35rem;
+    place-items: center;
+    border-radius: var(--radius-pill);
+    background: var(--color-acento);
+    color: var(--color-fondo);
+    font-size: var(--text-2xs);
+    font-weight: 850;
+    line-height: 1;
+  }
+
+  @media (max-width: 768px) {
+    .mobile-search-anchor {
+      position: sticky;
+      top: 0;
+      z-index: calc(var(--layer-overlay) - 2);
+      display: block;
+      margin-top: var(--space-2);
+      padding-top: var(--space-2);
+      padding-bottom: var(--space-2);
+      transition: transform var(--motion-overlay) var(--ease-emphasized), opacity var(--motion-fast) ease;
+    }
+    .mobile-search-anchor--hidden {
+      transform: translateY(calc(-100% - .6rem));
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
+</style>

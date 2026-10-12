@@ -1,0 +1,81 @@
+<script>
+  // Panel de búsqueda inline de desktop: formulario, Radar y reinicio.
+  import { createEventDispatcher } from 'svelte';
+  import { cubicOut } from 'svelte/easing';
+  import Filtros from '$lib/components/Filtros.svelte';
+  import RadarPanel from './RadarPanel.svelte';
+  import ResetFiltersButton from './ResetFiltersButton.svelte';
+
+  export let open = false;
+  export let lanzamientos = [];
+  export let valores;
+  export let radarRef = null;
+
+  const dispatch = createEventDispatcher();
+
+  function panelIn(node, { duration = 200 } = {}) {
+    return {
+      duration,
+      easing: cubicOut,
+      css: (t) => `opacity: ${t}; transform: translateY(${(1 - t) * 8}px);`
+    };
+  }
+
+  function panelOut(node, { duration = 180 } = {}) {
+    const h = node.scrollHeight;
+    return {
+      duration,
+      easing: cubicOut,
+      css: (t) => `opacity: ${t}; overflow: hidden; height: ${h * t}px;`
+    };
+  }
+</script>
+
+{#if open}
+<section class="filtros-wrap l-container l-container--wide" in:panelIn out:panelOut>
+  <div class="filtros-grid">
+    <div class="filtros-col filtros-col--form">
+      <Filtros
+        {lanzamientos}
+        {valores}
+        on:filtrar
+      />
+    </div>
+
+    <div class="filtros-col filtros-col--radar">
+      <RadarPanel
+        radar={valores.radar}
+        bind:this={radarRef}
+        on:filtrarRadar
+      />
+    </div>
+
+    <div class="filtros-col filtros-col--acciones">
+      <ResetFiltersButton on:click={() => dispatch('reset')} />
+    </div>
+  </div>
+</section>
+{/if}
+
+<style>
+  /* Layout panel filtros */
+  .filtros-wrap{ margin-top: .25rem; }
+
+  .filtros-grid{
+    display:grid;
+    gap: 1rem;
+    align-items:start;
+  }
+
+  @media (min-width: 1024px){
+    .filtros-grid{
+      grid-template-columns: 1.2fr .8fr;
+      grid-template-areas:
+        "form radar"
+        "acciones radar";
+    }
+    .filtros-col--form{ grid-area: form; }
+    .filtros-col--radar{ grid-area: radar; }
+    .filtros-col--acciones{ grid-area: acciones; }
+  }
+</style>

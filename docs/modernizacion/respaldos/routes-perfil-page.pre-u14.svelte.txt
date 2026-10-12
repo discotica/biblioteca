@@ -1,0 +1,339 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import type { Crate } from '$lib/stores/cratesStore';
+  import { supabase } from '$lib/supabase';
+  import {
+    CONTRIBUTION_STATUS_LABELS,
+    getProfileRole,
+    loadOwnContributions,
+    type Contribution,
+    type ProfileRole
+  } from '$lib/stores/contributionsStore';
+  import PageLayout from '$lib/layouts/PageLayout.svelte';
+  import Button from '$lib/ui/Button.svelte';
+
+  export let data: {
+    perfil: {
+      id: string;
+      username: string;
+      display_name: string | null;
+      bio: string | null;
+      created_at: string;
+    };
+    crates: Crate[];
+  };
+
+  $: nombre = data.perfil.display_name || data.perfil.username;
+  $: inicial = nombre[0].toUpperCase();
+  $: año = new Date(data.perfil.created_at).getFullYear();
+
+  const editorialEnabled = import.meta.env.VITE_EDITORIAL_ENABLED === 'true';
+  const adminCatalogEnabled = import.meta.env.VITE_ADMIN_CATALOG_ENABLED === 'true';
+  let isOwnProfile = false;
+  let role: ProfileRole | '' = '';
+  let contributions: Contribution[] = [];
+  let contributionsLoading = false;
+  let contributionsError = '';
+
+  // Acceso al Estudio (ronda 3, I3): sale del perfil propio de admin y
+  // colaborador, no del header. Hasta U15 enlaza a las herramientas actuales.
+  $: studioLinks = [
+    ...(role === 'admin' && adminCatalogEnabled ? [{ label: 'Catálogo', href: '/admin/catalogo' }] : []),
+    ...((role === 'admin' || role === 'colaborador') && editorialEnabled
+      ? [{ label: role === 'admin' ? 'Propuestas y reportes' : 'Propuestas', href: '/editorial' }]
+      : [])
+  ];
+
+  async function loadRole(userId: string) {
+    try {
+      role = await getProfileRole(userId);
+    } catch {
+      role = '';
+    }
+  }
+
+  onMount(async () => {
+    const { data: auth } = await supabase.auth.getUser();
+    isOwnProfile = auth.user?.id === data.perfil.id;
+    if (!isOwnProfile) return;
+    void loadRole(data.perfil.id);
+    if (!editorialEnabled) return;
+    contributionsLoading = true;
+    try {
+      contributions = await loadOwnContributions(data.perfil.id);
+    } catch (cause: any) {
+      contributionsError = cause?.message || 'No se pudieron cargar tus propuestas.';
+    } finally {
+      contributionsLoading = false;
+    }
+  });
+
+  function date(value: string) {
+    return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium' }).format(new Date(value));
+  }
+</script>
+
+<svelte:head>
+  <title>@{data.perfil.username} — Biblioteca Discótica</title>
+</svelte:head>
+
+<PageLayout container="regular" title={nombre}>
+  {#snippet actions()}
+    {#if isOwnProfile}<Button variant="secondary" href="/cuenta">Editar cuenta</Button>{/if}
+  {/snippet}
+  {#snippet leading()}
+    <div class="avatar" aria-hidden="true">{inicial}</div>
+  {/snippet}
+  {#snippet meta()}
+    <p class="perfil-username">@{data.perfil.username}</p>
+    {#if data.perfil.bio}
+      <p class="perfil-bio">{data.perfil.bio}</p>
+    {/if}
+    <p class="perfil-meta">En Discótica desde {año}</p>
+  {/snippet}
+
+  {#if studioLinks.length}
+    <section class="studio" aria-labelledby="studio-title">
+      <div>
+        <h2 id="studio-title">Estudio</h2>
+        <p>Catálogo, propuestas y reportes.</p>
+      </div>
+      <div class="studio__links">
+        {#each studioLinks as link}
+          <Button variant="secondary" href={link.href} iconEnd="flecha-derecha">{link.label}</Button>
+        {/each}
+      </div>
+    </section>
+  {/if}
+
+  {#if isOwnProfile && editorialEnabled}
+    <section id="mis-aportes" class="contributions-section" aria-labelledby="contributions-title">
+      <div class="section-heading">
+        <div><p class="eyebrow">Privado</p><h2 id="contributions-title">Mis propuestas</h2></div>
+        <a class="ui-button ui-button--secondary new-contribution" href="/sugerir">Nueva propuesta</a>
+      </div>
+      {#if contributionsLoading}
+        <p class="vacio" role="status">Cargando propuestas…</p>
+      {:else if contributionsError}
+        <p class="contribution-error" role="alert">{contributionsError}</p>
+      {:else if contributions.length === 0}
+        <div class="empty-contributions"><p>Aún no tienes borradores ni propuestas enviadas.</p><a href="/sugerir">Sugerir un lanzamiento</a></div>
+      {:else}
+        <ul class="contributions-list">
+          {#each contributions as contribution (contribution.id)}
+            <li>
+              <div class="contribution-main">
+                <span class="status status--{contribution.status}">{CONTRIBUTION_STATUS_LABELS[contribution.status]}</span>
+                <h3>{contribution.payload?.title || 'Borrador sin título'}</h3>
+                <p>{contribution.source_provider ?? 'Fuente'} · Actualizado {date(contribution.updated_at)}</p>
+                {#if contribution.reviewer_note}<div class="review-note"><strong>Nota editorial</strong><p>{contribution.reviewer_note}</p></div>{/if}
+              </div>
+              {#if contribution.status === 'draft' || contribution.status === 'changes_requested'}
+                <a class="ui-button ui-button--secondary resume" href={`/sugerir?draft=${contribution.id}`}>{contribution.status === 'draft' ? 'Retomar borrador' : 'Corregir propuesta'}</a>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+  {/if}
+
+  <section id="colecciones" class="crates-seccion">
+    <h2 class="seccion-titulo">
+      Colecciones públicas
+      <span class="seccion-conteo">{data.crates.length}</span>
+    </h2>
+
+    {#if data.crates.length === 0}
+      <p class="vacio">Este perfil no tiene colecciones públicas todavía.</p>
+    {:else}
+      <ul class="crates-grid">
+        {#each data.crates as crate (crate.id)}
+          <li>
+            <a class="crate-card" href="/coleccion/{crate.slug}?usuario={data.perfil.username}">
+              <h3 class="crate-nombre">{crate.name}</h3>
+              {#if crate.description}
+                <p class="crate-desc">{crate.description}</p>
+              {/if}
+              <span class="crate-conteo">
+                {crate.item_count ?? 0} {(crate.item_count ?? 0) === 1 ? 'lanzamiento' : 'lanzamientos'}
+              </span>
+            </a>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
+</PageLayout>
+
+<style>
+
+
+  .avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--color-acento-dim);
+    border: 1px solid var(--color-borde-hover);
+    color: var(--color-acento);
+    font-size: var(--text-2xl);
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+
+
+  .perfil-username {
+    font-size: var(--text-xs);
+    color: var(--color-texto-tenue);
+    margin: 0;
+  }
+
+  .perfil-bio {
+    font-size: var(--text-sm);
+    color: var(--color-texto-tenue);
+    margin: .35rem 0 0;
+    line-height: 1.6;
+  }
+
+  .perfil-meta {
+    font-size: var(--text-2xs);
+    color: var(--color-texto-tenue);
+    margin: .25rem 0 0;
+  }
+
+  .studio {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-7);
+    padding: var(--space-4) var(--space-5);
+    border: 1px solid var(--color-acento-suave);
+    border-radius: var(--radius-base);
+    background: var(--color-acento-tinte);
+  }
+  .studio h2 { margin: 0; font-size: var(--text-lg); }
+  .studio p { margin: var(--space-1) 0 0; color: var(--color-texto-medio); font-size: var(--text-sm); }
+  .studio__links { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+  .crates-seccion {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .contributions-section { margin-bottom: 3.5rem; }
+  .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.2rem; }
+  .section-heading h2 { margin: 0; font-size: var(--text-xl); }
+  .eyebrow { margin: 0 0 .25rem; color: var(--color-acento); font-size: var(--text-2xs); font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+  .new-contribution, .resume { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+  .contributions-list { display: grid; gap: .7rem; margin: 0; padding: 0; list-style: none; }
+  .contributions-list > li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem; border: 1px solid var(--color-linea); border-radius: var(--radius-base); background: var(--color-superficie-1); }
+  .contribution-main { min-width: 0; }
+  .contribution-main h3 { margin: .35rem 0 .2rem; overflow-wrap: anywhere; font-size: var(--text-md); }
+  .contribution-main > p { margin: 0; color: var(--color-texto-tenue); font-size: var(--text-2xs); text-transform: capitalize; }
+  .status { display: inline-block; padding: .18rem .48rem; border: 1px solid var(--color-linea); border-radius: var(--radius-pill); color: var(--color-texto-medio); font-size: var(--text-2xs); font-weight: 750; }
+  .status--approved { color: var(--color-acento); border-color: var(--color-acento-border); }
+  .status--rejected { color: var(--color-danger-texto); border-color: var(--color-danger-borde); }
+  .status--changes_requested { color: var(--color-aviso); border-color: var(--color-aviso-borde); }
+  .review-note { margin-top: .7rem; padding: .6rem .7rem; border-left: 2px solid currentColor; color: var(--color-texto-medio); background: var(--color-superficie-1); font-size: var(--text-2xs); }
+  .review-note p { margin: .2rem 0 0; white-space: pre-wrap; }
+  .empty-contributions, .contribution-error { padding: 1rem; border: 1px solid var(--color-linea); border-radius: var(--radius-base); color: var(--color-texto-tenue); }
+  .empty-contributions p { margin: 0 0 .4rem; } .empty-contributions a { color: var(--color-acento); }
+  .contribution-error { color: var(--color-danger-texto); border-color: var(--color-danger-borde); background: var(--color-danger-dim); }
+
+  .seccion-titulo {
+    font-size: var(--text-md);
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--color-texto-tenue);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+  }
+
+  .seccion-conteo {
+    font-size: var(--text-2xs);
+    background: var(--color-superficie-2);
+    border: 1px solid var(--color-linea);
+    border-radius: var(--radius-lg);
+    padding: .1rem .55rem;
+    color: var(--color-texto-tenue);
+    font-weight: 700;
+  }
+
+  .vacio {
+    font-size: var(--text-sm);
+    color: var(--color-texto-tenue);
+    padding: 2rem 0;
+  }
+
+  .crates-grid {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+
+  .crate-card {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    padding: 1.25rem;
+    background: var(--color-superficie-1);
+    border: 1px solid var(--color-linea-sutil);
+    border-radius: var(--radius-base);
+    text-decoration: none;
+    transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease;
+    height: 100%;
+    box-sizing: border-box;
+  }
+
+  .crate-card:hover {
+    border-color: var(--color-acento-suave);
+    background: var(--color-acento-tinte);
+  }
+
+  .crate-nombre {
+    font-size: var(--text-md);
+    font-weight: 800;
+    color: var(--color-texto);
+    margin: 0;
+    letter-spacing: -.01em;
+    line-height: 1.3;
+  }
+
+  .crate-desc {
+    font-size: var(--text-2xs);
+    color: var(--color-texto-tenue);
+    margin: 0;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .crate-conteo {
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--color-texto-tenue);
+    margin-top: auto;
+  }
+
+  @media (max-width: 679px) {
+    .section-heading, .contributions-list > li { align-items: stretch; flex-direction: column; }
+    .new-contribution, .resume { width: 100%; box-sizing: border-box; }
+  }
+</style>
