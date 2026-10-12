@@ -189,7 +189,7 @@ add('header-anon-D', 'D', '/', { selector: '.site-header' });
 add('footer-D', 'D', '/', { selector: 'footer' });
 add('footer-M', 'M', '/', { selector: 'footer' });
 // U7: menú de cuenta del avatar (desktop) y acceso al Estudio desde el perfil propio.
-add('header-account-menu-D', 'D', '/', { role: 'comunidad', setup: async (page) => { await page.click('.account-menu .ui-menu__trigger'); await page.waitForSelector('[role=menu]'); await settle(page); } });
+add('header-account-menu-D', 'D', '/', { role: 'comunidad', supplementary: true, setup: async (page) => { await page.click('.account-menu .ui-menu__trigger'); await page.waitForSelector('[role=menu]'); await settle(page); } });
 
 // Taxonomías
 each(['D', 'M'], 'artista', `/artista/${ARTIST_SLUG}`, { full: true, maxH: 3000 });
@@ -320,8 +320,8 @@ add('miscrates-empty-D', 'D', '/mis-colecciones', { role: 'comunidad', mock: { n
 each(['D', 'M'], 'crate-crear', '/mis-colecciones?crear=1', { role: 'comunidad' });
 each(['D', 'M'], 'crate', '/coleccion/para-abrir-el-set?usuario=comunidad', { role: 'comunidad', full: true });
 each(['D', 'M'], 'perfil', '/perfil/comunidad', { role: 'comunidad', full: true });
-add('perfil-admin-D', 'D', '/perfil/jmamanche', { role: 'admin', ready: '.studio', full: true });
-add('perfil-colab-M', 'M', '/perfil/colaboradora', { role: 'colaborador', ready: '.studio', full: true });
+add('perfil-admin-D', 'D', '/perfil/jmamanche', { role: 'admin', ready: '.studio', full: true, supplementary: true });
+add('perfil-colab-M', 'M', '/perfil/colaboradora', { role: 'colaborador', ready: '.studio', full: true, supplementary: true });
 // U14: mis aportes, perfil visto por otra persona, colección en lista, de visitante y acciones.
 const CRATE_URL = '/coleccion/para-abrir-el-set?usuario=comunidad';
 const listView = async (page: Page) => {

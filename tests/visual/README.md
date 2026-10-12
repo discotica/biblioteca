@@ -33,12 +33,18 @@ Variables opcionales:
    - La línea base nueva se versiona junto con el cambio que la produjo.
 4. **Si una etapa cambia rutas, selectores o textos que usa la suite:** se actualiza `censo.spec.ts` en la misma etapa, sin borrar IDs. Ejemplo: U3 cambia `/mis-crates` y `/crate/…`; en ese caso la captura conserva su ID y cambia su URL.
 
+## Estado de la línea base
+
+- **Estado que representa:** el árbol al cierre de U17 (commit `02223ea`, aceptado el 2026-10-11). Incluye R1 (ficha y reproductor), R2 (errores visibles menores), U2 (saneamiento) y U3 (colecciones) además de U4–U17.
+- **Cómo se llegó:** la línea base de U1 se perdió durante U2 y la de R1+R2 (2026-10-05) nunca se versionó. Las diferencias de R1, R2, U2 y U3 se aceptaron al recapturar sobre U17 y quedan descritas solo en sus expedientes de `docs/modernizacion/`. S2 (2026-10-11) confirmó 0 diferencias en 182 capturas y que las referencias temporales `.ref-pre-u3/` y `playwright.ref.config.ts` ya no existen.
+- **Verificada:** `npm run visual:compare` → 182 iguales, 0 diferentes, 0 inestables.
+
 ## Dónde vive cada cosa
 
 | Ruta | Contenido | ¿Versionado? |
 | --- | --- | --- |
 | `censo.spec.ts` | Lista de capturas (mismos IDs del censo) y runner | Sí |
-| `baseline/<plataforma>/` | Línea base PNG (`darwin` hoy). 142 archivos, ~19 MB | Sí |
+| `baseline/<plataforma>/` | Línea base PNG (`darwin` hoy). 182 archivos | Sí |
 | `data/staging.json.gz` | Snapshot de staging: catálogo (2.790), sellos, géneros, países, tipos y artistas. ~880 KB | Sí |
 | `support/` | Mocks, evaluador PostgREST, respaldos locales, estabilización e informe | Sí |
 | `record-staging.mjs` | Grabador del snapshot | Sí |
@@ -83,10 +89,12 @@ La línea base está fuera de `static/` y de `build/`, así que nunca entra en e
 
 ## Capturas
 
-- 127 IDs del censo (126 estados más 1 diagnóstico).
-- 4 suplementarias del anexo que el censo no lista: `home-scrolled-M`, `miscrates-anon-D`, `reportar-anon-D` y `reset-signup-D`.
-- 2 suplementarias de U5: `lab-D` y `lab-M`, el catálogo de primitivas en `/lab` (página completa). Cada primitiva nueva o extendida aparece ahí, así que su cambio se ve en estas dos capturas.
-- 2 suplementarias de U6: `lab-u6-D` y `lab-u6-M`, solo las secciones de las primitivas compuestas (`.lab__u6`, captura de elemento). Así no dependen del largo de las secciones de U5 ni del tope de 10 000 px de `lab-M`.
+- 182 en total: 127 IDs del censo (126 estados más 1 diagnóstico) y 55 suplementarias (`supplementary: true` en `censo.spec.ts`).
+- Las suplementarias no están en el censo. Son las del anexo (`home-scrolled-M`, `miscrates-anon-D`, `reportar-anon-D`, `reset-signup-D`) y las que añadió cada etapa desde U5:
+  - `lab-D`, `lab-M` (U5): el catálogo de primitivas en `/lab`, página completa. Cada primitiva nueva o extendida aparece ahí.
+  - `lab-u6-*`, `lab-u7-*`, `lab-u8-*`, `lab-u17-*` (D y M): solo la sección de cada etapa (captura de elemento), para no depender del largo de las anteriores ni del tope de 10 000 px de `lab-M`.
+  - Cuenta, colecciones, perfil, Estudio (editor, lotes, propuestas, reportes) y menús de U7–U17.
+  - `header-account-menu-D`, `perfil-admin-D` y `perfil-colab-M` (U7). Les faltaba el marcador y el test de IDs fallaba (130 en lugar de 127).
 - Al filtrar con `-g`, ancla el ID con un espacio: `-g " lab-(D|M)$"`. Sin el espacio, `lab-D$` también coincide con `editorial-colab-D`.
 - Un test adicional comprueba que los 127 IDs del censo siguen presentes.
 
