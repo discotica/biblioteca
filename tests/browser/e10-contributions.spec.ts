@@ -1,0 +1,349 @@
+import { expect, test, type Page, type Route } from '@playwright/test';
+
+const project = 'hgocyrzhgohetfpzbmfs';
+const ids = {
+  community: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+  collaborator: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2',
+  admin: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3',
+  draft: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1',
+  pending: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2',
+  collaboratorPending: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb3',
+  changes: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb4'
+};
+
+type Role = 'comunidad' | 'colaborador' | 'admin';
+
+const payload = (title: string) => ({
+  version: 2 as const,
+  title,
+  primary_artists: ['Artista principal'],
+  collaborators: ['Artista invitada'],
+  release_type: 'album' as const,
+  release_date: '2026-09-18',
+  genres: ['Ambient'],
+  countries: ['Colombia'],
+  label: 'Sello ejemplo',
+  team_note: 'Contexto de la persona autora'
+});
+
+function contribution(input: Partial<Record<string, unknown>> = {}) {
+  return {
+    id: ids.pending,
+    author_id: ids.community,
+    status: 'pending',
+    source_url: 'https://artista.bandcamp.com/album/propuesta',
+    source_provider: 'bandcamp',
+    payload: payload('Propuesta comunitaria'),
+    payload_version: 2,
+    payload_quality: 'confirmed',
+    detected_metadata: {
+      provider: 'bandcamp', source_available: true, title: 'Título detectado', artists: ['Artista principal'],
+      type: 'Álbum', release_date: '2026-09-18', cover_url: 'https://images.example.test/cover.jpg'
+    },
+    queue_kind: 'community',
+    submitted_at: '2026-09-18T14:00:00Z',
+    reviewer_note: null,
+    reviewed_at: null,
+    release_id: null,
+    created_at: '2026-09-18T13:00:00Z',
+    updated_at: '2026-09-18T14:00:00Z',
+    ...input
+  };
+}
+
+/** U13: artistas, géneros y países se eligen con el Combobox de U6 (chips). */
+async function addChip(page: Page, label: string, value: string) {
+  const field = page.getByRole('combobox', { name: label });
+  await field.fill(value);
+  await page.getByRole('option', { name: new RegExp(value) }).first().click();
+  await expect(page.getByRole('button', { name: `Quitar ${value}` })).toBeVisible();
+}
+
+function json(route: Route, body: unknown, status = 200) {
+  return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+}
+
+async function authenticate(page: Page, role: Role, username = role) {
+  const userId = role === 'comunidad' ? ids.community : role === 'colaborador' ? ids.collaborator : ids.admin;
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const tokenPayload = Buffer.from(JSON.stringify({ sub: userId, role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url');
+  const session = {
+    access_token: `${header}.${tokenPayload}.signature`, refresh_token: 'fixture-refresh-token', expires_in: 3600,
+    expires_at: Math.floor(Date.now() / 1000) + 3600, token_type: 'bearer',
+    user: { id: userId, aud: 'authenticated', role: 'authenticated', email: `${username}@example.test`, app_metadata: {}, user_metadata: { username }, created_at: '2026-09-18T00:00:00Z' }
+  };
+  await page.context().addCookies([{
+    name: `sb-${project}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(session)).toString('base64url')}`,
+    domain: '127.0.0.1', path: '/', httpOnly: false, secure: false, sameSite: 'Lax'
+  }]);
+  return { session, userId };
+}
+
+async function mockBase(page: Page, role: Role, options: { contributions?: ReturnType<typeof contribution>[] } = {}) {
+  const { session, userId } = await authenticate(page, role);
+  let rows = options.contributions ?? [];
+  await page.route(`https://${project}.supabase.co/**`, async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (url.pathname.startsWith('/auth/v1/')) return json(route, session.user);
+    if (url.pathname === '/rest/v1/profiles') {
+      if (url.searchParams.get('select') === 'role') return json(route, { role });
+      return json(route, { id: userId, username: session.user.user_metadata.username, display_name: role, bio: null, created_at: '2026-01-01T00:00:00Z' });
+    }
+    if (url.pathname === '/rest/v1/crates') return json(route, []);
+    if (url.pathname === '/rest/v1/contributions') {
+      const idFilter = url.searchParams.get('id');
+      if (idFilter?.startsWith('eq.')) return json(route, rows.find((item) => item.id === idFilter.slice(3)) ?? null);
+      return json(route, rows);
+    }
+    if (url.pathname.endsWith('/rpc/create_contribution_draft')) {
+      const body = request.postDataJSON();
+      const created = contribution({ id: ids.draft, author_id: userId, status: 'draft', source_url: body.p_source_url, source_provider: body.p_source_provider, payload: body.p_payload, detected_metadata: body.p_detected_metadata, queue_kind: null });
+      rows = [created, ...rows];
+      return json(route, created);
+    }
+    if (url.pathname.endsWith('/rpc/save_contribution_draft')) {
+      const body = request.postDataJSON();
+      const saved = contribution({ id: body.p_contribution_id, author_id: userId, status: 'draft', source_url: body.p_source_url, source_provider: body.p_source_provider, payload: body.p_payload, detected_metadata: body.p_detected_metadata, queue_kind: null });
+      rows = rows.map((item) => item.id === saved.id ? saved : item);
+      return json(route, saved);
+    }
+    if (url.pathname.endsWith('/rpc/submit_contribution')) {
+      const body = request.postDataJSON();
+      return json(route, contribution({ id: body.p_contribution_id, author_id: userId, status: 'pending', source_url: body.p_source_url, source_provider: body.p_source_provider, payload: body.p_payload, detected_metadata: body.p_detected_metadata, queue_kind: role === 'colaborador' ? 'collaborator' : 'community' }));
+    }
+    if (url.pathname.endsWith('/rpc/prepare_contribution_for_admin')) {
+      const body = request.postDataJSON();
+      return json(route, contribution({ id: body.p_contribution_id, status: 'ready_for_admin' }));
+    }
+    if (url.pathname.endsWith('/rpc/review_contribution')) {
+      const body = request.postDataJSON();
+      return json(route, contribution({ id: body.p_contribution_id, status: body.p_action, reviewer_note: body.p_note, release_id: body.p_action === 'approved' ? 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' : null }));
+    }
+    if (url.pathname.includes('/functions/v1/inspect-release-source')) {
+      return json(route, { provider: 'bandcamp', source_available: true, title: 'Detectado lentamente', artists: ['Artista detectado'], type: 'Álbum', release_date: '2026-09-18', cover_url: 'https://images.example.test/cover.jpg' });
+    }
+    return json(route, {});
+  });
+  await page.route('https://images.example.test/**', (route) => route.fulfill({ status: 200, contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#96f719"/></svg>' }));
+  return { userId, getRows: () => rows };
+}
+
+test('E10 detección explícita/lenta, borrador y envío idempotente visible a 390 px', async ({ page }) => {
+  await mockBase(page, 'comunidad');
+  let inspections = 0;
+  let submissions = 0;
+  await page.route(`https://${project}.supabase.co/functions/v1/inspect-release-source`, async (route) => {
+    inspections += 1;
+    await new Promise((resolve) => setTimeout(resolve, 220));
+    await json(route, { provider: 'bandcamp', source_available: true, title: 'Detectado lentamente', artists: ['Artista detectado'], type: 'Álbum', release_date: '2026-09-18', cover_url: 'https://images.example.test/cover.jpg' });
+  });
+  await page.route(`https://${project}.supabase.co/rest/v1/rpc/submit_contribution`, async (route) => {
+    submissions += 1;
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    const body = route.request().postDataJSON();
+    await json(route, contribution({ id: body.p_contribution_id, status: 'pending', payload: body.p_payload }));
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/sugerir');
+  await expect(page.getByLabel('Título')).toHaveCount(0);
+  // U13: Sugerir abre directamente el primer paso, con el foco en la fuente.
+  await expect(page.getByLabel('Enlace de la fuente')).toBeFocused();
+  await page.getByLabel('Enlace de la fuente').fill('https://artista.bandcamp.com/album/nuevo');
+  await page.getByRole('heading', { name: 'Sugerir un lanzamiento' }).click();
+  expect(inspections).toBe(0);
+  await page.getByRole('button', { name: 'Detectar' }).click();
+  await expect(page.getByRole('button', { name: 'Leyendo…' })).toBeDisabled();
+  await expect(page.getByLabel('Título')).toHaveValue('Detectado lentamente');
+  expect(inspections).toBe(1);
+  await expect(page.getByLabel(/^Tipo/)).toHaveValue('');
+  await expect(page.getByText('La fuente sugiere “Álbum”; confírmalo manualmente.')).toBeVisible();
+  await expect(page.getByAltText('Portada detectada, pendiente de verificación')).toBeVisible();
+  await expect(page.getByText('Portada detectada como evidencia de solo lectura; el equipo la verificará.')).toBeVisible();
+  await expect(page.locator('input[type=file]')).toHaveCount(0);
+
+  await page.getByLabel(/^Tipo/).selectOption('album');
+  await addChip(page, 'Géneros', 'Ambient');
+  await addChip(page, 'Países', 'Colombia');
+  await page.getByRole('button', { name: 'Guardar borrador' }).click();
+  await expect(page.getByText('Borrador guardado. Puedes retomarlo desde tu perfil.')).toBeVisible();
+  // U13: revisar datos → nota (opcional) → enviar.
+  await page.getByRole('button', { name: 'Continuar' }).click();
+  await expect(page.getByLabel(/^Nota para el equipo/)).toBeVisible();
+  await page.getByRole('button', { name: 'Continuar' }).click();
+  const submit = page.getByRole('button', { name: 'Enviar a revisión' });
+  await submit.dblclick();
+  await expect(page.getByRole('heading', { name: 'Propuesta enviada' })).toBeVisible();
+  expect(submissions).toBe(1);
+  await expect(page.getByText('Tu propuesta quedó pendiente de revisión. Puedes consultar su estado en tu perfil.')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('E10 conserva edición manual tras fallo, enfoca obligatorios y muestra error remoto', async ({ page }) => {
+  await mockBase(page, 'comunidad');
+  await page.route(`https://${project}.supabase.co/functions/v1/inspect-release-source`, (route) => json(route, { provider: 'soundcloud', source_available: false }));
+  await page.goto('/sugerir');
+  const source = page.getByLabel('Enlace de la fuente');
+  await source.fill('https://soundcloud.com/artista/propuesta');
+  await page.getByRole('button', { name: 'Detectar' }).click();
+  await expect(page.getByText('Información no disponible.')).toBeVisible();
+  // U13: la fuente queda en el paso 1, intacta; el paso 2 es la edición manual.
+  await page.getByRole('button', { name: 'Atrás' }).click();
+  await expect(source).toHaveValue('https://soundcloud.com/artista/propuesta');
+  await page.getByRole('button', { name: 'Continuar' }).click();
+  await page.getByRole('button', { name: 'Continuar' }).click();
+  await expect(page.getByRole('alert')).toContainText('Revisa los campos obligatorios');
+  await expect(page.getByLabel('Título')).toBeFocused();
+  await expect(page.getByText('El título es obligatorio.')).toBeVisible();
+
+  await page.getByLabel('Título').fill('Manual');
+  await addChip(page, 'Artistas principales', 'Artista');
+  await page.getByLabel(/^Tipo/).selectOption('single');
+  await page.getByLabel(/^Fecha/).fill('2026-09-18');
+  await addChip(page, 'Géneros', 'Electrónica');
+  await addChip(page, 'Países', 'Chile');
+  await page.getByRole('button', { name: 'Continuar' }).click();
+  await page.getByRole('button', { name: 'Continuar' }).click();
+  await page.route(`https://${project}.supabase.co/rest/v1/rpc/submit_contribution`, (route) => json(route, { code: '503', message: 'Fallo remoto reproducible' }, 503));
+  await page.getByRole('button', { name: 'Enviar a revisión' }).click();
+  await expect(page.getByRole('alert')).toContainText('Fallo remoto reproducible');
+  await page.getByRole('button', { name: 'Atrás' }).click();
+  await page.getByRole('button', { name: 'Atrás' }).click();
+  await expect(page.getByLabel('Título')).toHaveValue('Manual');
+});
+
+// U14: los aportes propios viven en /mis-aportes (filas compactas), no en el perfil.
+test('E10 Mis aportes lista estados, reanuda borrador/cambios y no filtra datos en perfil ajeno', async ({ page }) => {
+  const rows = [
+    contribution({ id: ids.draft, status: 'draft', payload: payload('Borrador'), queue_kind: null }),
+    contribution({ id: ids.pending, status: 'pending', payload: payload('Pendiente') }),
+    contribution({ id: ids.changes, status: 'changes_requested', payload: payload('Corregir'), reviewer_note: 'Aclara los créditos.' }),
+    contribution({ id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb5', status: 'approved', payload: payload('Aceptada'), release_id: 'release-id' }),
+    contribution({ id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb6', status: 'rejected', payload: payload('Rechazada'), reviewer_note: 'Fuera del alcance.' })
+  ];
+  await mockBase(page, 'comunidad', { contributions: rows });
+  await page.goto('/mis-aportes');
+  await expect(page.getByRole('heading', { level: 1, name: 'Mis aportes' })).toBeVisible();
+  const list = page.getByRole('list', { name: 'Aportes' });
+  for (const status of ['Borrador', 'Pendiente', 'Cambios solicitados', 'Aceptado', 'Rechazado']) await expect(list.locator('.ui-chip__label', { hasText: new RegExp(`^${status}$`) })).toBeVisible();
+  await expect(page.getByText('Aclara los créditos.')).toBeVisible();
+  await expect(page.getByText('Fuera del alcance.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Retomar: Borrador' })).toHaveAttribute('href', `/sugerir?draft=${ids.draft}`);
+  await page.getByRole('link', { name: 'Corregir: Corregir' }).click();
+  await expect(page).toHaveURL(new RegExp(`/sugerir\\?draft=${ids.changes}`));
+  await expect(page.getByLabel('Título')).toHaveValue('Corregir');
+  await expect(page.getByRole('button', { name: 'Guardar borrador' })).toHaveCount(0);
+
+  await page.route(`https://${project}.supabase.co/rest/v1/profiles**`, (route) => json(route, { id: 'otro-id', username: 'otra', display_name: 'Otra', bio: null, created_at: '2026-01-01T00:00:00Z' }));
+  await page.goto('/perfil/otra');
+  await expect(page.getByRole('heading', { level: 1, name: 'Otra' })).toBeVisible();
+  await expect(page.locator('.l-page a[href="/mis-aportes"]')).toHaveCount(0);
+  await expect(page.getByText('Aclara los créditos.')).toHaveCount(0);
+});
+
+test('E10 Mis aportes representa vacío y fallo remoto', async ({ page }) => {
+  await mockBase(page, 'comunidad', { contributions: [] });
+  await page.goto('/mis-aportes');
+  await expect(page.getByText('Todavía no has sugerido lanzamientos.')).toBeVisible();
+  await expect(page.locator('.l-page').getByRole('link', { name: 'Sugerir un lanzamiento' }).first()).toHaveAttribute('href', '/sugerir');
+
+  await page.route(`https://${project}.supabase.co/rest/v1/contributions**`, (route) => json(route, { code: 'PGRST000', message: 'Perfil remoto no disponible' }, 400));
+  await page.reload();
+  await expect(page.getByText('No pudimos cargar tus aportes.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reintentar' })).toBeVisible();
+});
+
+test('E10 matriz de acceso: comunidad denegada y colaborador prepara solo comunidad ajena', async ({ page }) => {
+  await mockBase(page, 'comunidad', { contributions: [contribution()] });
+  // U15: /editorial redirige a Propuestas del Estudio, que no admite a la comunidad.
+  await page.goto('/editorial');
+  await expect(page).toHaveURL(/\/estudio\/propuestas$/);
+  await expect(page.getByRole('heading', { name: 'Sin acceso al Estudio' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /publicar|rechazar|preparar/i })).toHaveCount(0);
+
+  await page.context().clearCookies();
+  const collaboratorOwn = contribution({ id: ids.collaboratorPending, author_id: ids.collaborator, queue_kind: 'collaborator', payload: payload('Aporte propio') });
+  await mockBase(page, 'colaborador', { contributions: [contribution(), collaboratorOwn] });
+  await page.goto('/editorial');
+  // U17: bandeja. Lo que puede preparar va primero y se abre solo; sus aportes, aparte y sin revisión.
+  await expect(page.getByRole('heading', { name: 'Mis aportes prioritarios' })).toBeVisible();
+  await page.getByRole('link', { name: /^Aporte propio/ }).click();
+  const own = page.getByRole('article', { name: 'Aporte propio' });
+  await expect(own.getByText('Pendiente de revisión administrativa.')).toBeVisible();
+  await expect(own.getByRole('button')).toHaveCount(0);
+  await page.getByRole('link', { name: /^Propuesta comunitaria/ }).click();
+  const community = page.getByRole('article', { name: 'Propuesta comunitaria' });
+  await expect(community.getByRole('button', { name: 'Marcar lista para administración' })).toBeVisible();
+  await expect(community.getByRole('button', { name: /publicar|rechazar|solicitar/i })).toHaveCount(0);
+  await community.getByLabel(/^Nota interna/).fill('Fuente verificada');
+  await community.getByRole('button', { name: 'Marcar lista para administración' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'lista para administración' })).toBeVisible();
+});
+
+test('E10 admin separa colas, exige notas y confirma publicación con teclado', async ({ page }) => {
+  const priority = contribution({ id: ids.collaboratorPending, author_id: ids.collaborator, queue_kind: 'collaborator', payload: payload('Propuesta prioritaria') });
+  await mockBase(page, 'admin', { contributions: [contribution(), priority] });
+  // U13: admin ve el mismo flujo por pasos, pero E09 no acepta su envío: nunca se le ofrece.
+  await page.goto('/sugerir');
+  await expect(page.getByLabel('Enlace de la fuente')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Enviar a revisión' })).toHaveCount(0);
+  await page.goto('/editorial');
+  await expect(page.getByRole('heading', { name: 'Cola prioritaria' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Cola comunitaria' })).toBeVisible();
+  // U17: bandeja con lista y detalle. El detalle muestra solo lo propuesto y marca
+  // lo que difiere de lo detectado ("Título detectado" ya no se ve).
+  await page.getByRole('link', { name: /^Propuesta comunitaria/ }).click();
+  const community = page.getByRole('article', { name: 'Propuesta comunitaria' });
+  await expect(community.locator('.l-inbox-field').filter({ hasText: 'Título' }).first()).toContainText('Editado');
+  await expect(community.getByText('Título detectado')).toHaveCount(0);
+  await expect(community.getByText('Contexto de la persona autora')).toBeVisible();
+  await community.getByRole('button', { name: 'Solicitar cambios' }).click();
+  await expect(community.getByText('Escribe una nota para solicitar cambios')).toBeVisible();
+  await expect(community.getByLabel('Nota para la persona autora')).toBeFocused();
+
+  const trigger = community.getByRole('button', { name: 'Revisar publicación' });
+  await trigger.click();
+  const dialog = page.getByRole('dialog', { name: 'Propuesta comunitaria' });
+  await expect(dialog.getByText('Artista principal')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Volver' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await dialog.getByRole('button', { name: 'Aprobar y publicar' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Aceptado' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Propuesta comunitaria/ })).toHaveCount(0);
+});
+
+test('E10 estación editorial representa carga, colas vacías y fallo remoto', async ({ page }) => {
+  await mockBase(page, 'admin', { contributions: [] });
+  const contributionsUrl = `https://${project}.supabase.co/rest/v1/contributions**`;
+  await page.route(contributionsUrl, async (route) => {
+    // U15: la cola se pide cuando el Estudio ya comprobó el rol; la espera
+    // tiene que durar más que esa comprobación para ver la carga.
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await json(route, []);
+  });
+  await page.goto('/editorial');
+  await expect(page.getByRole('status')).toContainText('Cargando propuestas');
+  await expect(page.getByText('No hay propuestas en la cola prioritaria.')).toBeVisible();
+  await expect(page.getByText('No hay propuestas comunitarias pendientes.')).toBeVisible();
+
+  await page.unroute(contributionsUrl);
+  await page.route(contributionsUrl, (route) => json(route, { code: 'PGRST000', message: 'Cola remota no disponible' }, 400));
+  await page.reload();
+  await expect(page.getByRole('alert')).toContainText('Cola remota no disponible');
+});
+
+test('E10 rutas directas anónimas no exponen acciones', async ({ page }) => {
+  await page.context().clearCookies();
+  await page.goto(`/sugerir?draft=${ids.draft}`);
+  await expect(page.getByRole('heading', { name: 'Inicia sesión para proponer' })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('link', { name: 'Entrar' })).toHaveAttribute('href', new RegExp(`redirect=.*${ids.draft}`));
+  await expect(page.getByRole('button', { name: 'Detectar' })).toHaveCount(0);
+  await page.goto('/editorial');
+  await expect(page.getByRole('heading', { name: 'Inicia sesión' })).toBeVisible();
+  // E14 adds the persistent global-menu trigger; this assertion concerns
+  // actions exposed by the anonymous editorial surface itself.
+  await expect(page.locator('main').getByRole('button')).toHaveCount(0);
+});

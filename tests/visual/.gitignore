@@ -1,0 +1,6 @@
+# Salidas locales de la suite visual (se regeneran en cada corrida)
+/results/
+/report/
+
+# Referencias temporales para aislar etapas sin aceptar (viven solo en local y en el respaldo)
+/.ref-pre-*/
