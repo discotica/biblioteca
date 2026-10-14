@@ -22,7 +22,7 @@ test("hashClientIp es un HMAC hexadecimal de 64 caracteres que depende de la cla
 test("waitForFloor completa el tiempo mínimo y no espera si ya pasó", async () => {
   const startedAt = performance.now();
   await waitForFloor(startedAt, 60);
-  assert.ok(performance.now() - startedAt >= 59);
+  assert.ok(performance.now() - startedAt >= 60);
 
   const late = performance.now();
   await waitForFloor(late - FAILURE_FLOOR_MS - 1);

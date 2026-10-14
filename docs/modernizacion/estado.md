@@ -21,6 +21,7 @@ Detalle en el [expediente de U18](./u18-qa-interfaz-2026-10-14.md#paso-5--h2-202
   - `npm test` 156/156; `build` OK; `lint:tokens` OK (2 excepciones de los radares);
   - `test:browser`: 2 corridas, 319 pasan, 5 omitidas y 0 fallos;
   - visual: 0 diferencias contra `.ref-pre-u18fix` (borrada). La línea base no cambia.
+- **CI del PR:** la corrida de `b7aa82c` falló en `waitForFloor` (`username-login.test.mjs`). `setTimeout` venció una fracción de milisegundo antes del piso. Ahora `waitForFloor` espera en bucle hasta cumplirlo, y la prueba exige el piso exacto (30/30 en local).
 - **Para el paso 7:**
   - la migración va después de S7, y la función después de la migración (sin ella, toda entrada con usuario da 503). Ya está en el plan y en el prompt del paso 7;
   - comprobar en staging la cabecera de la IP real y si se puede falsificar, qué IP ve Auth y la latencia real bajo el piso.

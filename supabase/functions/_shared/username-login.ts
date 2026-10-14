@@ -36,8 +36,13 @@ export async function hashClientIp(ip: string, secret: string): Promise<string> 
   return Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-/** Espera lo que falte para que hayan pasado `floorMs` desde `startedAt`. */
-export function waitForFloor(startedAt: number, floorMs = FAILURE_FLOOR_MS, now = performance.now()): Promise<void> {
-  const remaining = startedAt + floorMs - now;
-  return remaining > 0 ? new Promise((resolve) => setTimeout(resolve, remaining)) : Promise.resolve();
+/**
+ * Espera lo que falte para que hayan pasado `floorMs` desde `startedAt`. En
+ * bucle: un temporizador puede vencer una fracción de milisegundo antes.
+ */
+export async function waitForFloor(startedAt: number, floorMs = FAILURE_FLOOR_MS): Promise<void> {
+  let remaining: number;
+  while ((remaining = startedAt + floorMs - performance.now()) > 0) {
+    await new Promise((resolve) => setTimeout(resolve, Math.ceil(remaining)));
+  }
 }
