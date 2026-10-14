@@ -271,9 +271,10 @@ test('E15: el gesto táctil real cierra únicamente desde el encabezado', async 
   const y = box.y + 14;
   const session = await context.newCDPSession(page);
   await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
-  // 30 px is below the distance threshold; this closes through the documented
-  // fast-swipe branch (>=24 px and >=0.5 px/ms).
-  await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y + 30, id: 1 }] });
+  // 90 px supera CLOSE_DISTANCE (72), así que cierra por distancia y no
+  // depende del tiempo. Con 30 px solo cierra por velocidad (>=0.5 px/ms, es
+  // decir, los tres envíos CDP en <=60 ms), y en un runner cargado no llega.
+  await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y + 90, id: 1 }] });
   await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 
   await expect(sheet).toHaveCount(0);
