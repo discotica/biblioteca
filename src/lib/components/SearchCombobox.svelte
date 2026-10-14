@@ -174,8 +174,19 @@
     }
   }
 
+  // El cierre diferido deja que el clic en una sugerencia llegue antes que el
+  // blur. Si el campo recupera el foco en ese margen (p. ej. tras quitar una
+  // chip), el cierre pendiente se cancela: si no, cierra las sugerencias con el
+  // campo enfocado.
+  let cierreTrasBlur;
   function onSearchBlur() {
-    setTimeout(() => { dropdownAbierto = false; indiceSugerencia = -1; }, 160);
+    clearTimeout(cierreTrasBlur);
+    cierreTrasBlur = setTimeout(() => { dropdownAbierto = false; indiceSugerencia = -1; }, 160);
+  }
+
+  function onSearchFocus() {
+    clearTimeout(cierreTrasBlur);
+    if (gruposSugerencias.length) dropdownAbierto = true;
   }
 
   function toggleEnLista(key, valor) {
@@ -221,7 +232,7 @@
         on:input={() => dispatch('activate')}
         on:keydown={onKeydown}
         on:blur={onSearchBlur}
-        on:focus={() => { if (gruposSugerencias.length) dropdownAbierto = true; }}
+        on:focus={onSearchFocus}
       />
       {#if textoTemporal}
         <IconButton
