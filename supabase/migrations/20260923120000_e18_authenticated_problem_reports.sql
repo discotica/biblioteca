@@ -6,7 +6,7 @@ create table public.problem_reports (
   category text not null check (category in ('catalog_error', 'technical_bug', 'general_feedback')),
   description text not null check (char_length(btrim(description)) between 1 and 5000),
   page_url text not null check (char_length(page_url) <= 2048 and page_url like '/%' and page_url not like '//%'),
-  release_id uuid references public.catalog_releases(id) on delete set null,
+  release_id uuid references public.releases(id) on delete set null,
   technical_context jsonb not null,
   screenshot_path text unique,
   status text not null default 'new' check (status in ('new', 'triaged', 'in_progress', 'resolved', 'closed')),
@@ -152,5 +152,10 @@ returns table(name text, created_at timestamptz) language sql security definer s
 $$;
 
 revoke all on function private.valid_problem_report_context(jsonb), private.record_problem_report_created() from public, anon, authenticated;
+-- The CHECK constraint is evaluated with the inserting role's privileges, so an
+-- author needs EXECUTE on the validator. It is a pure, invoker-rights function
+-- (no table access, no secrets) in a schema that PostgREST does not expose, and
+-- a stored constraint does not need USAGE on `private`. Nothing else is opened.
+grant execute on function private.valid_problem_report_context(jsonb) to authenticated;
 revoke all on function public.attach_problem_report_screenshot(uuid, text), public.admin_update_problem_report(uuid, text, uuid, text), public.admin_list_orphan_problem_report_screenshots(timestamptz) from public, anon, authenticated;
 grant execute on function public.attach_problem_report_screenshot(uuid, text), public.admin_update_problem_report(uuid, text, uuid, text), public.admin_list_orphan_problem_report_screenshots(timestamptz) to authenticated;

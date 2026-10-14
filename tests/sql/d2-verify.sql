@@ -5,9 +5,10 @@
 begin;
 
 -- Huella de todo lo que una escritura de E06 toca para unos lanzamientos:
--- versión de fila (xmin) de releases y de cada relación reescrita, ids de
--- enlaces y portadas, y la evidencia de auditoría. Si un lote rechazado
--- escribió algo y no lo deshizo, la huella cambia.
+-- versión de fila (xmin) de releases y de cada relación reescrita, incluidos
+-- enlaces y portadas (id, xmin y metadatos; desde S7 se conservan, no se
+-- recrean), y la evidencia de auditoría. Si un lote rechazado escribió algo
+-- y no lo deshizo, la huella cambia.
 create function pg_temp.d2_fingerprint(p_ids uuid[]) returns text language sql as $$
   select md5(concat_ws('|',
     (select string_agg(concat_ws(',', r.id, r.xmin, r.status, r.catalog_version, r.updated_at), ';' order by r.id) from public.releases r where r.id = any(p_ids)),
@@ -15,8 +16,8 @@ create function pg_temp.d2_fingerprint(p_ids uuid[]) returns text language sql a
     (select string_agg(concat_ws(',', g.release_id, g.genre_id, g.xmin), ';' order by g.release_id, g.genre_id) from public.release_genres g where g.release_id = any(p_ids)),
     (select string_agg(concat_ws(',', c.release_id, c.country_id, c.xmin), ';' order by c.release_id, c.country_id) from public.release_countries c where c.release_id = any(p_ids)),
     (select string_agg(concat_ws(',', x.release_id, x.xmin), ';' order by x.release_id) from public.release_radar x where x.release_id = any(p_ids)),
-    (select string_agg(concat_ws(',', l.id, l.url, l.is_primary), ';' order by l.id) from public.release_links l where l.release_id = any(p_ids)),
-    (select string_agg(concat_ws(',', c.id, c.url), ';' order by c.id) from public.release_covers c where c.release_id = any(p_ids)),
+    (select string_agg(concat_ws(',', l.id, l.xmin, l.provider, l.url, l.is_primary, l.checked_at), ';' order by l.id) from public.release_links l where l.release_id = any(p_ids)),
+    (select string_agg(concat_ws(',', c.id, c.xmin, c.kind, c.url, c.storage_path, c.source_url, c.content_hash, c.checked_at), ';' order by c.id) from public.release_covers c where c.release_id = any(p_ids)),
     (select count(*)::text from private.catalog_change_sets s where s.entity_id = any(p_ids)),
     (select count(*)::text from private.catalog_change_events e where e.entity_id = any(p_ids))
   ));

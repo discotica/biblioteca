@@ -8,8 +8,9 @@
 #      con batch_id suman lo que los lotes informaron como aplicado.
 #   2. Un lote que llega mientras una edición individual tiene el lanzamiento
 #      bloqueado espera, ve la versión nueva y se rechaza con 40001.
-#   3. Sonda informativa sobre E06: dos ediciones individuales con la misma
-#      versión base. El contrato dice que la segunda recibe 40001.
+#   3. Sondas de H1 sobre las tres RPC de E06 (update, slug, revert): dos
+#      escrituras con la misma versión base; la segunda recibe 40001 y la
+#      auditoría queda coherente. Desde S6 una sonda fallida falla el script.
 #
 # Solo local: los fixtures se confirman (las sesiones paralelas deben verlos)
 # y al salir se borran, incluida su auditoría privada. No apuntar a staging.
@@ -141,28 +142,94 @@ phase2=PASS
 if [ "$p2_code" != 40001 ] || [ "$p2_state" != "D2 edición A v$((V + 1))" ]; then phase2=FAIL; cat "$OUT/p2a.out" "$OUT/p2b.out"; fi
 echo "Fase 2: el lote recibió '$p2_code'; queda '$p2_state' → $phase2"
 
-# 3. Sonda E06: dos ediciones individuales con la misma versión base ---------------
-Y=$(psql_run -c "select id from public.releases where slug = '$TAG-2'")
-W=$(psql_run -c "select catalog_version from public.releases where id = '$Y'")
-edit_payload="(public.admin_get_catalog_release('$Y') - 'id' - 'catalog_version' - 'updated_at' - 'source' - 'signals')"
-psql_run >"$OUT/p3a.out" 2>&1 <<SQL &
+# 3. Sondas E06 (H1): dos escrituras con la misma versión base -----------------
+# El contrato de E06: la segunda escritura espera el bloqueo del lanzamiento,
+# ve la versión nueva y recibe 40001. Antes de S6 las tres RPC leían el snapshot
+# dentro de `select … for update` con la instantánea previa a la espera, y la
+# segunda se aplicaba sin error, con un before_state falso y un salto de versión.
+# Una sonda por RPC; la segunda escritura de cada una es la que debe fallar.
+#   3a admin_update_catalog_release   frente a  admin_update_catalog_release
+#   3b admin_change_release_slug      frente a  admin_change_release_slug
+#   3c admin_revert_catalog_change    frente a  admin_update_catalog_release
+#      (la reversión llega con la versión del change set y espera la edición)
+payload_of() { echo "(public.admin_get_catalog_release('$1') - 'id' - 'catalog_version' - 'updated_at' - 'source' - 'signals')"; }
+
+# race 'llamada A' 'llamada B': A abre una transacción, escribe y retiene el
+# bloqueo 1,5 s; B arranca a los 0,5 s y espera. Ambas son expresiones jsonb.
+race() {
+  psql_run >"$OUT/ra.out" 2>&1 <<SQL &
 $as_admin
 begin;
-select (public.admin_update_catalog_release('$Y', $W, $edit_payload || '{"title":"D2 edición A"}', 'edición A', 'update'))->>'catalog_version';
+select ($1)->>'catalog_version';
 select pg_sleep(1.5);
 commit;
 SQL
-sleep 0.5
-psql_run >"$OUT/p3b.out" 2>&1 <<SQL || true
+  sleep 0.5
+  psql_run >"$OUT/rb.out" 2>&1 <<SQL || true
 $as_admin
-select (public.admin_update_catalog_release('$Y', $W, $edit_payload || '{"title":"D2 edición B"}', 'edición B', 'update'))->>'catalog_version';
+select ($2)->>'catalog_version';
 SQL
-wait
-p3_state=$(psql_run -c "select title || ' v' || catalog_version from public.releases where id = '$Y'")
-if grep -q 'Catalog version conflict' "$OUT/p3b.out"; then
-  echo "Sonda E06: la segunda edición recibió 40001; queda '$p3_state' → contrato cumplido"
-else
-  echo "Sonda E06: la segunda edición NO recibió 40001 ($(tail -1 "$OUT/p3b.out")); queda '$p3_state' → actualización perdida (informativo, fuera de D2)"
-fi
+  wait
+}
 
-[ "$phase1" = PASS ] && [ "$phase2" = PASS ] && echo "D2 concurrency: OK" || { echo "D2 concurrency: FAIL"; exit 1; }
+# Coherencia de la auditoría de un lanzamiento: cada change set (salvo create)
+# sube exactamente una versión, y su before_state es el after_state del
+# anterior. "saltos antes_falsos".
+audit_of() {
+  psql_run <<SQL
+with s as (
+  select cs.operation as op, cs.base_version, cs.result_version, e.before_state,
+         lag(e.after_state) over (order by cs.result_version) as prev_after
+  from private.catalog_change_sets cs join private.catalog_change_events e on e.change_set_id = cs.id
+  where cs.entity_id = '$1')
+select concat_ws(' ',
+  count(*) filter (where op <> 'create' and result_version <> base_version + 1),
+  count(*) filter (where op <> 'create' and before_state is distinct from prev_after)) from s;
+SQL
+}
+
+phase3=PASS
+probe() { # nombre, release, esperado, llamada A, llamada B, estado esperado (SQL)
+  local name=$1 rid=$2 expected=$3
+  race "$4" "$5"
+  local state; state=$(psql_run -c "select $6 from public.releases where id = '$rid'")
+  local gaps fakes; read -r gaps fakes <<<"$(audit_of "$rid")"
+  local verdict=PASS
+  if ! grep -q 'Catalog version conflict' "$OUT/rb.out" || [ "$state" != "$expected" ] || [ "$gaps" != 0 ] || [ "$fakes" != 0 ]; then
+    verdict=FAIL; phase3=FAIL
+  fi
+  echo "Sonda $name: la segunda escritura → '$(grep -m1 -o 'ERROR:  [^$]*' "$OUT/rb.out" | cut -c1-70 || true)$(grep -q ERROR "$OUT/rb.out" || tail -1 "$OUT/rb.out" | sed 's/^/aplicada → versión /')'; queda '$state'; saltos de versión $gaps, before_state falsos $fakes → $verdict"
+}
+
+# 3a
+Y=$(psql_run -c "select id from public.releases where slug = '$TAG-2'")
+W=$(psql_run -c "select catalog_version from public.releases where id = '$Y'")
+pl=$(payload_of "$Y")
+probe "3a update/update" "$Y" "D2 edición A v$((W + 1))" \
+  "public.admin_update_catalog_release('$Y', $W, $pl || '{\"title\":\"D2 edición A\"}', 'edición A', 'update')" \
+  "public.admin_update_catalog_release('$Y', $W, $pl || '{\"title\":\"D2 edición B\"}', 'edición B', 'update')" \
+  "title || ' v' || catalog_version"
+
+# 3b
+Z=$(psql_run -c "select id from public.releases where slug = '$TAG-3'")
+V3=$(psql_run -c "select catalog_version from public.releases where id = '$Z'")
+probe "3b slug/slug" "$Z" "$TAG-slug-a v$((V3 + 1))" \
+  "public.admin_change_release_slug('$Z', $V3, '$TAG-slug-a', 'slug A')" \
+  "public.admin_change_release_slug('$Z', $V3, '$TAG-slug-b', 'slug B')" \
+  "slug || ' v' || catalog_version"
+
+# 3c: una edición deja un change set C con result_version = V4; luego A edita
+# (V4 → V4+1) y B intenta revertir C con la versión V4.
+R=$(psql_run -c "select id from public.releases where slug = '$TAG-4'")
+V4=$(psql_run -c "select catalog_version from public.releases where id = '$R'")
+pl=$(payload_of "$R")
+C=$(psql_run -c "
+$as_admin
+select (public.admin_update_catalog_release('$R', $V4, $pl || '{\"title\":\"D2 base\"}', 'base de la reversión', 'update'))->>'change_set_id'" | tail -1)
+V4=$((V4 + 1))
+probe "3c update/revert" "$R" "D2 edición A v$((V4 + 1))" \
+  "public.admin_update_catalog_release('$R', $V4, $pl || '{\"title\":\"D2 edición A\"}', 'edición A', 'update')" \
+  "public.admin_revert_catalog_change('$C', $V4, 'revertir con versión vieja')" \
+  "title || ' v' || catalog_version"
+
+[ "$phase1" = PASS ] && [ "$phase2" = PASS ] && [ "$phase3" = PASS ] && echo "D2 concurrency: OK" || { echo "D2 concurrency: FAIL"; exit 1; }

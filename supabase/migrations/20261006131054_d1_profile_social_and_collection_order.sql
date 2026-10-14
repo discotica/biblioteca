@@ -45,6 +45,12 @@ grant update (
   social_facebook, show_accepted_contributions
 ) on table public.profiles to authenticated;
 
+-- Fase 4 reservó /crate y /mis-crates. U3 movió esas rutas a /coleccion y
+-- /mis-colecciones, así que un perfil con ese nombre chocaría con la ruta nueva.
+insert into private.reserved_usernames (username, reason)
+values ('coleccion', 'system'), ('mis-colecciones', 'system')
+on conflict (username) do nothing;
+
 -- El registro no tiene sesión hasta confirmar el correo: las redes opcionales
 -- llegan en raw_user_meta_data. El cliente las normaliza; aquí solo se recortan
 -- y las restricciones de arriba rechazan cualquier formato inválido.

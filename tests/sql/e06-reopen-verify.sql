@@ -1,6 +1,9 @@
--- Run against Biblioteca Staging only:
+-- Run against Biblioteca Staging, or on the local stack:
 -- npx supabase@2.117.0 db query --linked --file tests/sql/e06-reopen-verify.sql
--- It deliberately rolls back releases, dictionaries and private evidence.
+-- docker exec -i supabase_db_<project_id> psql -U postgres -v ON_ERROR_STOP=1 < tests/sql/e06-reopen-verify.sql
+-- It deliberately rolls back releases, dictionaries and private evidence. Roles,
+-- artist and country that a clean local chain lacks are created inside the
+-- transaction (S6).
 begin;
 
 do $$
@@ -30,9 +33,28 @@ begin
     ) returning id into v_collaborator;
     update public.profiles set role = 'colaborador' where id = v_collaborator;
   end if;
+  if v_admin is null then
+    insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at)
+    values (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+      'e06-admin-fixture@example.test', '{"username":"e06adminfixture"}'::jsonb, now(), now())
+    returning id into v_admin;
+    update public.profiles set role = 'admin' where id = v_admin;
+  end if;
+  if v_community is null then
+    insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at)
+    values (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+      'e06-community-fixture@example.test', '{"username":"e06communityfixture"}'::jsonb, now(), now())
+    returning id into v_community;
+  end if;
   select id into v_artist from public.artists order by id limit 1;
   select id into v_type from public.release_types where name = 'EP' order by id limit 1;
   select id into v_country from public.countries order by id limit 1;
+  if v_artist is null then
+    insert into public.artists (name, normalized_name, slug) values ('E06 fixture artist', 'e06 fixture artist', 'e06-fixture-artist') returning id into v_artist;
+  end if;
+  if v_country is null then
+    insert into public.countries (name, normalized_name, slug) values ('E06 fixture country', 'e06 fixture country', 'e06-fixture-country') returning id into v_country;
+  end if;
   if v_admin is null or v_community is null or v_collaborator is null or v_artist is null or v_type is null or v_country is null then
     raise exception 'E06 reopening fixture prerequisites are absent';
   end if;

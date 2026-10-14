@@ -1,5 +1,8 @@
 -- Run with: supabase db query --linked --file tests/sql/e06-verify.sql
+--   or, on the local stack: docker exec -i supabase_db_<project_id> psql -U postgres -v ON_ERROR_STOP=1 < tests/sql/e06-verify.sql
 -- All fixtures, including roles and audit evidence, disappear at ROLLBACK.
+-- Staging has real admin/community profiles and artists; a clean local chain has
+-- none, so the missing ones are created inside the transaction (S6).
 begin;
 
 do $$
@@ -13,6 +16,23 @@ begin
   select id into community_id from public.profiles where role = 'comunidad' limit 1;
   select id into artist_id from public.artists limit 1;
   select id into type_id from public.release_types where slug = 'ep';
+  if admin_id is null then
+    insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at)
+    values (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+      'e06-admin-fixture@example.test', jsonb_build_object('username', 'e06adminfixture'), now(), now())
+    returning id into admin_id;
+    update public.profiles set role = 'admin' where id = admin_id;
+  end if;
+  if community_id is null then
+    insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at)
+    values (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+      'e06-community-fixture@example.test', jsonb_build_object('username', 'e06communityfixture'), now(), now())
+    returning id into community_id;
+  end if;
+  if artist_id is null then
+    insert into public.artists (name, normalized_name, slug)
+    values ('E06 fixture artist', 'e06 fixture artist', 'e06-fixture-artist') returning id into artist_id;
+  end if;
   if admin_id is null or community_id is null or artist_id is null or type_id is null then
     raise exception 'E06 fixture prerequisites are absent';
   end if;
@@ -138,20 +158,68 @@ begin
   exception when invalid_parameter_value then null;
   end;
 
-  -- The legacy E02 approval RPC remains until E09; its published release is
-  -- also captured by the E06 compatibility trigger.
+  -- Contribution approval (E09). A legacy payload (version 1, unconfirmed) can
+  -- no longer be approved: the RPC refuses it and publishes nothing. The old E02
+  -- approval path this section used to exercise no longer exists.
   insert into public.contributions(author_id, status, source_url, payload)
   values (community_id, 'pending', 'https://example.test/e06-legacy', jsonb_build_object(
     'title', 'E06 legacy approval fixture', 'artists', jsonb_build_array('E06 legacy artist'),
     'type', 'EP', 'review', ''
   )) returning id into contribution_id;
+  begin
+    perform public.review_contribution(contribution_id, 'approved', null);
+    raise exception 'legacy contribution unexpectedly approved';
+  exception when invalid_parameter_value then null;
+  end;
+  if (select c.status from public.contributions c where c.id = contribution_id) <> 'pending'
+     or (select c.release_id from public.contributions c where c.id = contribution_id) is not null
+     or exists (select 1 from private.catalog_change_sets where reason = 'Approved contribution ' || contribution_id::text) then
+    raise exception 'rejected legacy approval left a release or audit trail';
+  end if;
+
+  -- A confirmed v2 approval does publish, and the E06 compatibility trigger
+  -- still leaves its create audit evidence.
+  insert into public.contributions(author_id, status, source_url, payload, payload_version, payload_quality, queue_kind)
+  values (community_id, 'pending', 'https://example.test/e06-v2', jsonb_build_object(
+    'version', 2, 'title', 'E06 confirmed approval fixture', 'primary_artists', jsonb_build_array('E06 confirmed artist'),
+    'genres', jsonb_build_array('E06 genre'), 'countries', jsonb_build_array('E06 country'),
+    'release_type', 'ep', 'release_date', '2026-09-18'
+  ), 2, 'confirmed', 'community') returning id into contribution_id;
   select rc.release_id into legacy_release_id from public.review_contribution(contribution_id, 'approved', null) rc;
   if legacy_release_id is null or not exists (
     select 1 from private.catalog_change_sets
     where entity_id = legacy_release_id and operation = 'create'
       and reason = 'Approved contribution ' || contribution_id::text
   ) then
-    raise exception 'legacy approval did not leave E06 audit evidence';
+    raise exception 'confirmed approval did not leave E06 audit evidence';
+  end if;
+
+  -- S6 / H5: a release can be created directly as published (E06 requires a
+  -- complete payload to publish: date, type, label, artist, genre, country,
+  -- HTTPS cover and exactly one primary link).
+  insert into public.labels (name, normalized_name, slug) values ('E06 H5 label', 'e06 h5 label', 'e06-h5-label') on conflict do nothing;
+  insert into public.genres (name, normalized_name, slug) values ('E06 H5 genre', 'e06 h5 genre', 'e06-h5-genre') on conflict do nothing;
+  insert into public.countries (name, normalized_name, slug) values ('E06 H5 country', 'e06 h5 country', 'e06-h5-country') on conflict do nothing;
+  payload := jsonb_set(jsonb_set(jsonb_set(payload, '{slug}', '"e06-published-fixture"'), '{title}', '"E06 published fixture"'), '{status}', '"published"');
+  payload := payload || jsonb_build_object(
+    'label_id', (select id from public.labels where slug = 'e06-h5-label'),
+    'genre_ids', jsonb_build_array((select id from public.genres where slug = 'e06-h5-genre')),
+    'country_ids', jsonb_build_array((select id from public.countries where slug = 'e06-h5-country')),
+    'links', jsonb_build_array(jsonb_build_object('provider', 'bandcamp', 'url', 'https://e06.example.test/album', 'is_primary', true)),
+    'cover_url', 'https://e06.example.test/cover.jpg');
+  created := public.admin_create_catalog_release(payload, 'fixture published creation');
+  if (select r.status from public.releases r where r.id = (created->>'release_id')::uuid) <> 'published'
+     or (created->>'catalog_version')::integer <> 1
+     or (select count(*) from private.catalog_change_events where entity_id = (created->>'release_id')::uuid) <> 1 then
+    raise exception 'direct published creation failed (H5)';
+  end if;
+  begin
+    perform public.admin_create_catalog_release(jsonb_set(jsonb_set(payload, '{slug}', '"e06-published-no-type"'), '{release_type_id}', 'null'::jsonb), 'published without type');
+    raise exception 'published release without a type unexpectedly created';
+  exception when check_violation then null;
+  end;
+  if exists (select 1 from public.releases r where r.slug = 'e06-published-no-type') then
+    raise exception 'rejected published creation left a row';
   end if;
 end;
 $$;
