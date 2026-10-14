@@ -16,7 +16,7 @@ Ejecución: Claude Opus 5.5 (`claude-opus-5-5`), esfuerzo `high`. No hubo que es
 | `tests/sql/d1-verify.sql` | RLS y contrato, transaccional; revierte todo. |
 | `tests/sql/d1-concurrency.sh` | Altas y reordenamientos en paralelo; borra sus fixtures al salir. |
 | `tests/sql/d1-rollback-verify.sql` | Cuerpo del rollback y su ensayo, transaccional. |
-| `tests/sql/local-bootstrap-pre-phase4.sql` | Solo local: recrea `profiles`/`crates`/`crate_items` previos a las migraciones (ver "Entorno local"). |
+| `supabase/migrations/20260830000000_base_profiles_crates_pre_phase4.sql` | S5: base de la cadena; sustituyó a `tests/sql/local-bootstrap-pre-phase4.sql` (ver "Entorno local"). |
 | `package.json` | `npm test` incluye `tests/profile-social.test.mjs`. |
 
 ## Contrato
@@ -155,6 +155,12 @@ Las pruebas corrieron en un stack Supabase local (CLI 2.116.0, PostgreSQL `17.6.
 | `npm run build` | **PASS.** |
 | `svelte-check` | Sin errores en el código de D1. Los errores restantes son preexistentes (`./$types` sin `svelte-kit sync`, tipos de Node en `tests/` y una importación con ruta absoluta de `cratesStore` en `tests/browser/e16-release-detail.spec.ts`). |
 
+### Cambio posterior: nombres reservados (H8, S4, 2026-10-11)
+
+La migración D1 añade `coleccion` y `mis-colecciones` a `private.reserved_usernames` (`on conflict do nothing`), porque U3 movió las rutas de `/crate` y `/mis-crates` a esas dos. Se editó el archivo y no se creó otra migración porque D1 no está aplicada en ningún entorno.
+
+**Verificación pendiente:** no había stack local (el daemon de Docker no estaba activo). La tabla de arriba corresponde a la migración **antes** de este cambio. Falta repetir `d1-verify.sql`, `d1-concurrency.sh` y `d1-rollback-verify.sql` con la receta de "Entorno local", y comprobar que un alta con `username = 'coleccion'` o `'mis-colecciones'` falla con `Username unavailable.` Hasta entonces H8 queda escrito, no verificado.
+
 ## Advisors (local)
 
 `npx supabase db advisors --local --type all --level info`, antes y después de D1, sobre la misma base:
@@ -187,28 +193,24 @@ npx supabase migration new d1_rollback_profile_social_and_collection_order
 
 ## Entorno local
 
-1. **Las migraciones no reproducen la base desde cero.** `profiles`, `crates` y `crate_items` existían antes de la primera migración (ya lo registró E01).
-   - Para probar se copió `supabase/` a un directorio temporal y se añadió allí `tests/sql/local-bootstrap-pre-phase4.sql` como versión `20260830000000`, recreando esas tablas tal como estaban en el dump del 2026-08-30.
-   - El historial de migraciones del repositorio no cambió.
-2. **Hallazgo preexistente, fuera de D1: la migración E18 no aplica sobre una cadena limpia.** `20260923120000_e18_authenticated_problem_reports.sql:9` declara `release_id uuid references public.catalog_releases(id)`, y `catalog_releases` es una vista (`ERROR 42809: referenced relation "catalog_releases" is not a table`).
-   - Se excluyó E18 de la cadena local. D1 no depende de `problem_reports`.
-   - E18 debe corregirse antes de aplicarse en staging; D1 no lo hizo.
-3. **El stack local se detuvo y sus volúmenes se borraron** (`supabase stop --no-backup`), para no dejar una base con la versión de bootstrap en el volumen del proyecto `discotica`.
+Actualización S5 (2026-10-11): la cadena de `supabase/migrations/` construye desde una base vacía. La migración base `20260830000000_base_profiles_crates_pre_phase4.sql` crea `profiles`, `crates` y `crate_items`, y E18 está corregida. Ya no hace falta copiar `supabase/` ni parchear nada.
 
-**Para repetir las pruebas:**
+1. **Stack aislado** (para no chocar con otra sesión): una carpeta de trabajo con un `config.toml` propio (`project_id` distinto y puertos 544xx) y `supabase/migrations` como enlace simbólico al directorio del repositorio.
+2. **Parar con `--no-backup`**, para no dejar volúmenes.
 
 ```bash
-W=$(mktemp -d); mkdir -p $W/supabase/migrations
-cp supabase/config.toml $W/supabase/ && cp supabase/migrations/*.sql $W/supabase/migrations/
-cp tests/sql/local-bootstrap-pre-phase4.sql $W/supabase/migrations/20260830000000_local_bootstrap_pre_phase4.sql
-rm $W/supabase/migrations/20260923120000_e18_authenticated_problem_reports.sql   # hasta corregir E18
+W=$(mktemp -d); mkdir -p $W/supabase
+ln -s $PWD/supabase/migrations $W/supabase/migrations
+cp supabase/config.toml $W/supabase/   # editar project_id (p. ej. discotica-d1) y puertos 544xx
 npx supabase start --workdir $W -x realtime,imgproxy,mailpit,studio,edge-runtime,logflare,vector,supavisor
-docker exec -i supabase_db_discotica psql -U postgres -v ON_ERROR_STOP=1 < tests/sql/d1-verify.sql
+docker exec -i supabase_db_discotica-d1 psql -U postgres -v ON_ERROR_STOP=1 < tests/sql/d1-verify.sql
 bash tests/sql/d1-concurrency.sh
-docker exec -i supabase_db_discotica psql -U postgres -v ON_ERROR_STOP=1 < tests/sql/d1-rollback-verify.sql
+docker exec -i supabase_db_discotica-d1 psql -U postgres -v ON_ERROR_STOP=1 < tests/sql/d1-rollback-verify.sql
 npx supabase db advisors --workdir $W --local --type all
 npx supabase stop --workdir $W --no-backup
 ```
+
+Histórico (D1, antes de S5): la cadena no construía desde cero y E18 se excluía de la copia temporal.
 
 ## Pendiente para staging (cuando E21 libere el backup)
 

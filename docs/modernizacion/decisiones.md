@@ -46,6 +46,12 @@ comunidad -> pendiente -> colaborador prepara (opcional) -> ready_for_admin -> a
 - Cada lanzamiento tendrá un ID inmutable. Los slugs son URLs compatibles y editables; no son claves de identidad.
 - La fuente editorial debe entregar una clave estable por fila (`catalog_key`). Mientras no exista, una primera carga controlada puede usar una clave derivada del contenido, pero no se reutiliza para actualizaciones editoriales.
 - Artistas, sellos, géneros y países se normalizan para búsqueda y relaciones, sin borrar las variantes editoriales visibles cuando tengan valor curatorial.
+- **Hoja limpia como fuente del lanzamiento (2026-10-13).** El equipo limpió y ordenó a mano la hoja de Google Sheets.
+  - Su TSV publicado reemplaza el contenido de los lanzamientos de staging (paso 8 del [plan de lanzamiento](../producto/plan-lanzamiento-2026-10-13.md)), y es lo que se importa en producción en E22.
+  - Resuelve la referencia del legado de B10: es la hoja actual, no el TSV histórico de 2.796 filas.
+  - "Reemplazar" significa que la hoja manda en todo lanzamiento con `catalog_key`, con dos reglas:
+    - se conserva el UUID, así que colecciones, reportes y URLs siguen funcionando;
+    - lo que la hoja ya no tiene se archiva, nunca se borra.
 
 ## Fuentes musicales, reproductores y portadas
 

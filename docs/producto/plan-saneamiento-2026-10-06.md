@@ -1,5 +1,7 @@
 # Plan de saneamiento: errores y problemas abiertos — 2026-10-06
 
+> Desde el 2026-10-13, el orden de lo que queda (S1, S3 y S8–S11) lo fija el [plan de lanzamiento](./plan-lanzamiento-2026-10-13.md).
+
 Inventario de lo que hoy está roto, bloqueado o en riesgo en la Biblioteca, con la acción que corresponde a cada caso y quién la ejecuta. Los prompts por etapa, con modelo y esfuerzo, están en [`prompts-saneamiento-2026-10-06.md`](./prompts-saneamiento-2026-10-06.md).
 
 Este plan no sustituye al [plan de interfaz](./plan-interfaz-2026-10-04.md) ni al de la [biblioteca](./plan-ejecucion-biblioteca-2026-09-14.md). Ordena lo que hay que cerrar antes de seguir con U4 y de volver a intentar el candidato de lanzamiento (E21).

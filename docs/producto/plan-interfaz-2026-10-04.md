@@ -1,5 +1,7 @@
 # Plan de ejecución por chats — Sistema de interfaz Discótica
 
+> Desde el 2026-10-13, el orden de lo que queda (U18 y D3) lo fija el [plan de lanzamiento](./plan-lanzamiento-2026-10-13.md).
+
 Fecha: 4 de octubre de 2026
 Estado: plan ejecutable. U0 está cerrada; ninguna otra etapa está implementada.
 Alcance: llevar todas las vistas del sitio y las herramientas internas a un único sistema de interfaz (tamaños, controles, órdenes y layouts en desktop y móvil), conservando la dirección visual actual.

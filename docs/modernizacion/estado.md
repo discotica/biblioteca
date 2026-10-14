@@ -1,6 +1,106 @@
 # Estado operativo
 
-Actualizado: 2026-10-11.
+Actualizado: 2026-10-13.
+
+> **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:** paso 3 del plan de lanzamiento (conectar Hostinger a `dist` y proteger `main`). Antes, que el PR en borrador de `modernizacion-2026` tenga la CI en verde (ver S1).
+
+## Saneamiento S1 — CI y despliegue seguros: cerrada (2026-10-13)
+
+Cierra C2 y C3. Paso 2 del [plan de lanzamiento](../producto/plan-lanzamiento-2026-10-13.md); el detalle operativo está en [`operacion-fase-6.md`](./operacion-fase-6.md#despliegue-desde-github-actions).
+
+- **Node 22** en `ci.yml`, `deploy.yml` y `media-health.yml` (`node-version-file: .nvmrc`), más `engines` en `package.json`.
+- **`deploy.yml`:**
+  - manual (`workflow_dispatch`);
+  - las `VITE_*` salen de las variables del repositorio, con flags seguros por defecto (`legacy` y todo en `false`);
+  - el paso "Verificar variables de despliegue" falla antes de compilar si falta la URL o la clave, si la clave es `sb_secret_` o un JWT `service_role`, o si un valor está fuera de rango;
+  - **nuevo:** el paso "Verificar rama" falla si el `ref` no es `refs/heads/main`;
+  - **nuevo:** `force_orphan: false` y `keep_files: false` en la publicación a `dist`. Cada despliegue añade un commit en vez de reescribir la rama, para el despliegue por Git de Hostinger (paso 3).
+- **`ci.yml`:** valores ficticios propios y flags de la CI; `e01-staging-canonical` se omite con `CI=true`.
+- **Variables en GitHub:** `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` existen como variables del repositorio y apuntan a producción.
+- **Verificado en local** (`CI=true`, Node 22.18, con las variables de `ci.yml`): `audit:catalog`, `lint:tokens`, `npm test`, `build` y `test:browser` terminan con exit 0; `test:browser`: 314 pasan, 5 omitidas, 0 fallos.
+- **Guardas simulados** ejecutando el script de cada paso con `env -i`:
+  - sin variables, sin clave, `sb_secret_`, JWT `service_role`: exit 1 con su mensaje;
+  - clave publicable, JWT `anon` y combinación canónica: exit 0;
+  - `Verificar rama`: exit 1 desde `refs/heads/modernizacion-2026` y desde una etiqueta; exit 0 desde `refs/heads/main`.
+- **Secretos:** revisados los 196 archivos que entran (cambios sin commit y los 2 commits sin subir): sin claves `sb_secret_`, JWT, cadenas `postgres://` ni tokens. Solo hay el nombre del rol `service_role` (en `GRANT` de la migración base y en reglas de guarda) y un token ficticio en una prueba.
+- **Qué no se ha probado:** `deploy.yml` no se ha ejecutado en GitHub; el primer Run workflow real es en E22-B (o un ensayo desde `main` en el paso 3). `force_orphan: false` sobre la rama `dist` existente (un commit huérfano) se comprobará en ese primer despliegue.
+
+## Saneamiento S3 — suite de navegador en verde: cerrada (2026-10-13)
+
+Cierra B5 / E21-P0-04. Termina y verifica los cambios que dejó el chat del 2026-10-11. Las causas se comprobaron con una copia aislada de `HEAD` en el scratchpad, con otro puerto y sin tocar el árbol de trabajo.
+
+| Prueba (línea en B5) | Causa | Arreglo | De |
+| --- | --- | --- | --- |
+| E17 "URL directa encadena recomendaciones" (:198, luego :202; ahora :228) | Usaba `beta=1` como parámetro desconocido. Con `VITE_BETA_INVITATION_ENABLED=true` (`.env.local`), `beta` es de E19: monta la invitación encima de la modal y su fondo intercepta el clic en la recomendación. Con la prueba original: flag activo, timeout; flag apagado, pasa. Por eso pasaba en la CI de S1 y fallaba en local. | El parámetro desconocido es `e17_extra=1`, que ninguna superficie usa. | la prueba |
+| E17 A → B → C (:99) | `scrollTo` antes de que existiera el catálogo: guardaba 0. | Ya estaba hecho en U10 (espera la tarjeta y la lleva a la vista antes de guardar). | la prueba |
+| E17 "Back a la base … Forward" (:178) | Leía `page.url()` en cuanto la tarjeta era visible, antes de que llegara la URL canónica (`&orden=match`). Reproducido en 1 de 10 repeticiones de esa prueba con el archivo original (`--repeat-each=10`, en paralelo). | Espera `toHaveURL(…&orden=match)` antes de capturar la base, como las otras pruebas del archivo. | la prueba |
+| E17 recarga con la ficha abierta (antes una sola prueba) | **Dos defectos.** (1) En la prueba: desplazaba antes del catálogo, guardaba 0 y la aserción de scroll pasaba sin ejercitarse. (2) En la app: tras recargar, SvelteKit deja `page.state` en `{}` en la primera página cargada (cliente 2.70.3, `start`), aunque `history.state['sveltekit:states']` conserve el marker. La app trataba la recarga como apertura directa: cerrar reemplazaba C por la base (A y B quedaban en el historial) y perdía el scroll guardado. | Prueba partida en dos: "conserva la sesión y vuelve a la URL base" y "restaura el scroll ±1 px", con esperas de estado. App: `takeBootModalEntry` (`homeUrl.ts`) lee el marker de `history.state` al evaluar el módulo, una sola vez y solo si coincide con el `modal` de la URL. `+page.svelte` restaura con él la sesión y reescribe el marker. | la prueba y la app |
+| E14 header móvil (`catalogo.spec.ts:447`, ahora :450) | `scrollTo` vuelve antes de que el navegador despache `scroll`. Si el evento de `scrollTo(0,180)` llegaba después de `Escape`, el menú ya no congelaba el header, que se ocultaba. La aserción de "visible con el campo enfocado" fallaba. | La prueba espera el evento `scroll` en cada desplazamiento. El oyente del header se registró antes, así que ya se ejecutó. Se quitó el `waitForTimeout(20)` tras `blur`: con cualquier orden entre `resetBaseline` y el `scroll`, el resultado es "oculto". | la prueba |
+
+- **Control negativo del arreglo de la app:** con la app de `HEAD` y la prueba nueva, "restaura el scroll ±1 px" falla 3/3 (492 px de diferencia); con el arreglo pasa.
+  - Una sonda confirmó que tras la recarga `history.state` trae el marker con `depth: 3`.
+  - Cerrar vuelve a la base dentro del mismo documento (navegación `reload`, `persisted: false`), y el scroll restaurado es el `baseScroll` del marker, no el de `sveltekit:scroll`.
+- **Invariante de E17:** intacto. Abrir, recomendar, Back/Forward y cerrar no cambian. Solo cambia la recarga, que ahora cumple el invariante 6 del expediente E17. El marker solo se toma si su `slug` es el de la URL.
+- **Comentarios corregidos en este cierre:** el del 11-oct decía que SvelteKit vacía `history.state` al arrancar (vacía `page.state`) y que la app guardaba el scroll en `sessionStorage` (no lo hace).
+- **Resultados** (`.env.local`, servidor caliente, máquina cargada, load 9–13):
+  - calentamiento y tres corridas seguidas de `npm run test:browser`: 314 pasan, 5 omitidas (E01, E03 y E19 según flags), **0 fallos en las cuatro**;
+  - archivo E17 8/8; E17 + E14 12/12;
+  - `npm test` 153/153; `lint:tokens` OK (175 archivos); `npm run build` OK;
+  - `npm run visual:compare`: 183/183, **cero diferencias**.
+- **Sin intermitentes:** no hizo falta la medición de 10 corridas.
+- **Hallazgo fuera de alcance (para U18):** cargar una URL de inicio no canónica (p. ej. `/?genero=Ambient`, sin `orden`) deja una entrada de historial de más. El primer Back vuelve a la URL sin canonizar.
+  - Causa: `canonizarURLActual` lanza un `goto` de *replace*. Antes de que termine, el bloque reactivo de `$page.url` ve una URL distinta de `lastSeenQS` y lanza otro, que cancela el primero (token de navegación de SvelteKit). Luego `aplicarTodosLosFiltros` encuentra la URL aún sin canonizar y hace *push*. Traza: el único `pushState` de la carga viene de `navigateToSearch`.
+  - No rompe ninguna prueba y no se tocó: es orquestación de E12/E17.
+- **Sin commit:** los commits los hace el paso 2.
+
+## Saneamiento S7 — metadatos de portadas y enlaces (H4): lista en local, sin aplicar en staging (2026-10-12)
+
+Migración `20261012120000_s7_preserve_release_media_metadata.sql`. Redefine `private.apply_catalog_payload` con las mismas validaciones que `20260917181154`; cambia solo el bloque de enlaces y portadas. `catalog_snapshot` no cambia, así que `before_state`/`after_state` conservan forma y contenido.
+
+- **Enlaces:** se emparejan por URL. Sin cambios no se escribe (mismo id, mismo `xmin`, conserva `checked_at`); cambia `provider` o `is_primary`: `UPDATE`; la URL que el payload quita: `DELETE`; la nueva: `INSERT`. Orden borrar, bajar primarios, actualizar, insertar, por el índice de un solo primario. URLs repetidas en el payload siguen dando `23505`.
+- **Portada externa:** la fila que ya tiene esa URL queda intacta. Si la URL cambia, la fila se actualiza en el sitio (mismo id y `created_at`) y se anulan `source_url`, `content_hash` y `checked_at`, que describían la imagen anterior. Sin portada: se borra la externa.
+- **Portadas `storage`:** el payload no las expresa, así que ya no se borran.
+- **Verificación** (stack aislado `discotica-s7`, 544xx, cadena vacía con `db reset`): `tests/sql/s7-verify.sql` (nuevo, 8 comprobaciones: edición sin media, cambio de un enlace, quitar y añadir, intercambio de primario, portada, duplicados, auditoría con revert, lote de D2), `e06-verify.sql`, `e06-reopen-verify.sql`, `d2-verify.sql` y `d2-concurrency.sh` en verde. La huella de `d2-verify.sql` ahora incluye `xmin` y metadatos de enlaces y portadas: el lote rechazado de 50 elementos deja la huella idéntica. Control negativo: `s7-verify.sql` sobre el cuerpo antiguo falla en la comprobación 1.
+- **Rollback:** `tests/sql/s7-rollback-verify.sql` (bloque `>>> S7 ROLLBACK`, ensayado: `S7 rollback verify: OK`), migración posterior `npx supabase migration new s7_rollback_preserve_release_media_metadata`. Sin pérdida de datos, pero desde la siguiente escritura vuelven a perderse los metadatos y las portadas `storage` de ese lanzamiento: no revertir una vez que `verify:media` o Storage los hayan guardado.
+- **Para staging (no ejecutado):** va después de S6, con backup del mismo día (S8).
+- **Sin commit ni push.**
+
+## Saneamiento S6 — concurrencia y fixtures de E06: lista en local, sin aplicar en staging (2026-10-11)
+
+Migración `20261011190000_s6_e06_concurrency_and_policy_consolidation.sql`. E06 ya está en staging; no se editó ninguna migración existente.
+
+- **H1 (las tres RPC).** `private.catalog_snapshot` es `STABLE`: dentro de `select snapshot(...) from releases ... for update` lee con la instantánea previa a esperar el bloqueo. Ahora `admin_update_catalog_release`, `admin_change_release_slug` y `admin_revert_catalog_change` bloquean con `perform 1 from public.releases where id = … for update` y leen el snapshot en la sentencia siguiente. El resto de cada cuerpo es el de E06. Las tres tenían el defecto (se probó sin el arreglo).
+  - Orden de bloqueos: change set y luego lanzamiento (solo la reversión toma los dos). Ninguna otra RPC bloquea un change set existente después del lanzamiento, así que no hay ciclo.
+- **H5.** `admin_create_catalog_release` inserta siempre en borrador y `apply_catalog_payload` fija el estado real y valida. Crear como `published` funciona con un payload completo (fecha, tipo, sello, artista, género, país, portada HTTPS y un enlace principal); sin tipo sigue fallando con `23514`. El contrato de entrada y salida no cambia; E07 (crea en borrador y publica) no se toca.
+- **B7 / H6.** La última sección de `e06-verify.sql` ya no ejercita la aprobación legada de E02: comprueba que un payload legado se rechaza (`22023`) sin publicar ni auditar, que una aprobación v2 confirmada publica y deja la auditoría de creación, y que H5 funciona. `e06-verify.sql` y `e06-reopen-verify.sql` crean dentro de su transacción el admin, la persona de comunidad, el artista y el país que una cadena vacía no tiene.
+- **B8.** Una policy `SELECT` por tabla en `contributions`, `contribution_events`, `problem_reports` y `problem_report_events` (antes 3/3/2/2), con el OR de las mismas condiciones. Los dos avisos de staging (`contributions`, `contribution_events`) y los dos de E18 desaparecen; los advisors locales ya no muestran ningún `WARN`.
+  - Matriz de lectura antes/después: `tests/sql/s6-b8-policy-matrix.sql`, 5 roles × 4 tablas más 6 intentos de escritura; las 26 líneas son idénticas antes y después, y también tras el rollback.
+
+| Rol | contributions | contribution_events | problem_reports | problem_report_events |
+|---|---|---|---|---|
+| anon | denegado | denegado | denegado | denegado |
+| comunidad A (autora de c1, c3) | c1, c3 | c1, c3 | r1 | r1 (solo `created`) |
+| comunidad B (autora de c2, c4, c6) | c2, c4, c6 | c2, c4, c6 | r2 | r2 (solo `created`) |
+| colaborador (autor de c5) | c1, c2, c5 | c1, c2, c5 | ninguna | ninguna |
+| admin | c1–c6 | c1–c6 | r1, r2 | todos (incluye `triaged`) |
+
+  c4 (cola `collaborator`) y c6 (rechazada) no las ve el colaborador; c3 (borrador) tampoco. Escrituras de autor y admin: denegadas en las tres tablas de solo lectura.
+
+- **Sondas de H1** (`tests/sql/d2-concurrency.sh`, fase 3, ahora estricta: una sonda fallida falla el script). Una por RPC: update/update, slug/slug y update/revert (la reversión llega con la versión del change set mientras otra edición retiene el bloqueo). Cada una comprueba `40001` en la segunda escritura, estado final, ausencia de saltos de versión y que cada `before_state` sea el `after_state` del change set anterior.
+  - **Control negativo** (cadena de S5, sin la migración): las tres sondas **FALLAN**: la segunda escritura se aplica, 1 salto de versión y 1 `before_state` falso en cada una.
+  - **Con la migración:** 3 corridas completas en `PASS`; la segunda escritura recibe `Catalog version conflict` (`40001`), 0 saltos, 0 `before_state` falsos; fases 1 y 2 de D2 sin cambios (0 deadlocks).
+- **Verificación** sobre `supabase db reset` en un stack aislado (`discotica-s6`, 545xx, detenido con `--no-backup`): `e06-verify.sql`, `e06-reopen-verify.sql`, `d1-verify.sql`, `d2-verify.sql`, `e18-verify.sql` en verde sobre la cadena vacía; `d1-concurrency.sh` y `d2-concurrency.sh` en verde; `playwright test e07-admin-console`: 8 de 8 (las RPC van simuladas, así que no ejercitan la base).
+  - Control negativo de H5: el cuerpo de rollback seguido de `e06-verify.sql` falla con `releases_published_type_required_check`.
+- **Rollback:** `tests/sql/s6-rollback-verify.sql` (cuerpo entre `>>> S6 ROLLBACK` y `<<< S6 ROLLBACK`, ensayado: `S6 rollback verify: OK`). Es una migración posterior (`npx supabase migration new s6_rollback_e06_concurrency_and_policies`), nunca se edita la de S6. Devuelve las cuatro RPC a los cuerpos de 20260916220554 y las policies a las de E09 y E18, sin tocar datos ni auditoría. **Reintroduce la pérdida de actualizaciones concurrentes (H1)**: solo como último recurso.
+- **Para staging (no ejecutado):** va después de E18, D1 y D2 y antes de S7, con backup del mismo día (S8). Los scripts `d2-concurrency.sh` y `s6-b8-policy-matrix.sql` en staging: la matriz es transaccional y se puede correr; `d2-concurrency.sh` es solo local.
+- **Sin commit ni push.**
+
+## Saneamiento S4 — arreglos menores y documentación (2026-10-11)
+
+- **I2 (anuncio de resultados):** ya estaba corregido desde U10: `anuncioResultados` llama a `describeResults` con sus entradas dentro de la sentencia reactiva (`src/routes/+page.svelte`). S4 añade la prueba que faltaba en `tests/browser/u10-inicio.spec.ts`: la región `aria-live` dice "300 lanzamientos." tras cargar y "150 lanzamientos." tras aplicar el filtro Tipo = EP en la página.
+- **H8 (nombres reservados):** la migración D1 reserva `coleccion` y `mis-colecciones`. **Verificación pendiente:** no había stack local (Docker apagado), así que `d1-verify.sql`, `d1-concurrency.sh` y `d1-rollback-verify.sql` no se repitieron. Detalle en el [relevo de D1](./d1-datos-perfil-colecciones-2026-10-06.md#cambio-posterior-nombres-reservados-h8-s4-2026-10-11).
+- **X1 y X4:** secciones de U1, R1, R2, U2 y U3 más abajo; el relevo de U1 vive en [`tests/visual/README.md`](../../tests/visual/README.md). La descripción del catálogo vía TSV en "Hechos verificados" queda marcada como histórica.
+- **Siguiente acción segura:** seguir el [plan de saneamiento](../producto/plan-saneamiento-2026-10-06.md) en el orden de su sección 3: cerrar S1 (workflows, `.nvmrc` y `package.json` siguen sin commit en el árbol), después S3, S5 (que incluye repetir las pruebas SQL de D1 con H8) y S6–S9. U18 espera a que se cierren S3–S9.
 
 ## Saneamiento S0 y línea base sobre U17 (2026-10-11)
 
@@ -274,6 +374,19 @@ Actualizado: 2026-10-11.
   - Supabase envía solo HTML, sin `text/plain`;
   - el logo depende del próximo despliegue.
 
+## S5 — E18 aplicable y cadena de migraciones desde cero: lista en local, sin aplicar en staging (2026-10-11)
+
+- **B2 / H2, B3 / H3 (E18):** FK a `public.releases(id)` y `grant execute` de `private.valid_problem_report_context(jsonb)` a `authenticated`, sin `USAGE` en `private` ni trigger `SECURITY DEFINER`. Justificación y advisors en [el expediente de E18](./e18-reportes-problemas-2026-09-23.md), "Corrección 2026-10".
+- **H7:** nueva migración base `20260830000000_base_profiles_crates_pre_phase4.sql`, anterior a la primera migración versionada.
+  - Recrea `profiles`, `crates` y `crate_items` como en el dump del 2026-08-30 (columnas, restricciones, índices, políticas y grants comparados línea a línea).
+  - Cada bloque actúa solo si su tabla no existe (`to_regclass`). Donde existe, no hace nada; ensayado sobre una base ya poblada: políticas, ACL, RLS y columnas idénticas antes y después.
+  - Sustituye a `tests/sql/local-bootstrap-pre-phase4.sql`, que se eliminó. Ya no hay copias temporales ni parches.
+- **Verificación** sobre `supabase db reset` en un stack aislado (`discotica-s5`, 544xx), detenido con `--no-backup`:
+  - `e18-verify.sql`, `d1-verify.sql` y `d2-verify.sql` en verde. `e18-verify.sql` ahora crea sus fixtures y tiene control negativo;
+  - `db lint --level warning` sin errores;
+  - advisors: nada nuevo respecto de D1/D2 salvo los 6 propios de E18 (2 `WARN` de políticas permisivas múltiples, que absorbe B8/S6).
+- **Para staging (`hgocyrzhgohetfpzbmfs`, no ejecutado):** el historial remoto no contiene `20260830000000`, y el CLI se niega a insertar una migración anterior a la última remota. Antes del `db push` hay que marcarla con `supabase migration repair --status applied 20260830000000 --project-ref hgocyrzhgohetfpzbmfs`; así no se ejecuta ni una sola vez allí. Si se ejecutara (`--include-all`), es un no-op.
+
 ## D2 — Datos del Estudio: lote y vistas rápidas: lista en local, sin aplicar en staging (2026-10-06)
 
 - Migración `20261006200859_d2_studio_batch_and_quick_views.sql`:
@@ -292,10 +405,10 @@ Actualizado: 2026-10-11.
   - advisors sin hallazgos nuevos y `db lint` limpio;
   - `npm test` 74/74 y `npm run build` en verde.
 - **No aplicada en staging:** el bloqueo de backup de E21 sigue abierto. No se consultó staging ni producción, y no hubo commit ni push.
-- **Depende de E18:** la migración se detiene si no existe `public.problem_reports`. En local se probó con la FK de E18 corregida solo en la copia temporal.
+- **Depende de E18:** la migración se detiene si no existe `public.problem_reports`. Desde S5 E18 está corregida en el repositorio y D2 se prueba sobre la cadena completa, sin parches.
 - **Hallazgos preexistentes que requieren decisión** (detalle en el relevo D2):
   - **H1, E06:** dos ediciones individuales simultáneas con la misma versión pierden una actualización sin `40001`, y la auditoría queda con un `before_state` falso. El lote no lo sufre. Se recomienda corregir E06 antes de U15.
-  - **H3, E18:** un autor no puede crear reportes, porque el `CHECK` llama a una función privada sin `EXECUTE`. Corregirlo junto con la FK.
+  - **H2 y H3, E18: resueltos en local (S5, 2026-10-11).** La FK apunta a `public.releases(id)` y `authenticated` tiene `EXECUTE` sobre el validador del `CHECK`. Detalle en [`e18-reportes-problemas-2026-09-23.md`](./e18-reportes-problemas-2026-09-23.md), "Corrección 2026-10". Siguen sin aplicarse en staging.
   - **H4:** cada escritura de E06 borra metadatos de portadas y enlaces.
 - U15 puede programarse sobre este contrato, pero solo se publica después de aplicar D2 en el entorno correspondiente.
 
@@ -304,9 +417,41 @@ Actualizado: 2026-10-11.
 - Migración `20261006131054_d1_profile_social_and_collection_order.sql`: redes en `profiles`, preferencia de aportes públicos con su RPC, y orden manual de colecciones con su RPC. Además, tipos y servicios de cliente. No se construyó interfaz. Relevo completo: [`d1-datos-perfil-colecciones-2026-10-06.md`](./d1-datos-perfil-colecciones-2026-10-06.md).
 - Verificada en un stack Supabase local: RLS (`tests/sql/d1-verify.sql`, con 8/8 mutaciones detectadas), concurrencia (`tests/sql/d1-concurrency.sh`, con control negativo), rollback ensayado, API real con supabase-js, advisors sin hallazgos nuevos y `db lint` limpio. `npm test` 73/73 y `npm run build` en verde.
 - **No aplicada en staging:** el bloqueo de backup de E21 sigue abierto. No se consultó staging ni producción, y no hubo commit ni push.
-- **Hallazgo preexistente:** `20260923120000_e18_authenticated_problem_reports.sql` no aplica sobre una cadena limpia, porque su FK apunta a la vista `public.catalog_releases` (`42809`). Hay que corregirlo antes de aplicar E18 en staging. D1 no lo tocó.
+- **Hallazgo preexistente, resuelto en S5:** E18 no aplicaba sobre una cadena limpia (FK a la vista `public.catalog_releases`, `42809`). Corregido en el archivo de E18; ver la sección S5.
 - Bandcamp acepta página de artista (`artista.bandcamp.com`) y de fan (`bandcamp.com/usuario`); el formulario pide el enlace ([`decisiones.md`](./decisiones.md), contrato D1).
 - U12 y U14 pueden programarse sobre este contrato, pero solo se publican después de aplicar D1 en el entorno correspondiente.
+
+## U3 — Colecciones: lenguaje y URLs: aceptada el 2026-10-07 (implementada 2026-10-06)
+
+- "Crate" sale de la interfaz (13 archivos de `src`); tablas, columnas, stores, tipos, componentes y clases conservan su nombre.
+- Rutas nuevas `/mis-colecciones` y `/coleccion/[slug]`. Las viejas redirigen en cliente (`replaceState`, con `search` y `hash`) y con 301 en `static/.htaccess`. La regla vive en `src/lib/domain/collectionRoutes.ts`.
+- Pruebas al cierre: `npm test` 67/67; `test:browser` con E17:198 y E17:99 (intermitente). Contra la referencia previa a U3: 49 diferencias visuales, todas de texto.
+- La aceptación llegó con la recaptura de la línea base sobre U4 (ver [`decisiones.md`](./decisiones.md), "Orden frente a E22 y línea base").
+- Expediente: [`u3-colecciones-2026-10-06.md`](./u3-colecciones-2026-10-06.md).
+
+## U2 — Saneamiento sin cambio visual: aceptada el 2026-10-07 (implementada 2026-10-06)
+
+- Se borró `src/app.css` (sin importar) y la variante `detail` de `LanzamientoCard` (1.136 → 551 líneas). `routes/+page.svelte` pasó de 1.418 a 509 líneas.
+- `--radius-md` (inexistente) pasa a `--radius-base`; los 19 usos de `#8cff18` en la consola, a `var(--color-acento)`; tres códigos internos `E\d\d` salen de textos visibles.
+- Pruebas al cierre: `npm test` 65/65; `test:browser` con E17:198 persistente e intermitentes ya conocidos. Cambiaron 24 capturas, listadas en el expediente.
+- Expediente: [`u2-saneamiento-2026-10-06.md`](./u2-saneamiento-2026-10-06.md).
+
+## R2 — Errores visibles menores: aceptada el 2026-10-07 (implementada 2026-10-05)
+
+- Ocho arreglos: regla única de créditos (`summarizeReleaseCredits`), espacio tras la coma, hoja de filtros a 390 px, enlace del éxito de registro, portada rota con `CoverFallback`, `+error.svelte` en español, etiquetas de estado de reportes y "Aleatorizar".
+- Pruebas al cierre: `npm test` 57/57; `test:browser` con E17:198 y E17:99 (una vez), más E17:178 dentro del archivo completo.
+- Expediente: [`r2-errores-visibles-menores-2026-10-05.md`](./r2-errores-visibles-menores-2026-10-05.md).
+
+## R1 — Ficha y reproductor: errores: aceptada el 2026-10-07 (implementada 2026-10-05)
+
+- Cuatro errores con causa raíz: reproductor aplastado en desktop, scroll que salta al elegir una pista, menú "Añadir a crate" cortado (nuevo `anchoredLayer` en `src/lib/ui/overlay.ts`) y menú "Varios artistas" tapado por la grilla.
+- Pruebas al cierre: `npm test` 52/52; `tests/browser/r1-ficha-reproductor.spec.ts` (18 pruebas); 14 diferencias visuales, todas dentro del alcance.
+- Expediente: [`r1-ficha-reproductor-2026-10-05.md`](./r1-ficha-reproductor-2026-10-05.md).
+
+## U1 — Línea base y regresión visual: cerrada antes del 2026-10-05
+
+- Suite en `tests/visual/` con red simulada, datos de un snapshot de staging y capturas deterministas. Convirtió las 127 capturas del censo en una suite reproducible (131 capturas al arrancar R1) y hoy tiene 182.
+- No existe un relevo de U1 en `docs/`; su documentación es [`tests/visual/README.md`](../../tests/visual/README.md). La línea base original se perdió durante U2; la actual se recapturó sobre U17 (ver la sección de S0, arriba).
 
 ## Sistema de interfaz — U0 cerrada (2026-10-04)
 
@@ -370,6 +515,7 @@ Los archivos documentales modificados por E00 son únicamente `docs/producto/dec
 - Supabase ya está integrado para autenticación, perfiles y crates. Las migraciones del catálogo nuevo ya viven en `supabase/migrations/`; las tablas existentes no se modificaron.
 - Los crates guardan `lanzamiento_slug`; esto debe migrarse posteriormente a un ID de lanzamiento inmutable.
 - La lógica de parseo TSV está duplicada entre rutas y componentes.
+- **Nota (2026-10-11):** las viñetas anteriores sobre el catálogo vía TSV, el JSON de 622 lanzamientos y las portadas describen el repositorio al inicio de la modernización (E00). Son históricas. Hoy `src/lib/utils/catalogoStore.ts` elige la fuente con `VITE_CATALOG_SOURCE`: `canonical` lee `catalog_releases` de Supabase (staging, `.env.local` y CI) y `legacy` conserva el TSV. El código y `deploy.yml` usan `legacy` si la variable falta; el catálogo canónico no se ha activado en producción.
 - Se detectaron 619 portadas para 622 registros; 583 vienen de `f4.bcbits.com` (Bandcamp).
 - El reproductor actual crea embeds para Bandcamp, SoundCloud y Spotify a partir de `buy_link`.
 - El proyecto compila correctamente. Hay advertencias de accesibilidad y marcado HTML que entrarán en la fase de calidad.
