@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
+  "engines": {
+    "node": ">=22.6"
+  },
   "scripts": {
     "audit:catalog": "node scripts/audit-catalog.mjs",
     "lint:tokens": "node scripts/lint-tokens.mjs",

@@ -5,6 +5,11 @@ test.skip(
   'E01 staging smoke only runs with the canonical catalog flag enabled.'
 );
 
+test.skip(
+  !!process.env.CI,
+  'E01 consulta el Supabase de staging real (2790 lanzamientos); la CI usa credenciales ficticias y no sale a la red.'
+);
+
 test('carga el catálogo canónico y mantiene editorial detrás de Auth', async ({ page }) => {
   await page.goto('/');
 

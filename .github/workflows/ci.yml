@@ -12,11 +12,24 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # Valores ficticios solo para que el build y el servidor de Playwright no
+    # lancen en client.ts. El ref coincide con el de las pruebas, que simulan
+    # Supabase con page.route. Las pruebas de navegador asumen catálogo
+    # canónico y consola/editorial activos (como el .env.local de desarrollo);
+    # son flags de la CI, no del despliegue. e01-staging-canonical sale a la red
+    # real y se omite con CI=true; e03-legacy se omite con catálogo canónico.
+    env:
+      VITE_SUPABASE_URL: https://hgocyrzhgohetfpzbmfs.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-publishable-key
+      VITE_CATALOG_SOURCE: canonical
+      VITE_EDITORIAL_ENABLED: 'true'
+      VITE_ADMIN_CATALOG_ENABLED: 'true'
+      VITE_BETA_INVITATION_ENABLED: 'false'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - run: npm run audit:catalog
