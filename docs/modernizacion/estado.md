@@ -21,6 +21,9 @@ Detalle en el [expediente de U18](./u18-qa-interfaz-2026-10-14.md#paso-5--h1-202
 - **Verificado:**
   - `npm test` 153/153; `build` OK; `lint:tokens` OK (2 excepciones de los radares);
   - `test:browser`: 2 corridas, 318 pasan, 5 omitidas y 0 fallos.
+- **CI del PR:**
+  - la corrida de `0f664e3` falló en `E04: el menú contiene Tab…` (`catalogo.spec.ts`). Es una carrera de la prueba, no del arreglo: el menú enfoca su primer enlace en un `requestAnimationFrame`, y en la CI lenta llegaba después de Shift+Tab. La prueba ahora espera ese foco (70/70 en local);
+  - la de `559058b` (solo documentación) falló una vez en E16 (`cada apertura crea una sesión…`), esperando el enlace de la tarjeta. Queda anotada como intermitencia de CI si vuelve.
 - **Visual:**
   - 7 diferencias contra `.ref-pre-u18fix`, todas del arreglo y aceptadas: `home-scrolled-M`, `card-row-D/T/M`, `card-varios-open-D`, `estudio-editor-generos-D` y `manual-D`;
   - línea base recapturada; `.ref-pre-u18fix` borrada.

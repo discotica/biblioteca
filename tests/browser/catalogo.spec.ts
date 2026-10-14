@@ -334,6 +334,9 @@ test('E04: el menú contiene Tab y se cierra al pulsar fuera sin perder su dispa
   const menu = page.getByRole('navigation', { name: 'Menú' });
   const first = menu.getByRole('link', { name: 'Manual' });
   const last = menu.getByRole('link', { name: 'Instagram' });
+  // El menú enfoca su primer enlace en un requestAnimationFrame. Sin esperarlo,
+  // en una CI lenta ese foco llegaba después de Shift+Tab y lo deshacía.
+  await expect(first).toBeFocused();
   await first.press('Shift+Tab');
   await expect(last).toBeFocused();
   await last.press('Tab');
