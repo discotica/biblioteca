@@ -1,8 +1,18 @@
 # Estado operativo
 
-Actualizado: 2026-10-13.
+Actualizado: 2026-10-14.
 
-> **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:** paso 3 del plan de lanzamiento (conectar Hostinger a `dist` y proteger `main`). Antes, que el PR en borrador de `modernizacion-2026` tenga la CI en verde (ver S1).
+> **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:** paso 4 del plan de lanzamiento (U18: QA de interfaz).
+
+## Paso 3 del lanzamiento — Hostinger conectado a `dist`, `main` protegido: cerrado (2026-10-14)
+
+Detalle operativo en [`operacion-fase-6.md`](./operacion-fase-6.md#conexión-de-hostinger-a-dist-2026-10-14).
+
+- **Conexión:** repositorio `discotica/biblioteca`, rama `dist`, directorio `public_html`, despliegue automático activado. Primer despliegue 2026-10-14 09:39:47 (hora local), 3 s, completado; commit `3c137d7` ("deploy: 0ab31e0").
+- **El sitio no cambió:** `index.html` en vivo y el de `origin/dist` son idénticos (SHA-256 `37d92de8…`), con los mismos 10 `_app/immutable/...`. `Last-Modified` 14:39:49 GMT, coherente con el despliegue. `/artista/pepito-perez` responde 200 con el `index.html`; `/.htaccess` responde 403.
+- **Ruleset de `main`:** activo, sin bypass, exige PR y el check `verify`, y bloquea borrado y force-push. Al principio de la sesión no existía (`gh api` devolvía `[]` y GitHub mostraba "You haven't created any rulesets"); el usuario lo creó y se verificó con `gh api`.
+- **No probado:** el despliegue automático ante un push real a `dist`; se verá en el primer Run workflow. Tampoco se probó `force_orphan: false` sobre la `dist` existente (ver S1).
+- **Regla:** nunca se suben archivos a mano a Hostinger.
 
 ## Saneamiento S1 — CI y despliegue seguros: cerrada (2026-10-13)
 

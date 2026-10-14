@@ -39,6 +39,35 @@ Hostinger no compila: copia lo que haya en la rama `dist` (ver el [plan de lanza
 - **`force_orphan: false` (y `keep_files: false`) en la publicación a `dist`.** Cada despliegue añade un commit encima de la rama en vez de reescribirla. Hostinger actualiza su copia desde esa rama y su documentación no dice cómo reacciona a una historia reescrita; con commits encima, el avance es siempre un fast-forward. `keep_files: false` (el valor por defecto, escrito explícito) hace que el build reemplace el contenido de `dist` y no se acumulen archivos de despliegues anteriores. El rollback pasa a ser un commit que revierte el último, no un force-push.
 - **Solo corre desde `main`.** El primer paso, "Verificar rama", comprueba `github.ref == refs/heads/main` antes de instalar o compilar. Desde otra rama el job **falla** con el mensaje "Producción solo sale de main", en vez de omitirse (un `if:` a nivel de job lo marcaría como omitido y pasaría desapercibido). Para desplegar, fusiona el PR en `main` y lanza el workflow eligiendo `main`.
 
+### Conexión de Hostinger a `dist` (2026-10-14)
+
+Conectada desde hPanel (biblioteca.discotica.com → Avanzado → Git):
+
+| Dato | Valor |
+| --- | --- |
+| Repositorio | `discotica/biblioteca` (app de Hostinger instalada solo para ese repositorio) |
+| Rama | `dist` |
+| Directorio raíz | `public_html` |
+| Despliegue automático | Activado ("Implementación automática") |
+| Primer despliegue | 2026-10-14 09:39 (hora local), 3 s, "Se ha completado", disparado a mano al conectar |
+| Commit desplegado | `3c137d7` ("deploy: 0ab31e0"), el mismo que ya estaba en vivo |
+
+- **Dónde ver un despliegue:** hPanel → biblioteca.discotica.com → Avanzado → Git. "Último despliegue" muestra estado, rama, directorio y hora; "Todos los despliegues" abre el historial (Deployments) con el registro de cada uno (commit clonado, publicación). "Redistribuir" repite el último.
+- **Hostinger no compila:** el registro solo clona la rama, instala dependencias de Composer (ninguna) y publica. Lo que hay en `dist` es lo que se sirve.
+- **Nunca se suben archivos a mano** al Administrador de archivos ni por FTP: el siguiente despliegue los pisaría. Todo cambio entra por PR a `main` y Run workflow.
+- **Comprobación del 2026-10-14:** `index.html` del sitio y el de `origin/dist` son idénticos (SHA-256 `37d92de8…`) y comparten los 10 `_app/immutable/...`. `Last-Modified` 14:39:49 GMT, dos segundos después del inicio del despliegue (09:39:47 hora local = 14:39:47 GMT). Una ruta profunda de artista (`/artista/pepito-perez`) responde 200 con el `index.html`; `/.htaccess` responde 403.
+- **No probado:** el despliegue automático ante un push real a `dist`. Se verá en el primer Run workflow (ensayo en E22-A o corte en E22-B); entonces debe aparecer un despliegue nuevo en "Todos los despliegues" y cambiar los `_app/immutable/...`.
+
+### Ruleset de `main` (2026-10-14)
+
+Ruleset `main` (id 25086558), activo, sobre la rama por defecto, sin actores con bypass:
+
+- Requiere pull request antes de fusionar (0 aprobaciones requeridas).
+- Requiere el check `verify` (job de `ci.yml`, GitHub Actions) sin exigir la rama al día.
+- Bloquea borrar la rama y los force-push (`non_fast_forward`).
+
+Verificado con `gh api repos/discotica/biblioteca/rulesets` y `rules/branches/main`. Sin bypass, ni los administradores pueden hacer push directo a `main`.
+
 `ci.yml` no usa estas variables: define valores ficticios propios (ref de staging de las pruebas, clave de relleno, flags seguros) para que el build y el servidor de Playwright no lancen. Ninguna prueba de la CI toca Supabase real.
 
 ## Restauración y rollback
