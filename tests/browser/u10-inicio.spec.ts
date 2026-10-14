@@ -285,6 +285,18 @@ test.describe('desktop', () => {
     await expect(page.locator('.card--grid').first()).toBeVisible();
   });
 
+  test('S4/I2: la región aria-live anuncia el conteo tras cargar y tras aplicar un filtro en la página', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/');
+    const live = page.locator('.resultados [aria-live="polite"]');
+    await expect(live).toHaveText('300 lanzamientos.');
+    await page.getByRole('combobox', { name: /Buscar por país/ }).click();
+    await page.getByRole('button', { name: 'Reiniciar filtros' }).waitFor();
+    await page.locator('.filtros-caja .campo').filter({ hasText: 'Tipo' }).locator('summary').click();
+    await page.locator('.filtros-caja .campo').filter({ hasText: 'Tipo' }).getByRole('button', { name: 'EP', exact: true }).click();
+    await expect(live).toHaveText('150 lanzamientos.');
+  });
+
   test('U10: el anuncio de resultados sigue a la carga y a la búsqueda', async ({ page }) => {
     await page.goto('/?pais=Colombia');
     const live = page.locator('.resultados [aria-live="polite"]');

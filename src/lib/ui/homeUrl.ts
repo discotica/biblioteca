@@ -29,6 +29,22 @@ export function currentQuery(): string {
   return get(page).url.searchParams.toString();
 }
 
+// En la primera página cargada (recarga o regreso desde otro documento)
+// SvelteKit deja `page.state` en `{}`, aunque `history.state['sveltekit:states']`
+// conserve el marker; la primera escritura de la app, que copia `page.state`,
+// lo borraría. Se lee aquí, al evaluar el módulo y antes de cualquier escritura,
+// para que una recarga con la modal abierta conserve su sesión y el scroll base
+// en vez de tratarse como apertura directa.
+const bootModalEntry = typeof history === 'undefined' ? null : readModalHistoryEntry(history.state?.['sveltekit:states']);
+let bootModalEntryTaken = false;
+
+/** Sesión modal que había en la entrada cargada, una sola vez y solo si es la del `modal` de la URL. */
+export function takeBootModalEntry(slug: string): ModalHistoryEntry | null {
+  if (bootModalEntryTaken) return null;
+  bootModalEntryTaken = true;
+  return bootModalEntry?.slug === slug ? bootModalEntry : null;
+}
+
 /** Entrada de sesión modal guardada en la entrada de historial actual, si existe. */
 export function currentModalEntry(): ModalHistoryEntry | null {
   return readModalHistoryEntry(get(page).state);

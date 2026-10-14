@@ -29,7 +29,7 @@
   } from '$lib/domain/homeSearchView';
   import {
     currentModalEntry, currentQuery, markModalEntry, navigateToSearch, replaceSearchHref,
-    replaceWithCanonicalQuery, restoreUnderlyingScroll, searchHref as searchHrefFor, startModalSession
+    replaceWithCanonicalQuery, restoreUnderlyingScroll, searchHref as searchHrefFor, startModalSession, takeBootModalEntry
   } from '$lib/ui/homeUrl';
   import { MOBILE_SEARCH_QUERY, observeMobileSearchChrome } from '$lib/ui/mobileSearchChrome';
   import { readViewPreference, writeViewPreference } from '$lib/ui/viewPreference';
@@ -365,8 +365,11 @@
     if (resolution.status === 'resolved') {
       lanzamientoActivo = resolution.release;
       const storedEntry = currentModalEntry();
-      if (storedEntry) {
-        modalSession = restoreModalSession(storedEntry);
+      const bootEntry = storedEntry ? null : takeBootModalEntry(modalSlug);
+      if (storedEntry || bootEntry) {
+        modalSession = restoreModalSession(storedEntry ?? bootEntry);
+        // `page.state` arrancó vacío: reescribir el marker para que las escrituras siguientes lo conserven.
+        if (bootEntry) markModalEntry(modalSession);
       } else {
         modalSession = startModalSession('direct', searchState, unknownSearchParams, slugFromLanzamiento(resolution.release));
         markModalEntry(modalSession);

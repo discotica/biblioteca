@@ -459,27 +459,34 @@ test('E14: en móvil se oculta al bajar, vuelve solo al inicio y se congela para
     main.append(spacer);
   });
   const header = page.locator('header.site-header');
+  // `scrollTo` devuelve antes de que el navegador despache `scroll`. Una
+  // aserción de "sigue visible" justo después pasaría sin que el header hubiera
+  // procesado el desplazamiento, y el evento llegaría con el estado ya cambiado
+  // (p. ej. tras cerrar el menú con Escape). El oyente del header se registró al
+  // montar, antes que este, así que al resolverse ya se ejecutó.
+  const scrollTo = (y: number) => page.evaluate((target) => new Promise<void>((resolve) => {
+    window.addEventListener('scroll', () => resolve(), { once: true });
+    window.scrollTo(0, target);
+  }), y);
 
-  await page.evaluate(() => window.scrollTo(0, 120));
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(120);
+  await scrollTo(120);
   await expect(header).toHaveAttribute('data-header-visible', 'false');
-  await page.evaluate(() => window.scrollTo(0, 32));
+  await scrollTo(32);
   await expect(header).toHaveAttribute('data-header-visible', 'false');
-  await page.evaluate(() => window.scrollTo(0, 0));
+  await scrollTo(0);
   await expect(header).toHaveAttribute('data-header-visible', 'true');
 
   await header.getByRole('button', { name: 'Abrir menú' }).click();
-  await page.evaluate(() => window.scrollTo(0, 180));
+  await scrollTo(180);
   await expect(header).toHaveAttribute('data-header-visible', 'true');
   await page.keyboard.press('Escape');
 
   const field = page.locator('[data-e14-focus-field]');
   await field.focus();
-  await page.evaluate(() => window.scrollTo(0, 240));
+  await scrollTo(240);
   await expect(header).toHaveAttribute('data-header-visible', 'true');
   await field.blur();
-  await page.waitForTimeout(20);
-  await page.evaluate(() => window.scrollTo(0, 280));
+  await scrollTo(280);
   await expect(header).toHaveAttribute('data-header-visible', 'false');
 });
 

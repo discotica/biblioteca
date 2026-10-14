@@ -136,13 +136,23 @@ test('E17: A → B → C, Back/Forward y cerrar conservan URL, filtros, foco y s
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(savedScroll);
 });
 
-test('E17: una recarga conserva la sesión y cerrar restaura scroll con tolerancia de 1 px', async ({ page }) => {
+// Tras una recarga, `page.state` arranca vacío y la sesión se recupera del marker
+// que conserva `history.state` (`takeBootModalEntry`, homeUrl.ts). Cerrar hace
+// `history.go(-3)` hasta la base y aplica el `baseScroll` del marker. Sin esa
+// sesión, la recarga era una apertura directa: cerrar reemplazaba C por la base
+// y el scroll guardado se perdía.
+async function openChainAndReload(page: Page) {
   await page.setViewportSize({ width: 1280, height: 420 });
   await page.goto('/?genero=Ambient');
-  await page.evaluate(() => window.scrollTo(0, Math.min(140, document.documentElement.scrollHeight - innerHeight)));
-  const savedScroll = await page.evaluate(() => window.scrollY);
+  // Sin catálogo no hay altura y el scroll se guardaría en 0 (carrera de U2).
   const trigger = page.getByRole('link', { name: 'Abrir Alpha' }).first();
   await expect(trigger).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, Math.min(140, document.documentElement.scrollHeight - innerHeight)));
+  // El modal conserva el scroll del momento en que se abre, y el clic desplaza
+  // el disparador a la vista: llevarlo antes para saber qué se guardó.
+  await trigger.scrollIntoViewIfNeeded();
+  const savedScroll = await page.evaluate(() => window.scrollY);
+  expect(savedScroll).toBeGreaterThan(0);
   await expect(page).toHaveURL(/\/?genero=Ambient&orden=match$/);
   const baseUrl = page.url();
   await trigger.click();
@@ -152,6 +162,20 @@ test('E17: una recarga conserva la sesión y cerrar restaura scroll con toleranc
 
   await page.reload();
   await expectRelease(page, 'e17-c', 'Gamma');
+  return { baseUrl, savedScroll };
+}
+
+test('E17: una recarga conserva la sesión y cerrar vuelve a la URL base', async ({ page }) => {
+  const { baseUrl } = await openChainAndReload(page);
+  await page.getByRole('dialog').getByRole('button', { name: 'Cerrar' }).click();
+  await expect(page).toHaveURL(baseUrl);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+// Hallazgo de S3: antes esta comprobación pasaba sin ejercitarse (el scroll se
+// guardaba en 0 porque la prueba desplazaba antes de que existiera el catálogo).
+test('E17: tras una recarga, cerrar restaura el scroll con tolerancia de 1 px', async ({ page }) => {
+  const { baseUrl, savedScroll } = await openChainAndReload(page);
   await page.getByRole('dialog').getByRole('button', { name: 'Cerrar' }).click();
   await expect(page).toHaveURL(baseUrl);
   await expect.poll(() => page.evaluate((expected) => Math.abs(window.scrollY - expected), savedScroll)).toBeLessThanOrEqual(1);
@@ -183,6 +207,8 @@ test('E17: Back a la base cierra y Forward reabre la misma sesión', async ({ pa
   await page.goto('/?genero=Ambient');
   const trigger = page.getByRole('link', { name: 'Abrir Alpha' }).first();
   await expect(trigger).toBeVisible();
+  // La URL base gana `&orden=match` tras la carga; capturarla antes la deja obsoleta.
+  await expect(page).toHaveURL(/\/?genero=Ambient&orden=match$/);
   const baseUrl = page.url();
 
   await trigger.click();
@@ -200,9 +226,11 @@ test('E17: Back a la base cierra y Forward reabre la misma sesión', async ({ pa
 });
 
 test('E17: una URL directa encadena recomendaciones y al cerrar elimina solo modal', async ({ page }) => {
-  await page.goto('/?genero=Ambient&beta=1&modal=e17-a');
+  // `beta` pertenece a E19 (con el flag activo monta la invitación encima de la
+  // modal); el parámetro desconocido debe ser uno que ninguna superficie use.
+  await page.goto('/?genero=Ambient&e17_extra=1&modal=e17-a');
   await expectRelease(page, 'e17-a', 'Alpha');
-  await expect(page).toHaveURL(/\/?beta=1&genero=Ambient&orden=match&modal=e17-a$/);
+  await expect(page).toHaveURL(/\/?e17_extra=1&genero=Ambient&orden=match&modal=e17-a$/);
   const baseUrl = new URL(page.url());
   baseUrl.searchParams.delete('modal');
   await page.locator('[data-recommendation-slot="1"]').click();
