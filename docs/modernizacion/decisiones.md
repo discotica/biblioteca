@@ -328,7 +328,16 @@ Detalle en [`u17-estudio-propuestas-reportes-2026-10-10.md`](./u17-estudio-propu
 - **"Editado"** compara lo que la fuente detecta (título, artistas en orden, tipo y fecha). Cualquier cambio de texto cuenta, también mayúsculas y tildes. Lo demás nunca se marca. Con la fuente ilegible no hay marcas y se dice.
 - **Colaborador:** su cola comunitaria va antes que sus aportes. Las acciones no cambian.
 - **Botones de decisión** en una línea; apilados si el detalle mide menos de 480 px. "Rechazar" nunca queda solo.
-- **Nota interna del colaborador:** E09 la guarda donde administración no la lee (limitación de E10). Queda para el equipo cambiar su ayuda o abrir el caso de E09.
+- **Nota interna del colaborador:** E09 la guarda donde administración no la lee (limitación de E10). Queda para el equipo cambiar su ayuda o abrir el caso de E09. Decidido en U18 (abajo).
+
+### QA de interfaz (2026-10-14, U18)
+
+Decidido por el equipo sobre el [expediente de U18](./u18-qa-interfaz-2026-10-14.md). Se ejecuta en el paso 5 del plan de lanzamiento.
+
+- **Header fijo en todo el sitio (H1).** `html, body` pasan de `overflow-x: hidden` a `clip`, y desaparece el caso especial `html.is-tool`. Se activan el header de E14 (se oculta al bajar y reaparece al subir), la línea «Buscar» fija de E15 y U10, y el índice del manual. Cierra el pendiente abierto desde U9.
+- **País y sello de la tarjeta con área táctil de 44 px (H3).** El área de toque se amplía sin cambiar el aspecto de la línea "año · país · sello", en la tarjeta y en la fila. La excepción "en línea" de U6 sigue cubriendo solo los nombres de los créditos.
+- **`/lab` solo en desarrollo (H7).** En producción responde 404. La suite visual y las pruebas de `/lab` siguen corriendo contra `vite dev`. Cierra lo que dejó abierto U5.
+- **"Nota interna" (H8).** Ahora se cambia la ayuda para que no prometa que administración la lee. Después del lanzamiento se abre el caso de E09 para que el admin la vea.
 
 ### Manual
 

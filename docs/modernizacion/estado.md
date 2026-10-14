@@ -2,7 +2,41 @@
 
 Actualizado: 2026-10-14.
 
-> **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:** paso 4 del plan de lanzamiento (U18: QA de interfaz).
+> **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:** paso 5 del plan de lanzamiento (correcciones de U18), empezando por H1 (header fijo). Las comprobaciones manuales en iPhone y con VoiceOver se pueden hacer en paralelo.
+
+## Paso 4 del lanzamiento — U18, QA de interfaz (puntos 1–4): expediente aceptado (2026-10-14)
+
+Expediente: [`u18-qa-interfaz-2026-10-14.md`](./u18-qa-interfaz-2026-10-14.md). En local, sin corregir nada y sin tocar staging ni producción. Sin dictamen: el GO/NO-GO es del paso 11.
+
+- **P0:** ninguno.
+- **P1:** tres.
+  - H1: el `overflow-x` de `html`/`body` anula el sticky (header de E14, barra de E15 e índice del manual). `clip` lo arregla sin desborde en 22 combinaciones. Necesita decisión.
+  - H2: `login-with-username` no tiene límite de intentos propio, y hay enumeración por tiempo.
+  - H3: país y sello de la tarjeta miden 17 px de alto, sin excepción registrada. Necesita decisión.
+- **P2:** diez (H4 y H6–H14), entre ellos:
+  - el radar de filtros anima con `prefers-reduced-motion`;
+  - mensajes de la base en inglés que pueden llegar a la vista;
+  - `/lab` está en el build de producción, con códigos internos;
+  - la ayuda de "Nota interna";
+  - falta "Saltar al contenido";
+  - huecos del censo: ficha a 680, ficha página a 834/1112 y panel de búsqueda a 834.
+- **Comprobaciones globales** (203 estados auditados en Chromium):
+  - sin barras de scroll nativas, sin "crate" y sin emoji;
+  - códigos internos solo en `/lab`;
+  - contraste: 0 fallos en texto activo (26 754 nodos);
+  - teclado: sin trampas y con indicador de foco en todas las paradas.
+- **Verificado:**
+  - `visual:compare` 182/182 iguales, y la prueba de los 127 IDs pasa;
+  - `lint:tokens` OK, con las 2 excepciones de los radares (cierre propuesto con un token en unidades del `viewBox`);
+  - `npm test` 153/153; `build` OK;
+  - `test:browser`: calentamiento y 2 corridas, 314 pasan, 5 omitidas y 0 fallos en las tres.
+- **Decisiones (2026-10-14, en `decisiones.md`):**
+  - H1: header fijo en todo el sitio, con `clip`;
+  - H3: área táctil de 44 px en país y sello;
+  - H7: `/lab` solo en desarrollo;
+  - H8: se cambia la ayuda de "Nota interna" ahora, y el caso de E09 va después del lanzamiento.
+- **Pendiente del usuario:** las 8 comprobaciones manuales (iPhone real y VoiceOver).
+- **Aceptado el 2026-10-14.** Commit y push de la rama `modernizacion-2026`.
 
 ## Paso 3 del lanzamiento — Hostinger conectado a `dist`, `main` protegido: cerrado (2026-10-14)
 
