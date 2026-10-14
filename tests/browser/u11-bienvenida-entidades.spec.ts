@@ -61,8 +61,14 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 
       const art = welcome.locator('[data-welcome-illustration]');
       await expect(art).toBeVisible();
       await expect(art.locator('.cover-fallback')).toHaveAttribute('aria-hidden', 'true');
+      // La proporción es el alto mínimo (el hueco se estira si el texto es más
+      // alto), así que depende de la fuente: Work Sans no se carga y en Linux
+      // (CI) cae a la sans genérica, que da un texto más alto. Se comprueba la
+      // proporción declarada y que el hueco nunca sea más ancho que ella.
+      const ratio = viewport.width > 768 ? 4 / 3 : 5 / 2;
+      await expect(art).toHaveCSS('aspect-ratio', viewport.width > 768 ? '4 / 3' : '5 / 2');
       const artBox = await art.boundingBox();
-      expect(artBox!.width / artBox!.height).toBeCloseTo(viewport.width > 768 ? 4 / 3 : 5 / 2, 1);
+      expect(artBox!.width / artBox!.height).toBeLessThanOrEqual(ratio + 0.05);
 
       // Botones del sistema (U5) y el bloque alineado con la grilla.
       await expect(welcome.getByRole('button', { name: 'Explorar' })).toHaveClass(/ui-btn--primary/);
