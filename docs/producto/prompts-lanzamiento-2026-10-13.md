@@ -255,7 +255,8 @@ Solo staging (`hgocyrzhgohetfpzbmfs`). El CLI está enlazado a producción: cada
    2. D1 (`20261006131054`);
    3. D2 (`20261006200859`);
    4. S6 (`20261011190000`);
-   5. S7 (`20261012120000`).
+   5. S7 (`20261012120000`);
+   6. U18 H2 (`20261014120000`, límite de intentos de `login-with-username`; verificación en `tests/sql/u18-h2-verify.sql`).
    Aplícalas de una en una y explica el método antes de la primera. Antes de cada una, ejecuta `migration list`, muestra qué se va a aplicar y espera autorización explícita.
 2. **Después de cada una:**
    - su verificación SQL adaptada a staging, en solo lectura o dentro de una transacción con rollback;
@@ -263,6 +264,8 @@ Solo staging (`hgocyrzhgohetfpzbmfs`). El CLI está enlazado a producción: cada
    - una prueba de humo con `.env.local`: catálogo, Estudio, colecciones con orden, sugerir y reportar.
    `tests/sql/s6-b8-policy-matrix.sql` se puede correr en staging; `d2-concurrency.sh` es solo local.
 3. **Edge Functions.** Si el paso 5 dejó cambios en Edge Functions (por ejemplo, `login-with-username`), despliégalas en staging con `--project-ref` y autorización, y pruébalas.
+   - `login-with-username` llama a las funciones de la migración `20261014120000`: despliégala solo después de esa migración, porque sin ella toda entrada con usuario responde 503.
+   - Haz las tres comprobaciones de "Paso 5 · H2" del expediente de U18 (cabecera de la IP real y si se puede falsificar, IP que ve Auth, latencia real bajo el piso de 1200 ms) y anótalas allí.
 
 Si una migración falla, detente: no improvises un arreglo remoto. Registra el error y el estado, y aplica el rollback documentado solo con autorización.
 Actualiza `estado.md` y la sección "Pendiente para staging" de D1 y D2.

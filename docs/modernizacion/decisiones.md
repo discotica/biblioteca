@@ -347,6 +347,14 @@ Decidido por el equipo sobre el [expediente de U18](./u18-qa-interfaz-2026-10-14
 - **Capturas de página completa y de elemento** (`tests/visual/support/capture-document.css`): el header y «Buscar» se capturan en su sitio del documento (`relative`), no donde esté el scroll. Las capturas del viewport conservan el sticky real.
 - **H15 (nuevo):** paginar desde abajo no subía a la grilla con movimiento normal (`goto` con `noScroll` devolvía el scroll al terminar). Se corrigió en el mismo grupo: primero la URL y después el desplazamiento.
 
+**Al corregir H2 (2026-10-14, paso 5, grupo "Seguridad de acceso").** Aceptado por el equipo. Da contenido al "límite de intentos" de "Identidad", que hasta ahora recaía solo en el límite por IP de Auth.
+
+- **Límites de `login-with-username`:** 5 fallos por usuario y 20 por IP de quien llama, en 15 minutos. Al superarlos, la función responde 429 sin consultar la cuenta, y la pantalla de entrar dice "Demasiados intentos seguidos…", como con el límite de Auth.
+- **Un usuario inexistente se bloquea igual que uno real.** Si solo se bloquearan los reales, el bloqueo los delataría. Por lo mismo, toda respuesta de credenciales inválidas tarda al menos 1200 ms (`FAILURE_FLOOR_MS`).
+- **Coste aceptado:** quien conozca un usuario puede bloquear su entrada con usuario durante 15 minutos. Entrar con correo no pasa por la función y sigue disponible.
+- **Un acceso correcto reinicia el contador del usuario**, no el de la IP.
+- **Privacidad:** la tabla (`private.username_login_attempts`) guarda la IP como HMAC, nunca en claro, y borra las filas de más de un día.
+
 ### Manual
 
 - Sigue como página, con mejor tipografía.

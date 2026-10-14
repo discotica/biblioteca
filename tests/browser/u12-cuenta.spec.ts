@@ -160,6 +160,13 @@ test.describe('U12 entrar', () => {
     await expect(page.getByRole('alert')).toHaveText(/Demasiados intentos seguidos/);
   });
 
+  test('el límite propio de login-with-username (429) se dice igual que el de Auth', async ({ page }) => {
+    await mockSupabase(page, { usernameLogin: () => ({ status: 429, body: { error: 'Too many attempts' } }) });
+    await page.goto('/auth/login');
+    await fillLogin(page, 'persona');
+    await expect(page.getByRole('alert')).toHaveText(/Demasiados intentos seguidos/);
+  });
+
   test('desktop en dos columnas con beneficios a la izquierda; móvil, primero el formulario', async ({ page }) => {
     await mockSupabase(page);
     await page.setViewportSize({ width: 1440, height: 900 });

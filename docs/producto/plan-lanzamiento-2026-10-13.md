@@ -168,7 +168,8 @@ Hoy `dist` tiene exactamente lo que está en vivo, así que conectar no cambia n
 
 ### Paso 7 — S9: aplicar en staging
 
-- Aplica en este orden: E18 corregida → D1 → D2 → S6 → S7. Antes de cada una pide tu autorización, y antes de la primera marca la migración base, como explica el prompt.
+- Aplica en este orden: E18 corregida → D1 → D2 → S6 → S7 → U18 H2 (límite de intentos). Antes de cada una pide tu autorización, y antes de la primera marca la migración base, como explica el prompt.
+- Después de la migración de U18 H2, despliega `login-with-username` y verifica en staging lo que el expediente de U18 deja pendiente.
 - **Listo cuando:** las cinco están aplicadas y verificadas, y la app apuntando a staging funciona: Estudio, colecciones con orden y reportes.
 
 ### Paso 8 — Reemplazar el catálogo de staging con la hoja limpia

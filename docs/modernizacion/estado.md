@@ -2,7 +2,32 @@
 
 Actualizado: 2026-10-14.
 
-> **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:** seguir con el paso 5 del plan de lanzamiento (correcciones de U18). H1 está hecho. Quedan dos P1: H2 (grupo "Seguridad de acceso", Opus 5.5 `high`; la función se despliega en el paso 7) y H3 (grupo "Objetivos táctiles"). Después vienen los P2 según capacidad. Las comprobaciones manuales en iPhone y con VoiceOver se pueden hacer en paralelo.
+> **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:** seguir con el paso 5 del plan de lanzamiento (correcciones de U18). H1 y H2 están hechos (H2 en local; su migración y la función se despliegan en el paso 7). Queda un P1: H3 (grupo "Objetivos táctiles", Sonnet 5.5 `medium`). Después vienen los P2 según capacidad. Las comprobaciones manuales en iPhone y con VoiceOver se pueden hacer en paralelo.
+
+## Paso 5 del lanzamiento — correcciones de U18, grupo "Seguridad de acceso" (H2): aceptado (2026-10-14)
+
+Detalle en el [expediente de U18](./u18-qa-interfaz-2026-10-14.md#paso-5--h2-2026-10-14). **Solo en local:** no se aplicó nada en staging ni en producción.
+
+- **H2 (P1), corregido:** `login-with-username` tiene límite de intentos propio.
+  - **Límites:** 5 fallos por usuario (exista o no) y 20 por IP, en 15 minutos. Al superarlos, 429 y "Demasiados intentos seguidos…" en la pantalla de entrar.
+  - **Enumeración por tiempo:** toda respuesta de credenciales inválidas tarda al menos 1200 ms.
+  - **Migración** `20261014120000_u18_username_login_attempts.sql`: tabla `private.username_login_attempts` (IP como HMAC, purga a un día) y las RPC `begin_username_login`/`finish_username_login`, solo para `service_role`.
+- **Pruebas:**
+  - `tests/username-login.test.mjs` (en `npm test`);
+  - `tests/sql/u18-h2-verify.sql`: OK en un stack local construido desde vacío;
+  - `scripts/u18-h2-login-verify.mjs`, de punta a punta contra la función en local: OK. Ráfaga de 12 → 5 llegan a `/token`; mediana 1217 frente a 1216 ms;
+  - un caso nuevo en `u12-cuenta`.
+- **Verificado:**
+  - `npm test` 156/156; `build` OK; `lint:tokens` OK (2 excepciones de los radares);
+  - `test:browser`: 2 corridas, 319 pasan, 5 omitidas y 0 fallos;
+  - visual: 0 diferencias contra `.ref-pre-u18fix` (borrada). La línea base no cambia.
+- **Para el paso 7:**
+  - la migración va después de S7, y la función después de la migración (sin ella, toda entrada con usuario da 503). Ya está en el plan y en el prompt del paso 7;
+  - comprobar en staging la cabecera de la IP real y si se puede falsificar, qué IP ve Auth y la latencia real bajo el piso.
+- **Decisión** (`decisiones.md`): quien conozca un usuario puede bloquear su entrada con usuario 15 minutos; entrar con correo sigue disponible.
+- **Sigue abierto:**
+  - H3 (P1);
+  - los P2 de "Objetivos táctiles", "Menores" y "Censo".
 
 ## Paso 5 del lanzamiento — correcciones de U18, grupo "Scroll y header" (H1 y H15): aceptado (2026-10-14)
 

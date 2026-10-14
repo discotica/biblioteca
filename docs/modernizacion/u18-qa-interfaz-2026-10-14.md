@@ -9,7 +9,7 @@ Estado: **expediente aceptado el 2026-10-14.** Las correcciones son el paso 5 y 
 | Hallazgo | Severidad | Estado |
 | --- | --- | --- |
 | H1 — header y «Buscar» no se quedan arriba | P1 | **Corregido** el 2026-10-14 (grupo "Scroll y header"). Ver "Paso 5 · H1". |
-| H2 — `login-with-username` sin límite de intentos | P1 | Abierto. Grupo "Seguridad de acceso". |
+| H2 — `login-with-username` sin límite de intentos | P1 | **Corregido** en local el 2026-10-14 (grupo "Seguridad de acceso"). Se despliega y se verifica en staging en el paso 7. Ver "Paso 5 · H2". |
 | H3 — país y sello por debajo de 44 px | P1 | Abierto. Grupo "Objetivos táctiles". |
 | H4, H6, H7, H8, H9, H13, tokens del radar | P2 | Abiertos. Grupo "Menores". |
 | H10, H11, H12 | P2 | Abiertos. Grupo "Objetivos táctiles". |
@@ -501,6 +501,65 @@ Grupo "Scroll y header". Claude Opus 5.5, esfuerzo `high`. Referencia visual de 
 
 Una corrida parcial de `e13` falló una vez esperando `p=2`. No se reprodujo en 4 repeticiones (96/96) ni en las dos corridas completas.
 
+## Paso 5 · H2 (2026-10-14)
+
+Grupo "Seguridad de acceso". Claude Opus 5.5, esfuerzo `high`. Referencia visual de partida: `.ref-pre-u18fix` (ya borrada). **En local:** la migración y la función no se aplicaron en staging; se despliegan en el paso 7.
+
+**Causa:**
+
+- la función llamaba a `/auth/v1/token` desde el servidor sin contar intentos;
+- un usuario inexistente respondía sin llamar a `/token` y uno real esperaba el bcrypt, así que el tiempo delataba qué usuarios existen.
+
+**Arreglo:**
+
+- **Migración** `20261014120000_u18_username_login_attempts.sql`:
+  - tabla `private.username_login_attempts` (usuario, HMAC de la IP, fecha y si salió bien), con RLS y sin acceso desde la API;
+  - `public.begin_username_login(usuario, ip_hash)`: devuelve el id del intento, o `null` si hay 5 fallos del usuario o 20 de la IP en 15 minutos. Toma dos *advisory locks* (IP y después usuario) y anota el intento como fallo al empezar, así una ráfaga simultánea no pasa la cuenta. Purga las filas de más de un día;
+  - `public.finish_username_login(id)`: marca el acceso correcto y borra los fallos de ese usuario;
+  - solo `service_role` las ejecuta.
+- **Función** `login-with-username`:
+  - pide el turno antes de buscar el perfil, así que un usuario inexistente se bloquea igual que uno real;
+  - al superar el límite responde 429 ("Too many attempts");
+  - toda respuesta 401 tarda al menos 1200 ms (`FAILURE_FLOOR_MS`);
+  - la IP sale de `cf-connecting-ip`, `x-real-ip` o el primer `x-forwarded-for`, y se guarda como HMAC-SHA-256 con la clave de servicio;
+  - la lógica sin dependencias vive en `supabase/functions/_shared/username-login.ts`.
+- **Entrar** (`auth/login/+page.svelte`): el 429 de la función muestra "Demasiados intentos seguidos…", como el límite de Auth. Antes caía en el error genérico.
+
+**Pruebas:**
+
+- `tests/username-login.test.mjs` (en `npm test`): IP del cliente, HMAC y piso de latencia.
+- `tests/sql/u18-h2-verify.sql` (transaccional): permisos, entradas inválidas, límite por usuario (también inexistente), ventana de 15 minutos, límite por IP, reinicio tras acceso correcto y purga. **OK** en un stack local construido desde vacío.
+- `scripts/u18-h2-login-verify.mjs`, de punta a punta contra la función servida por edge-runtime en local. **OK:**
+
+| Comprobación | Resultado |
+| --- | --- |
+| Acceso correcto | 200 con tokens, 159 ms |
+| Inexistente frente a contraseña incorrecta (mediana de 6) | 1217 ms frente a 1216 ms. `/token` con contraseña incorrecta, solo: 101 ms |
+| 5 fallos del usuario, y el 6.º con la contraseña buena | 429, sin consultar la cuenta. Igual con un usuario inexistente |
+| 20 fallos desde una IP contra 20 usuarios | el 21.º es 429; desde otra IP se entra |
+| Ráfaga de 12 simultáneos contra un usuario | 5 llegan a `/token` (401), 7 reciben 429 |
+| 4 fallos y acceso correcto, dos veces | el contador se reinicia |
+| IP en la tabla | solo HMAC de 64 caracteres hexadecimales |
+
+- `u12-cuenta.spec.ts`: el 429 de la función muestra el mensaje del límite.
+
+**Para el paso 7 (staging):**
+
+1. **IP real:** comprobar qué cabecera la trae y que el cliente no la puede escribir (enviar `cf-connecting-ip` y `x-forwarded-for` falsos y ver si cambian de contador). En local se pueden falsificar.
+2. **IP que ve Auth:** si es la del runtime, el límite de Auth (30 cada 5 minutos) sigue siendo compartido. El límite por IP impide que lo agote una sola IP; un ataque distribuido todavía podría hacerlo.
+3. **Piso de latencia:** el camino real en hosted debe quedar por debajo de 1200 ms.
+
+**Visual:** 0 diferencias en 182 contra `.ref-pre-u18fix`. La línea base no cambia.
+
+**Suites:**
+
+| Suite | Resultado |
+| --- | --- |
+| `npm test` | 156/156 |
+| `npm run build` | OK |
+| `npm run lint:tokens` | OK, 175 archivos, 2 excepciones (los radares, grupo "Menores") |
+| `npm run test:browser`, corridas 1 y 2 | **319 pasan, 5 omitidas, 0 fallos** |
+
 ## Para el paso 5 (correcciones de U18)
 
 | Grupo | Hallazgos | Modelo |
@@ -511,7 +570,10 @@ Una corrida parcial de `e13` falló una vez esperando `p=2`. No se reprodujo en 
 | Menores | H4, H6, H7, H8, H9, H13, tokens del radar | Sonnet 5.5 `medium` |
 | Censo | H14, al final, con la recaptura | Sonnet 5.5 `medium` |
 
-**Hecho:** "Scroll y header" (H1 y H15), el 2026-10-14.
+**Hecho:**
+
+- "Scroll y header" (H1 y H15), el 2026-10-14;
+- "Seguridad de acceso" (H2), el 2026-10-14, en local. Falta desplegarlo en staging (paso 7).
 
 **Listo cuando:**
 

@@ -6,6 +6,7 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { clientIp, hashClientIp, waitForFloor } from "../_shared/username-login.ts";
 
 const USERNAME = /^[a-z0-9_-]{3,30}$/;
 const headers = {
@@ -22,6 +23,7 @@ export default {
       return Response.json({ error: "Method not allowed" }, { status: 405, headers });
     }
 
+    const startedAt = performance.now();
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -51,6 +53,28 @@ export default {
       return Response.json({ error: "Invalid credentials" }, { status: 400, headers });
     }
 
+    // Límite propio por usuario y por IP (U18, H2). Se cuenta antes de buscar
+    // el perfil, así que un usuario inexistente se bloquea igual que uno real.
+    const ipHash = await hashClientIp(clientIp(req.headers), serviceRoleKey);
+    const { data: attemptId, error: attemptError } = await admin.rpc("begin_username_login", {
+      p_username: username,
+      p_ip_hash: ipHash,
+    });
+    if (attemptError) {
+      console.error("Username login attempt could not be recorded.");
+      return Response.json({ error: "Login unavailable" }, { status: 503, headers });
+    }
+    if (attemptId === null) {
+      return Response.json({ error: "Too many attempts" }, { status: 429, headers });
+    }
+
+    // Toda credencial inválida tarda lo mismo: sin el piso, un usuario
+    // inexistente respondería antes que uno con contraseña incorrecta.
+    const invalidCredentials = async () => {
+      await waitForFloor(startedAt);
+      return Response.json({ error: "Invalid credentials" }, { status: 401, headers });
+    };
+
     const { data: profile } = await admin
       .from("profiles")
       .select("id")
@@ -58,7 +82,7 @@ export default {
       .maybeSingle();
 
     if (!profile) {
-      return Response.json({ error: "Invalid credentials" }, { status: 401, headers });
+      return invalidCredentials();
     }
 
     const { data: userData } = await admin.auth.admin.getUserById(profile.id);
@@ -75,9 +99,10 @@ export default {
     });
 
     if (!tokenResponse.ok) {
-      return Response.json({ error: "Invalid credentials" }, { status: 401, headers });
+      return invalidCredentials();
     }
 
+    await admin.rpc("finish_username_login", { p_attempt_id: attemptId });
     const session = await tokenResponse.json();
     return Response.json(
       { access_token: session.access_token, refresh_token: session.refresh_token },

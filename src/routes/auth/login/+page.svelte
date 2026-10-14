@@ -24,7 +24,12 @@
     const { data, error: err } = await supabase.functions.invoke('login-with-username', {
       body: { username, password }
     });
-    if (err) return err.name === 'FunctionsFetchError' ? NETWORK_ERROR : GENERIC_ERROR;
+    if (err) {
+      if (err.name === 'FunctionsFetchError') return NETWORK_ERROR;
+      // La función bloquea igual un usuario inexistente que uno real: decirlo no revela la cuenta.
+      if (err.context instanceof Response && err.context.status === 429) return RATE_LIMIT_ERROR;
+      return GENERIC_ERROR;
+    }
     if (!data?.access_token || !data?.refresh_token) return GENERIC_ERROR;
     const { error: sessionError } = await supabase.auth.setSession({
       access_token: data.access_token,
