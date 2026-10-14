@@ -35,7 +35,8 @@ Variables opcionales:
 
 ## Estado de la línea base
 
-- **Estado que representa:** el árbol al cierre de U17 (commit `02223ea`, aceptado el 2026-10-11). Incluye R1 (ficha y reproductor), R2 (errores visibles menores), U2 (saneamiento) y U3 (colecciones) además de U4–U17.
+- **Estado que representa:** el árbol tras la corrección de H1 y H15 de U18 (paso 5 del lanzamiento, aceptada el 2026-10-14): header y «Buscar» sticky, y reserva de `scroll-padding`. Antes representaba el cierre de U17 (commit `02223ea`, aceptado el 2026-10-11), que incluye R1 (ficha y reproductor), R2 (errores visibles menores), U2 (saneamiento) y U3 (colecciones) además de U4–U17.
+- **Último cambio:** 7 capturas, listadas con su motivo en el [expediente de U18](../../docs/modernizacion/u18-qa-interfaz-2026-10-14.md#paso-5--h1-2026-10-14). La referencia temporal `.ref-pre-u18fix/` se borró al recapturar.
 - **Cómo se llegó:** la línea base de U1 se perdió durante U2 y la de R1+R2 (2026-10-05) nunca se versionó. Las diferencias de R1, R2, U2 y U3 se aceptaron al recapturar sobre U17 y quedan descritas solo en sus expedientes de `docs/modernizacion/`. S2 (2026-10-11) confirmó 0 diferencias en 182 capturas y que las referencias temporales `.ref-pre-u3/` y `playwright.ref.config.ts` ya no existen.
 - **Verificada:** `npm run visual:compare` → 182 iguales, 0 diferentes, 0 inestables.
 
@@ -46,7 +47,7 @@ Variables opcionales:
 | `censo.spec.ts` | Lista de capturas (mismos IDs del censo) y runner | Sí |
 | `baseline/<plataforma>/` | Línea base PNG (`darwin` hoy). 182 archivos | Sí |
 | `data/staging.json.gz` | Snapshot de staging: catálogo (2.790), sellos, géneros, países, tipos y artistas. ~880 KB | Sí |
-| `support/` | Mocks, evaluador PostgREST, respaldos locales, estabilización e informe | Sí |
+| `support/` | Mocks, evaluador PostgREST, respaldos locales, estabilización, CSS de las capturas de documento e informe | Sí |
 | `record-staging.mjs` | Grabador del snapshot | Sí |
 | `report/`, `results/` | Informe y artefactos de la última corrida | No (`.gitignore`) |
 
@@ -73,6 +74,7 @@ La línea base está fuera de `static/` y de `build/`, así que nunca entra en e
   - Zona horaria `America/Bogota`, idioma `es-CO` y `prefers-reduced-motion: reduce`.
   - Animaciones desactivadas y cursor de texto oculto en la captura.
   - Las imágenes `lazy` se cargan antes de las capturas de página completa.
+- **Sticky en capturas de página completa y de elemento.** Usan `support/capture-document.css` (`stylePath`): el header y la barra «Buscar» pasan a `relative` y se dibujan en su sitio del documento, no donde esté el scroll. `relative` ocupa lo mismo que `sticky`, así que el layout no cambia. Las capturas del viewport no lo usan y muestran el sticky real (`home-scrolled-M`).
 - **Esperas por estado.** Red simulada en reposo, fuentes, imágenes visibles decodificadas, reproductores con `data-player-loaded`, ningún "Cargando…/Comprobando…" visible y el selector propio de cada captura. Además, `toHaveScreenshot` exige dos capturas idénticas seguidas.
 - **Umbral.**
   - `threshold 0.02` con 0 píxeles tolerados.

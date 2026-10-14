@@ -2,7 +2,20 @@
 
 Paso 4 del [plan de lanzamiento](../producto/plan-lanzamiento-2026-10-13.md#paso-4--u18-qa-de-interfaz): la etapa [U18](../producto/plan-interfaz-2026-10-04.md#u18--qa-integral-y-candidato), puntos 1 a 4, en local. Claude Opus 5.5, esfuerzo `xhigh`. El recorrido en staging y el dictamen GO/NO-GO pasan al paso 11 (E21-rc2): **aquí no hay dictamen de despliegue.**
 
-Estado: **expediente aceptado el 2026-10-14.** No se corrigió nada: ni código, ni pruebas, ni línea base. No se tocaron staging ni producción. Las correcciones son el paso 5. Las comprobaciones manuales (iPhone y VoiceOver) siguen pendientes y se anotarán aquí.
+Estado: **expediente aceptado el 2026-10-14.** Las correcciones son el paso 5 y se anotan en "Estado de los hallazgos". No se tocaron staging ni producción. Las comprobaciones manuales (iPhone y VoiceOver) siguen pendientes y se anotarán aquí.
+
+## Estado de los hallazgos (paso 5)
+
+| Hallazgo | Severidad | Estado |
+| --- | --- | --- |
+| H1 — header y «Buscar» no se quedan arriba | P1 | **Corregido** el 2026-10-14 (grupo "Scroll y header"). Ver "Paso 5 · H1". |
+| H2 — `login-with-username` sin límite de intentos | P1 | Abierto. Grupo "Seguridad de acceso". |
+| H3 — país y sello por debajo de 44 px | P1 | Abierto. Grupo "Objetivos táctiles". |
+| H4, H6, H7, H8, H9, H13, tokens del radar | P2 | Abiertos. Grupo "Menores". |
+| H10, H11, H12 | P2 | Abiertos. Grupo "Objetivos táctiles". |
+| H14 — huecos del censo | P2 | Abierto. Grupo "Censo". |
+| **H15 — paginar desde abajo no sube a la grilla** (nuevo) | P2 | **Corregido** con H1. |
+| "Mejor coincidencia" a 360; aviso al salir de Sugerir | P2 | Sin decidir; el equipo los deja para después (2026-10-14). |
 
 ## Resumen
 
@@ -234,6 +247,14 @@ Severidad: **P0** bloquea el lanzamiento, **P1** se corrige antes, **P2** puede 
   - Opus 5.5 `high` (scroll y header).
 - **Decisión tuya:** activa el header fijo en todo el sitio. Recomendación: sí; es el diseño de E14 y lo que asumen E15 y U10.
 
+### H15 — Paginar desde abajo no sube a la grilla · P2 · corregido
+
+- **Origen:** E12/E13 (orquestación de la URL del inicio). Encontrado al corregir H1; ya pasaba en `559058b`.
+- **Archivo:** `src/routes/+page.svelte` (`irAPagina`).
+- **Causa:** el desplazamiento suave a la grilla empezaba antes de `goto`; al terminar, `goto` con `noScroll` devuelve el scroll a donde estaba y lo cancelaba. Con `prefers-reduced-motion: reduce` el salto es instantáneo y sí funcionaba.
+- **Evidencia:** sonda a 1440 sin movimiento reducido: tras "Página siguiente" abajo, `scrollY` sigue en 2153 y la grilla queda en y = −1537.
+- **Arreglo:** primero la URL (`await navegarEstado()`) y después el desplazamiento.
+
 ### H2 — `login-with-username` no tiene límite de intentos propio · P1
 
 - **Origen:** la función es previa a la ronda 3; U12 detectó el hueco.
@@ -419,6 +440,67 @@ Registradas en [`decisiones.md`](./decisiones.md), "QA de interfaz (2026-10-14, 
 
 Lo demás va al paso 5 con la severidad indicada: P1 antes del lanzamiento; P2 según capacidad.
 
+## Paso 5 · H1 (2026-10-14)
+
+Grupo "Scroll y header". Claude Opus 5.5, esfuerzo `high`. Referencia visual de partida: `.ref-pre-u18fix` (ya borrada).
+
+**Causa:** `html, body { overflow-x: hidden }` convertía a `body` en un contenedor de scroll que nunca se desplaza, y eso anulaba todo `position: sticky` fuera del Estudio.
+
+**Arreglo:**
+
+- `overflow-x: clip` en `html, body` (`styles.css`). Desaparece `html.is-tool` (`estudio/+layout.svelte`).
+- `Header.svelte` publica `--header-offset` en todo el sitio, no solo en el Estudio. El índice del manual (`ReadingLayout`) se coloca debajo, con la misma transición que la barra lateral del Estudio.
+- **Barra de la ficha página:** de `dockBar` (JavaScript, `position: fixed`) a `position: sticky; bottom: 0`. La geometría es la misma, medida a 390 antes y después.
+- **Reserva al desplazarse** (efecto nuevo del sticky): `html { scroll-padding-top: calc(var(--header-reserve) + var(--search-reserve)) }`.
+  - `--header-reserve` es el alto del header en escritorio y 0 en móvil. `--search-reserve` es la barra «Buscar» del inicio en móvil.
+  - Sin ella, tras paginar el header reaparecía y tapaba ~44 px de la primera fila (grilla en y = 32, header hasta 76).
+  - El `scroll-margin` del editor del Estudio deja de sumar `--header-offset`.
+  - **Coste:** un hueco de 76 px (60 en móvil) cuando el desplazamiento es hacia abajo y el header se oculta.
+- H15, en el mismo grupo.
+- **`dockBar` de la ficha:** revisado, pasa a sticky (lo pedía la propuesta de H1).
+
+**Sonda** (390 y 1440: inicio, manual, Sugerir, cuenta, entrar, ficha página):
+
+| Elemento | Antes | Después |
+| --- | --- | --- |
+| Header al bajar 1200 px | `top` = −1276 (sube con la página) | `top` = −76 (oculto y pegado arriba) |
+| Header al subir 300 px, 1440 | fuera de vista | `top` = 0 |
+| Header al subir, 390 | fuera de vista | oculto; solo vuelve al inicio (E14) |
+| «Buscar» al subir, 390 | `top` = −363 | `top` = 0 |
+| Índice del manual al subir, 1440 | `top` = −458 | `top` = 108 (bajo el header de 76) |
+| Paginar desde abajo (390 / 834 / 1440, con y sin movimiento reducido) | sin movimiento reducido no se desplaza (H15) | la grilla queda 32 px bajo el header o «Buscar» |
+| Barra de la ficha, 390 | abajo; acoplada sobre el pie al final | igual |
+
+**Pruebas:**
+
+- **Nuevas:** `tests/browser/u18-sticky.spec.ts` (4). Miden geometría, no atributos: las de E14/E15 pasaban con el sticky roto porque solo miraban `data-header-visible`/`data-search-visible`. Las 4 fallan contra `559058b` y pasan con el arreglo.
+- **Ajustadas:**
+  - `u9-ficha` mide dónde queda la barra en vez de `data-floating`;
+  - `e13` comprueba que la grilla queda bajo la reserva, no en y = 0;
+  - `r1` (R1.4) acepta que el menú «Varios artistas» se abra hacia la fila anterior cuando no cabe debajo.
+- **Suite visual:** las capturas de página completa y de elemento usan `tests/visual/support/capture-document.css` (header y «Buscar» en `relative`). Sin eso, el header sticky salía en mitad de `registro-error-D` y de `lab-u6/u7/u8/u17`.
+
+**Diferencias visuales contra `.ref-pre-u18fix`: 7 de 182, aceptadas por el equipo el 2026-10-14:**
+
+| Captura | Motivo |
+| --- | --- |
+| `home-scrolled-M` | «Buscar» queda fija arriba (H1). |
+| `card-row-D`, `card-row-T`, `card-row-M` | La grilla queda 76 px (60 en móvil) más abajo por la reserva. |
+| `card-varios-open-D` | El disparador queda 38 px más abajo; el menú ya no cabe debajo y el overlay lo abre hacia arriba. |
+| `estudio-editor-generos-D` | La sección Clasificación queda 38 px más abajo por la reserva. |
+| `manual-D` | 7 px de ±1 nivel de gris por el propio `clip`: con `hidden`, la diferencia desaparece. |
+
+**Suites:**
+
+| Suite | Resultado |
+| --- | --- |
+| `npm test` | 153/153 |
+| `npm run build` | OK |
+| `npm run lint:tokens` | OK, 175 archivos, 2 excepciones (los radares, grupo "Menores") |
+| `npm run test:browser`, corridas 1 y 2 | **318 pasan, 5 omitidas, 0 fallos** |
+
+Una corrida parcial de `e13` falló una vez esperando `p=2`. No se reprodujo en 4 repeticiones (96/96) ni en las dos corridas completas.
+
 ## Para el paso 5 (correcciones de U18)
 
 | Grupo | Hallazgos | Modelo |
@@ -428,6 +510,8 @@ Lo demás va al paso 5 con la severidad indicada: P1 antes del lanzamiento; P2 s
 | Objetivos táctiles | H3, H10, H11 (y H12 a 390) | Sonnet 5.5 `medium` |
 | Menores | H4, H6, H7, H8, H9, H13, tokens del radar | Sonnet 5.5 `medium` |
 | Censo | H14, al final, con la recaptura | Sonnet 5.5 `medium` |
+
+**Hecho:** "Scroll y header" (H1 y H15), el 2026-10-14.
 
 **Listo cuando:**
 

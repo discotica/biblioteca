@@ -2,7 +2,32 @@
 
 Actualizado: 2026-10-14.
 
-> **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:** paso 5 del plan de lanzamiento (correcciones de U18), empezando por H1 (header fijo). Las comprobaciones manuales en iPhone y con VoiceOver se pueden hacer en paralelo.
+> **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:** seguir con el paso 5 del plan de lanzamiento (correcciones de U18). H1 está hecho. Quedan dos P1: H2 (grupo "Seguridad de acceso", Opus 5.5 `high`; la función se despliega en el paso 7) y H3 (grupo "Objetivos táctiles"). Después vienen los P2 según capacidad. Las comprobaciones manuales en iPhone y con VoiceOver se pueden hacer en paralelo.
+
+## Paso 5 del lanzamiento — correcciones de U18, grupo "Scroll y header" (H1 y H15): aceptado (2026-10-14)
+
+Detalle en el [expediente de U18](./u18-qa-interfaz-2026-10-14.md#paso-5--h1-2026-10-14). En local; no toca staging ni producción.
+
+- **H1 (P1), corregido:**
+  - `overflow-x: clip` en `html, body`, y fuera el caso `html.is-tool`;
+  - header fijo en todo el sitio (E14), «Buscar» fija en móvil (E15/U10) e índice del manual bajo el header;
+  - la barra de la ficha página pasa de `dockBar` (JavaScript) a `position: sticky`.
+- **Reserva al desplazarse:** `scroll-padding-top` con `--header-reserve` y `--search-reserve`. Así anclas, `scrollIntoView` y el foco no quedan bajo el header ni bajo «Buscar» cuando reaparecen. Coste aceptado: un hueco de 76/60 px al desplazarse hacia abajo (`decisiones.md`).
+- **H15 (P2, nuevo), corregido:** paginar desde abajo no subía a la grilla con movimiento normal (carrera con `goto` y `noScroll`).
+- **Pruebas:**
+  - `tests/browser/u18-sticky.spec.ts`, 4 pruebas de geometría que fallan contra `559058b`;
+  - ajustadas `u9-ficha`, `e13` y `r1` (R1.4).
+- **Suite visual:** `support/capture-document.css` para las capturas de página completa y de elemento.
+- **Verificado:**
+  - `npm test` 153/153; `build` OK; `lint:tokens` OK (2 excepciones de los radares);
+  - `test:browser`: 2 corridas, 318 pasan, 5 omitidas y 0 fallos.
+- **Visual:**
+  - 7 diferencias contra `.ref-pre-u18fix`, todas del arreglo y aceptadas: `home-scrolled-M`, `card-row-D/T/M`, `card-varios-open-D`, `estudio-editor-generos-D` y `manual-D`;
+  - línea base recapturada; `.ref-pre-u18fix` borrada.
+- **Sigue abierto:**
+  - H2 y H3 (P1);
+  - los P2 de los grupos "Objetivos táctiles", "Menores" y "Censo";
+  - "Mejor coincidencia" a 360 y el aviso al salir de Sugerir, que el equipo deja para después.
 
 ## Paso 4 del lanzamiento — U18, QA de interfaz (puntos 1–4): expediente aceptado (2026-10-14)
 

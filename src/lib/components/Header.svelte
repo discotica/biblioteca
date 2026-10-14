@@ -31,12 +31,16 @@
   let accountMenuOpen = false;
   let headerVisible = true;
   let headerHeight = 0;
-  // U16: en el Estudio el header es sticky (html.is-tool) y tapa lo que también
-  // lo es. Publica cuánto ocupa mientras se ve para que el índice, el selector
-  // y la barra lateral se coloquen debajo (--header-offset, tokens.css).
+  // El header es sticky (U16 en el Estudio, U18 en todo el sitio) y tapa lo que
+  // también lo es. Publica cuánto ocupa mientras se ve para que el índice del
+  // manual y del editor, el selector y la barra lateral se coloquen debajo
+  // (--header-offset, tokens.css).
+  // Además publica cuánto reservar arriba al desplazarse a un elemento: al subir
+  // el header vuelve en escritorio y tapa los primeros píxeles; en móvil solo
+  // vuelve al inicio del documento (--header-reserve, scroll-padding de styles.css).
   $: if (typeof document !== 'undefined') {
-    if (toolRoute) document.documentElement.style.setProperty('--header-offset', `${headerVisible ? headerHeight : 0}px`);
-    else document.documentElement.style.removeProperty('--header-offset');
+    document.documentElement.style.setProperty('--header-offset', `${headerVisible ? headerHeight : 0}px`);
+    document.documentElement.style.setProperty('--header-reserve', `${menuMovil ? 0 : headerHeight}px`);
   }
   let lastScroll = 0;
   let keyboardViewport = false;

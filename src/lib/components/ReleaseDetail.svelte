@@ -92,39 +92,6 @@
       }
     };
   }
-
-  /**
-   * Página en una columna: la barra queda fija abajo hasta que su sitio al
-   * final de la ficha entra entero en pantalla; ahí se acopla y deja de tapar
-   * el pie del sitio. Es lo que haría `position: sticky`, que en el documento
-   * no funciona: `body` tiene `overflow-x: hidden` (styles.css) y eso lo
-   * vuelve contenedor de scroll. El modal sí usa sticky, en su propio scroll.
-   */
-  function dockBar(dock: HTMLElement, enabled: boolean) {
-    let observer: IntersectionObserver | null = null;
-    const bar = () => dock.querySelector<HTMLElement>('[data-release-actions]');
-    const setFloating = (floating: boolean) => bar()?.toggleAttribute('data-floating', floating);
-    const start = () => {
-      observer?.disconnect();
-      observer = null;
-      if (!enabled) return setFloating(false);
-      observer = new IntersectionObserver(
-        ([entry]) => setFloating(entry.boundingClientRect.bottom > window.innerHeight + 0.5),
-        { threshold: [0, 1] }
-      );
-      observer.observe(dock);
-    };
-    start();
-    return {
-      update(next: boolean) {
-        enabled = next;
-        start();
-      },
-      destroy() {
-        observer?.disconnect();
-      }
-    };
-  }
 </script>
 
 <article
@@ -217,7 +184,7 @@
     <!-- Una sola línea (I1): Comprar y Añadir a colección con texto e icono;
          Compartir y Reportar como IconButton. Fila propia al pie de la ficha,
          fuera de la región con scroll: nunca se dibuja sobre el reproductor. -->
-    <div class="release-detail__dock" use:dockBar={mode === 'page' && !wide}>
+    <div class="release-detail__dock">
       <div class="release-detail__actions" role="group" aria-label="Acciones del lanzamiento" data-release-actions>
         {#if release.buyLink}
           <Button href={release.buyLink} target="_blank" rel="noopener noreferrer" icon="comprar" size={actionSize} class="release-detail__buy">
@@ -430,21 +397,16 @@
       padding-bottom: var(--safe-area-bottom);
     }
 
-    /* Modal: la barra se queda abajo dentro de su propio recorrido. */
-    .release-detail--modal .release-detail__dock {
+    /* La barra se queda abajo hasta acoplarse al final de la ficha: en el
+       modal, dentro de su propio recorrido; en la página, en el del documento,
+       sin tapar el pie del sitio (U18: antes lo emulaba JavaScript, porque el
+       overflow-x de body anulaba sticky). */
+    .release-detail__dock {
       position: sticky;
       bottom: 0;
-      z-index: var(--layer-raised);
-    }
-
-    /* Página: fija al viewport hasta acoplarse al final de la ficha (dockBar). */
-    .release-detail__actions:global([data-floating]) {
-      position: fixed;
-      inset-inline: 0;
-      bottom: 0;
       z-index: var(--layer-sticky);
-      height: auto;
     }
+    .release-detail--modal .release-detail__dock { z-index: var(--layer-raised); }
   }
 
   /* ---- Dos columnas (desde 768) ------------------------------------------ */

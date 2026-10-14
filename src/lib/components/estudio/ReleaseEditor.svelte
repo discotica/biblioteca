@@ -923,7 +923,8 @@
     border: 1px solid var(--color-borde);
     border-radius: var(--radius-sm);
     background: var(--color-panel);
-    scroll-margin-top: calc(var(--header-offset) + var(--space-5));
+    /* El alto del header lo reserva el scroll-padding de html (U18). */
+    scroll-margin-top: var(--space-5);
   }
   .editor__section-head {
     display: flex;

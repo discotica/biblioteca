@@ -13,6 +13,7 @@ import { ARTIST_SLUG, LABEL_SLUG, VARIOS_CARD_TITLE, pick, sample, type Role } f
 
 const BASE = `http://127.0.0.1:${process.env.VISUAL_PORT}`;
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
+const DOCUMENT_CAPTURE_CSS = path.join(ROOT, 'tests/visual/support/capture-document.css');
 
 type Vp = 'D' | 'T' | 'M';
 const VP = {
@@ -586,6 +587,7 @@ for (const shot of S) {
         options.fullPage = true;
         if (height > (shot.maxH ?? 3200)) options.clip = { x: 0, y: 0, width: viewportWidth, height: shot.maxH ?? 3200 };
       }
+      if (shot.full || shot.selector) options.stylePath = DOCUMENT_CAPTURE_CSS;
       try {
         await (shot.selector ? expect(page.locator(shot.selector).first()) : expect(page)).toHaveScreenshot(`${shot.id}.png`, options);
         step('screenshot');

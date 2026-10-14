@@ -258,14 +258,19 @@ test('U9: en la página móvil la barra fija se acopla al final de la ficha y no
   await page.goto('/lanzamiento/u9-bandcamp');
   const bar = page.locator('[data-release-actions]');
   await expect(page.locator('[data-release-player]')).toHaveAttribute('data-player-loaded', 'true');
-  await expect(bar).toHaveAttribute('data-floating', '');
+  // U18: la barra es sticky (antes, position: fixed por JavaScript). Se mide
+  // dónde queda, no un atributo.
+  const barBottom = () => bar.evaluate((node) => Math.round(node.getBoundingClientRect().bottom));
+  const viewportBottom = await page.evaluate(() => window.innerHeight);
+  await expect.poll(barBottom).toBe(viewportBottom);
+  await page.evaluate(() => window.scrollTo(0, 300));
+  await expect.poll(barBottom).toBe(viewportBottom);
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-  await expect(bar).not.toHaveAttribute('data-floating', '');
-  const barBox = await bar.boundingBox();
   const footerTop = await page.locator('footer').last().evaluate((node) => node.getBoundingClientRect().top);
-  expect((barBox?.y ?? 0) + (barBox?.height ?? 0)).toBeLessThanOrEqual(footerTop + 0.5);
+  await expect.poll(barBottom).toBeLessThanOrEqual(Math.round(footerTop));
+  expect(await barBottom()).toBeLessThan(viewportBottom);
   await page.evaluate(() => window.scrollTo(0, 0));
-  await expect(bar).toHaveAttribute('data-floating', '');
+  await expect.poll(barBottom).toBe(viewportBottom);
 });
 
 test('U9: la página usa el fondo desenfocado de la portada y las migas del sistema', async ({ page }) => {

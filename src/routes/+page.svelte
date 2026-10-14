@@ -282,10 +282,13 @@
     resultadosGridEl?.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'auto' : 'smooth' });
   }
 
-  function irAPagina(p) {
+  // Primero la URL y después el scroll: `goto` con noScroll devuelve la página
+  // a donde estaba al terminar, y eso cancelaba el desplazamiento suave a la
+  // grilla iniciado antes (U18, H15).
+  async function irAPagina(p) {
     searchState = withPage(searchState, p, totalPaginas);
-    void navegarEstado();
-    void desplazarAGrilla();
+    await navegarEstado();
+    await desplazarAGrilla();
   }
 
   function cambiarOrden(order) {

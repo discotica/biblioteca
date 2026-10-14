@@ -295,8 +295,10 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       await expect(menu).toBeVisible();
       const menuBox = (await menu.boundingBox())!;
       const cardBox = (await card.boundingBox())!;
-      // The menu reaches past its own card, into the next grid row.
-      expect(menuBox.y + menuBox.height).toBeGreaterThan(cardBox.y + cardBox.height);
+      // The menu reaches past its own card, into a neighbouring grid row: the
+      // next one, or the previous one when it flips up for lack of room below
+      // (where the trigger lands depends on the sticky header's scroll-padding, U18).
+      expect(menuBox.y + menuBox.height > cardBox.y + cardBox.height || menuBox.y < cardBox.y).toBe(true);
 
       for (const fraction of [0.15, 0.5, 0.85, 0.97]) {
         const point = [menuBox.x + menuBox.width / 2, menuBox.y + menuBox.height * fraction];

@@ -170,9 +170,12 @@
   }
 
   /* ---- Índice ------------------------------------------------------------ */
+  /* Bajo el header mientras se ve (--header-offset, U18), como el índice del
+     editor del Estudio. */
   .l-reading__toc {
     position: sticky;
-    top: var(--space-6);
+    top: calc(var(--header-offset) + var(--space-6));
+    transition: top var(--motion-slow) var(--ease-emphasized);
     align-self: start;
   }
 

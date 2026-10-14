@@ -12,15 +12,17 @@ body {
   padding: 0;
   line-height: 1.6;
   background: var(--color-fondo);
-  overflow-x: hidden;
+  /* `clip`, no `hidden` (U18, H1): recorta igual, pero `hidden` convierte a
+     body en un contenedor de scroll que nunca se desplaza y anula todo
+     position: sticky (header de E14, barra «Buscar» de E15, índice del manual,
+     barra de la ficha y lo sticky del Estudio). */
+  overflow-x: clip;
 }
 
-/* En el Estudio (U16), `clip` en lugar de `hidden`: recorta igual, pero no
-   convierte a body en contenedor de scroll, que anula todo position: sticky
-   (índice y barra de guardar del editor, barra lateral). En el resto del sitio
-   ese cambio activaría el header fijo; queda para U18. */
-html.is-tool,
-html.is-tool body { overflow-x: clip; }
+/* Con el header y la barra «Buscar» sticky, que vuelven al subir, un elemento
+   al que se desplaza la página (ancla, scrollIntoView o foco con Tab) queda
+   debajo de ellos y no tapado (U18). */
+html { scroll-padding-top: calc(var(--header-reserve) + var(--search-reserve)); }
 
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--focus-ring-color);

@@ -12,6 +12,7 @@
   import IconButton from '$lib/ui/IconButton.svelte';
   import ViewToggle from '$lib/ui/ViewToggle.svelte';
   import SearchCombobox from '$lib/components/SearchCombobox.svelte';
+  import { MOBILE_QUERY } from '$lib/ui/breakpoints';
 
   export let visible = true;
   export let expanded = false;
@@ -26,6 +27,15 @@
   const dispatch = createEventDispatcher();
   let row;
   let suggestionsMaxHeight = null;
+  let anchorHeight = 0;
+  let mobile = false;
+
+  // La barra vuelve al subir (E15) y tapa lo que se desplace bajo ella. Publica
+  // cuánto reservar arriba al desplazarse a un elemento (--search-reserve,
+  // tokens.css; lo suma el scroll-padding de styles.css).
+  $: if (typeof document !== 'undefined') {
+    document.documentElement.style.setProperty('--search-reserve', `${mobile ? anchorHeight : 0}px`);
+  }
 
   $: filtersLabel = count > 0 ? `Filtros, ${count} ${count === 1 ? 'activo' : 'activos'}` : 'Filtros';
 
@@ -44,11 +54,17 @@
 
   onMount(() => {
     const visual = window.visualViewport;
+    const mobileQuery = window.matchMedia(MOBILE_QUERY);
+    const syncMobile = () => (mobile = mobileQuery.matches);
+    syncMobile();
+    mobileQuery.addEventListener('change', syncMobile);
     visual?.addEventListener('resize', measureSuggestions);
     visual?.addEventListener('scroll', measureSuggestions);
     return () => {
+      mobileQuery.removeEventListener('change', syncMobile);
       visual?.removeEventListener('resize', measureSuggestions);
       visual?.removeEventListener('scroll', measureSuggestions);
+      document.documentElement.style.removeProperty('--search-reserve');
     };
   });
 </script>
@@ -57,6 +73,7 @@
   class="mobile-search-anchor l-container l-container--wide"
   class:mobile-search-anchor--hidden={!visible}
   data-search-visible={visible}
+  bind:offsetHeight={anchorHeight}
 >
   <div
     class="mobile-search-row"

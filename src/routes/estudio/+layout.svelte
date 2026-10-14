@@ -110,13 +110,6 @@
     if (role && sections.length) void refreshCounts();
   });
 
-  // U16: el Estudio usa position: sticky (barra lateral, índice y barra de
-  // guardar del editor). Ver `html.is-tool` en styles.css.
-  $effect(() => {
-    document.documentElement.classList.add('is-tool');
-    return () => document.documentElement.classList.remove('is-tool');
-  });
-
   setStudioContext({
     get role() { return role as StudioRole; },
     get userId() { return userId; },

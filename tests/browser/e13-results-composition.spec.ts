@@ -87,7 +87,12 @@ test('E13: la paginación es operable por teclado y desplaza a la grilla respeta
   await page.keyboard.press('Enter');
 
   await expect(page).toHaveURL(/p=2/);
-  await expect.poll(() => page.locator('.resultados__grid').evaluate((grid) => Math.abs(grid.getBoundingClientRect().top) < 100)).toBe(true);
+  // La grilla queda arriba, bajo lo que reserva el scroll-padding para el
+  // header sticky (U18).
+  await expect.poll(() => page.locator('.resultados__grid').evaluate((grid) => {
+    const reserve = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+    return Math.abs(grid.getBoundingClientRect().top - reserve) < 100;
+  })).toBe(true);
 });
 
 test('E13: vacío, carga fallida, deep link y barra responsive exponen estados distinguibles', async ({ page }) => {

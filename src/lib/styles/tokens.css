@@ -238,9 +238,15 @@
   --header-logo-h: 22px;
   --header-logo-h-mobile: 20px;
   --header-pad-block: 0.85rem;
-  /* Alto del header mientras se ve, para lo que es sticky debajo de él. Solo lo
-     fija el header en el Estudio (U16), donde el header también es sticky. */
+  /* Alto del header mientras se ve, para lo que es sticky debajo de él. Lo
+     publica Header.svelte (0 mientras está oculto). */
   --header-offset: 0px;
+  /* Lo que la barra que vuelve al subir puede tapar al desplazarse a un
+     elemento: el header en escritorio (Header.svelte) y la barra «Buscar» del
+     inicio en móvil (MobileSearchBar.svelte). Lo suma el scroll-padding-top
+     de html (styles.css). */
+  --header-reserve: 0px;
+  --search-reserve: 0px;
 
   /* ---- Tarjeta y fila de lanzamiento (U8) -------------------------------------
      Grilla: nunca más de 3 columnas; cada una mide al menos --card-min-w (el

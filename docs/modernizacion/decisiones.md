@@ -318,7 +318,7 @@ Detalle en [`u16-estudio-editor-2026-10-10.md`](./u16-estudio-editor-2026-10-10.
 - **Géneros con alta desde el Combobox** ("Crear género «…»", con la confirmación auditada). **Países sin alta:** vocabulario cerrado (E07).
 - **Una barra de guardar fija abajo en todos los anchos**, con la observación y los avisos del resultado. **Archivar y "Relacionado" van a "Más acciones"**, separados de Guardar (hallazgo del censo). Los reportes abiertos, además, en la cabecera.
 - **Observación:** sin ella, Publicar y Archivar no abren la confirmación. La reversión pide la suya en el diálogo. El payload no cambia (`p_reason`).
-- **Sticky en el Estudio:** `html.is-tool` (`overflow-x: clip`) y `--header-offset`. Queda pendiente para U18 aplicarlo a todo el sitio, porque activa el header fijo de E14 en todas las páginas.
+- **Sticky en el Estudio:** `html.is-tool` (`overflow-x: clip`) y `--header-offset`. Queda pendiente para U18 aplicarlo a todo el sitio, porque activa el header fijo de E14 en todas las páginas. *Sustituido en U18 (H1): `clip` global; `html.is-tool` ya no existe.*
 
 ### Bandeja del Estudio (2026-10-10, durante U17)
 
@@ -338,6 +338,14 @@ Decidido por el equipo sobre el [expediente de U18](./u18-qa-interfaz-2026-10-14
 - **País y sello de la tarjeta con área táctil de 44 px (H3).** El área de toque se amplía sin cambiar el aspecto de la línea "año · país · sello", en la tarjeta y en la fila. La excepción "en línea" de U6 sigue cubriendo solo los nombres de los créditos.
 - **`/lab` solo en desarrollo (H7).** En producción responde 404. La suite visual y las pruebas de `/lab` siguen corriendo contra `vite dev`. Cierra lo que dejó abierto U5.
 - **"Nota interna" (H8).** Ahora se cambia la ayuda para que no prometa que administración la lee. Después del lanzamiento se abre el caso de E09 para que el admin la vea.
+- **Pendientes sin decidir, para después (2026-10-14, paso 5):** "Mejor coincidencia" cortada a 360 (U10) y el aviso al salir de Sugerir con datos sin guardar (U13) siguen como P2 abiertos.
+
+**Al corregir H1 (2026-10-14, paso 5, grupo "Scroll y header").** Decisiones técnicas; ninguna cambia producto.
+
+- **Reserva arriba al desplazarse.** Con el header y «Buscar» sticky, un elemento al que se desplaza la página (ancla, `scrollIntoView`, foco con Tab) quedaba bajo lo que reaparece al subir. `html { scroll-padding-top }` suma `--header-reserve` (alto del header en escritorio; 0 en móvil, donde solo vuelve al inicio) y `--search-reserve` (la barra «Buscar» del inicio en móvil). Las publican `Header.svelte` y `MobileSearchBar.svelte`. **Coste aceptado:** al desplazarse hacia abajo el header se oculta y queda un hueco de 76 px (60 en móvil) sobre el destino. Se prefiere un hueco a un destino tapado. Los `scroll-margin` de cada vista ya no suman el header (el editor del Estudio lo hacía con `--header-offset`).
+- **Barra de la ficha página en sticky.** `dockBar` (JavaScript, `position: fixed` hasta acoplarse) emulaba sticky por el `overflow-x` de `body`. Ahora es `position: sticky; bottom: 0`, con la misma geometría.
+- **Capturas de página completa y de elemento** (`tests/visual/support/capture-document.css`): el header y «Buscar» se capturan en su sitio del documento (`relative`), no donde esté el scroll. Las capturas del viewport conservan el sticky real.
+- **H15 (nuevo):** paginar desde abajo no subía a la grilla con movimiento normal (`goto` con `noScroll` devolvía el scroll al terminar). Se corrigió en el mismo grupo: primero la URL y después el desplazamiento.
 
 ### Manual
 
