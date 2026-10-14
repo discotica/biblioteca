@@ -23,6 +23,16 @@ Cierra C2 y C3. Paso 2 del [plan de lanzamiento](../producto/plan-lanzamiento-20
   - clave publicable, JWT `anon` y combinación canónica: exit 0;
   - `Verificar rama`: exit 1 desde `refs/heads/modernizacion-2026` y desde una etiqueta; exit 0 desde `refs/heads/main`.
 - **Secretos:** revisados los 196 archivos que entran (cambios sin commit y los 2 commits sin subir): sin claves `sb_secret_`, JWT, cadenas `postgres://` ni tokens. Solo hay el nombre del rol `service_role` (en `GRANT` de la migración base y en reglas de guarda) y un token ficticio en una prueba.
+- **PR en borrador:** [discotica/biblioteca#1](https://github.com/discotica/biblioteca/pull/1), `modernizacion-2026` → `main`, "Modernización 2026: candidato de lanzamiento". No se fusiona hasta E22-B. `main` sigue en `0ab31e0`.
+- **CI del PR: verde** (job `verify`, ~5 min; 313–314 pruebas de navegador pasan, 5 omitidas). Las dos primeras corridas fallaron, cada una con una prueba distinta que en local no fallaba (tres causas, las tres arregladas en la rama):
+
+  | Prueba | Causa | Arreglo | De |
+  | --- | --- | --- | --- |
+  | U11 "bienvenida" (1440 px) | La proporción del hueco de la ilustración es un alto **mínimo**; el texto de la bienvenida lo estira. Work Sans no se carga (no hay `@font-face`), y en Linux cae a la sans genérica, más alta: 1,16 en vez de 1,33. Del entorno. | La prueba comprueba el `aspect-ratio` declarado y que el hueco no sea más ancho que él. | la prueba |
+  | E15 gesto táctil | Con 30 px cierra solo por velocidad (≥ 0,5 px/ms, es decir, ≤ 60 ms entre `touchStart` y `touchEnd`). En un runner cargado, los tres envíos CDP a veces tardan más. Del entorno. | Arrastre de 90 px (> `CLOSE_DISTANCE` = 72): cierra por distancia. | la prueba |
+  | U10b "un clic fuera cierra" | **Defecto de la app.** `onSearchBlur` programa el cierre de las sugerencias a los 160 ms y no se cancelaba. Tras quitar una chip (el campo pierde el foco) y volver a escribir, el temporizador viejo cerraba las sugerencias con el campo enfocado. Reproducido en local: 1 de 40 repeticiones con 6 trabajadores. | `SearchCombobox.svelte` cancela el cierre pendiente al recuperar el foco. 120/120 repeticiones después. | la app |
+
+  Desde las filas 1 y 2: la CI de Linux ve diferencias que el Mac del desarrollo no. Cualquier prueba nueva que dependa de métricas de la fuente o de la velocidad de un gesto puede repetirlo.
 - **Qué no se ha probado:** `deploy.yml` no se ha ejecutado en GitHub; el primer Run workflow real es en E22-B (o un ensayo desde `main` en el paso 3). `force_orphan: false` sobre la rama `dist` existente (un commit huérfano) se comprobará en ese primer despliegue.
 
 ## Saneamiento S3 — suite de navegador en verde: cerrada (2026-10-13)
