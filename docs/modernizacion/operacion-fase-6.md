@@ -84,6 +84,29 @@ La ausencia de Docker/`pg_restore`, un listado vacío de backups o un dump no ge
 
 El rollback de la aplicación es reversible: se recompila con `VITE_CATALOG_SOURCE=legacy`, `VITE_EDITORIAL_ENABLED=false`, `VITE_ADMIN_CATALOG_ENABLED=false` y `VITE_BETA_INVITATION_ENABLED=false`. No se eliminan TSV, JSON, slugs heredados ni `crate_items.lanzamiento_slug`. Las migraciones ya aplicadas no se revierten en producción durante un incidente: se recupera en una base aislada, se corrige con una migración nueva y se vuelve a validar.
 
+## Reemplazo del catálogo desde la hoja (paso 8, 2026-10-14)
+
+Lo que hay que hacer cada vez que la hoja cambia antes de E22, y en E22 sobre producción. El registro de la primera vez está en [`catalogo-hoja-limpia-2026-10-14.md`](./catalogo-hoja-limpia-2026-10-14.md).
+
+1. **Snapshot:** descargar el TSV publicado a `../discotica-backups/<fecha>-hoja-limpia/` y guardar su `SHA256SUMS`.
+2. **Prueba en seco:** `npm run import:catalog -- --input … --dry-run`, sin `--allow-derived-keys`. Los rechazos se corrigen en la hoja o se aceptan explícitamente.
+3. **Dump del mismo día** del destino, e inventario idéntico antes y después del volcado.
+4. **Vista previa exacta, sin escribir:**
+
+   ```sh
+   npm run import:catalog -- --input … --archive-missing --prune-dictionaries --rollback
+   ```
+
+   - Hay que añadir `--keep-invalid` si se aceptaron rechazos.
+   - `--max-archive` es 25 por defecto: si se va a archivar más, hay que subirlo a propósito.
+5. **El mismo comando sin `--rollback`.** Nadie edita en el Estudio mientras corre; en staging tardó unos 8 minutos.
+6. **Comprobaciones en solo lectura:** publicados = filas válidas, ningún lanzamiento borrado, ningún alias perdido, colecciones intactas, y la regresión de E06, D2 y S7.
+
+- **Rollback de datos:** `rollback-catalogo.sql` borra y recarga desde el dump las 14 tablas del catálogo, con los mismos id, en una transacción.
+  - Se genera con `pg_restore -a -n public -t …` sobre el dump del mismo día.
+  - Colecciones, reportes, propuestas y auditoría no se tocan.
+  - Ensayado el 2026-10-14 en local, con resultado idéntico al dump.
+
 ## Registro de simulacros
 
 ### 2026-10-14 — S8: dump de staging y restauración local, conteos idénticos

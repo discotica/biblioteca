@@ -124,6 +124,40 @@ function getOption(args, name) {
   return index === -1 ? undefined : args[index + 1];
 }
 
+const DEFAULT_MAX_ARCHIVE = 25;
+
+export function importOptions(args) {
+  const options = {
+    input: getOption(args, '--input') ?? 'static/lanzamientos.tsv',
+    sourceName: getOption(args, '--source-name') ?? DEFAULT_SOURCE,
+    sourceKeyColumn: getOption(args, '--source-key-column') ?? 'catalog_key',
+    dryRun: args.includes('--dry-run'),
+    allowDerivedKeys: args.includes('--allow-derived-keys'),
+    keepInvalid: args.includes('--keep-invalid'),
+    // Reemplazo (paso 8): archiva las claves que la fuente ya no trae, nunca las borra.
+    archiveMissing: args.includes('--archive-missing'),
+    maxArchive: DEFAULT_MAX_ARCHIVE,
+    pruneDictionaries: args.includes('--prune-dictionaries'),
+    // Ejecuta todo y termina con ROLLBACK: informe exacto sin escribir.
+    rollback: args.includes('--rollback')
+  };
+  const maxArchive = getOption(args, '--max-archive');
+  if (maxArchive !== undefined) {
+    if (!/^\d+$/.test(maxArchive)) throw new Error('--max-archive debe ser un entero mayor o igual que 0');
+    options.maxArchive = Number(maxArchive);
+  }
+  if (options.archiveMissing && options.allowDerivedKeys) {
+    throw new Error('--archive-missing no se puede usar con --allow-derived-keys: una clave derivada cambia con el contenido');
+  }
+  return options;
+}
+
+// Claves que cuentan como presentes para --archive-missing: solo las filas válidas. Una fila
+// rechazada no se publica, así que su lanzamiento se archiva.
+export function presentSourceKeys(report) {
+  return report.entries.filter((entry) => !entry.issues.length).map((entry) => entry.payload.source_key);
+}
+
 export function buildImportPayloads(rawTsv, options = {}) {
   const records = parse(rawTsv, {
     bom: true,
@@ -261,13 +295,8 @@ export function buildImportPayloads(rawTsv, options = {}) {
 }
 
 async function main() {
-  const args = process.argv.slice(2);
-  const input = getOption(args, '--input') ?? 'static/lanzamientos.tsv';
-  const sourceName = getOption(args, '--source-name') ?? DEFAULT_SOURCE;
-  const sourceKeyColumn = getOption(args, '--source-key-column') ?? 'catalog_key';
-  const dryRun = args.includes('--dry-run');
-  const allowDerivedKeys = args.includes('--allow-derived-keys');
-  const keepInvalid = args.includes('--keep-invalid');
+  const { input, sourceName, sourceKeyColumn, dryRun, allowDerivedKeys, keepInvalid, archiveMissing, maxArchive, pruneDictionaries, rollback } =
+    importOptions(process.argv.slice(2));
   const raw = await readFile(resolve(input), 'utf8');
   const report = buildImportPayloads(raw, { sourceName, sourceKeyColumn, allowDerivedKeys });
   const output = {
@@ -293,11 +322,12 @@ async function main() {
   }
 
   const client = connectionString ? new Client({ connectionString }) : new Client();
-  const actions = { created: 0, updated: 0 };
+  const actions = { created: 0, updated: 0, republished: 0, unchanged: 0, rejected: 0 };
+  let archived = [];
+  let pruned = [];
   await client.connect();
   try {
     await client.query('begin');
-    actions.rejected = 0;
     for (const entry of report.entries) {
       if (entry.issues.length) {
         await client.query(
@@ -321,14 +351,32 @@ async function main() {
       const result = await client.query('select * from private.import_catalog_release($1::jsonb)', [entry.payload]);
       actions[result.rows[0].action] += 1;
     }
-    await client.query('commit');
+    if (archiveMissing) {
+      const result = await client.query(
+        'select * from private.archive_missing_catalog_keys($1, $2::text[], $3)',
+        [sourceName, presentSourceKeys(report), maxArchive]
+      );
+      archived = result.rows;
+    }
+    if (pruneDictionaries) {
+      const result = await client.query('select * from private.prune_unused_catalog_dictionaries()');
+      pruned = result.rows;
+    }
+    await client.query(rollback ? 'rollback' : 'commit');
   } catch (error) {
     await client.query('rollback');
     throw error;
   } finally {
     await client.end();
   }
-  console.log(JSON.stringify({ ...output, applied: true, actions }, null, 2));
+  const summary = { ...output, applied: !rollback, actions };
+  if (rollback) summary.reason = 'rollback';
+  if (archiveMissing) summary.archived = archived;
+  if (pruneDictionaries) {
+    summary.pruned = pruned.reduce((counts, row) => ({ ...counts, [row.entity_type]: (counts[row.entity_type] ?? 0) + 1 }), {});
+    summary.prunedNames = pruned.map((row) => `${row.entity_type}: ${row.name}`);
+  }
+  console.log(JSON.stringify(summary, null, 2));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

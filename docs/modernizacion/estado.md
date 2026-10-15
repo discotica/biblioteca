@@ -2,7 +2,39 @@
 
 Actualizado: 2026-10-14.
 
-> **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:** paso 8 del plan de lanzamiento (reemplazar el catálogo de staging con la hoja limpia). Los pasos 6 y 7 están cerrados: staging tiene E18, D1, D2, S6, S7 y U18 H2, y `login-with-username` v4. Del paso 5 sigue abierto H3 (P1, grupo "Objetivos táctiles", Sonnet 5.5 `medium`) y los P2; no dependen de staging. Las comprobaciones manuales en iPhone y con VoiceOver se pueden hacer en paralelo.
+> **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:** paso 9 del plan de lanzamiento (D3, correo propio en staging; requiere el paso 0). El paso 8 está hecho en staging con la hoja tal como estaba publicada: cuando la hoja traiga el artista de REUNION y la clave `rel_002797` para OH MARGÓ, hay que repetir el reemplazo ([registro](./catalogo-hoja-limpia-2026-10-14.md#pendiente)). Del paso 5 sigue abierto H3 (P1, grupo "Objetivos táctiles", Sonnet 5.5 `medium`) y los P2; no dependen de staging. Las comprobaciones manuales en iPhone y con VoiceOver se pueden hacer en paralelo.
+
+## Paso 8 del lanzamiento — catálogo de staging reemplazado con la hoja limpia (2026-10-14)
+
+Registro completo, con el informe de diferencias, las decisiones y la tabla de cambios de identidad para E22: [`catalogo-hoja-limpia-2026-10-14.md`](./catalogo-hoja-limpia-2026-10-14.md). Solo staging; producción no se tocó.
+
+- **Hoja:**
+  - SHA-256 `83f29cda…`, idéntico al snapshot B10 del 12-oct;
+  - 2.789 filas, todas con clave, 7 rechazos y 34 advertencias;
+  - el orden de las filas es el de agosto. El sitio sigue ordenando por fecha (decisión del usuario).
+- **Migración `20261014203000_catalog_sheet_replace_import.sql`:**
+  - el importador ya no escribe las filas iguales;
+  - sube `catalog_version` cuando algo cambia;
+  - conserva `status` y `credit_quality`;
+  - conserva enlaces y portadas como S7 (H4);
+  - añade el archivado de las claves ausentes y la poda de diccionarios, con las opciones `--archive-missing`, `--prune-dictionaries` y `--rollback`;
+  - verificación: `tests/sql/catalog-sheet-replace-verify.sql`, con control negativo.
+  - Aplicada en staging el 2026-10-15 a las 02:27 UTC.
+- **Ensayo** sobre un dump nuevo, post-S9 (`2d45e174…`), restaurado en local:
+  - reemplazo y rollback de datos ensayados;
+  - 14/14 comprobaciones y la regresión en verde.
+- **Staging,** entre las 03:26 y las 03:34 UTC:
+  - resultado: 667 actualizados, 2.115 sin cambios y 8 archivados (ninguno en colecciones); ninguno borrado;
+  - se podaron 30 géneros, 2 sellos, 1 país y 1 artista;
+  - publicados = las 2.782 filas válidas;
+  - las 14 comprobaciones dieron OK, la regresión de E06, D2 y S7 está en verde y la prueba de humo dio 12/12.
+- **Con la hoja sin corregir:**
+  - REUNION (rel_001634) quedó archivada;
+  - rel_001638 conserva su UUID con los datos de OH MARGÓ. Su slug anterior resuelve por alias.
+- **Pendiente:**
+  - repetir el reemplazo cuando la hoja traiga las correcciones 1 y 4;
+  - rotar la contraseña de staging;
+  - copiar los dos backups nuevos fuera de este disco.
 
 ## Paso 7 del lanzamiento — S9: migraciones aplicadas en staging (2026-10-14)
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildImportPayloads, canonicalReleaseType } from '../scripts/import-catalog.mjs';
+import { buildImportPayloads, canonicalReleaseType, importOptions, presentSourceKeys } from '../scripts/import-catalog.mjs';
 
 const tsv = `artist\ttitle\ttype\tcountry\tgenre\tlabel\trelease_date\tbuy_link\treview\texperimental\tdenso\tsintético\tbailable\trápido\tcover\tcatalog_key
 Árbol, Invitada\tRitmo Norte\tEP\tColombia\tElectro, House\tSello Uno\t09/08/2026\thttps://example.org/release\tNota\t1\t2\t3\t4\t5\thttps://example.org/cover.jpg\trel-001`;
@@ -75,4 +75,29 @@ test('rechaza a la misma persona en principales y colaboradores sin inferir una 
   const result = buildImportPayloads(withCollaborator);
   assert.equal(result.entries[0].issues.length, 1);
   assert.equal(result.entries[0].issues[0].field, 'collaborator');
+});
+
+test('solo las filas válidas cuentan como presentes al archivar las claves ausentes', () => {
+  const twoRows = `${tsv}\n${tsv.split('\n')[1].replace('Ritmo Norte', '').replace('rel-001', 'rel-002')}`;
+  const result = buildImportPayloads(twoRows);
+  assert.equal(result.entries.length, 2);
+  assert.deepEqual(presentSourceKeys(result), ['rel-001']);
+});
+
+test('archivar las claves ausentes es explícito, con un tope y nunca con claves derivadas', () => {
+  const defaults = importOptions(['--input', 'hoja.tsv']);
+  assert.equal(defaults.archiveMissing, false);
+  assert.equal(defaults.pruneDictionaries, false);
+  assert.equal(defaults.rollback, false);
+  assert.equal(defaults.maxArchive, 25);
+
+  const replace = importOptions(['--input', 'hoja.tsv', '--archive-missing', '--max-archive', '10', '--prune-dictionaries', '--rollback']);
+  assert.equal(replace.archiveMissing, true);
+  assert.equal(replace.maxArchive, 10);
+  assert.equal(replace.pruneDictionaries, true);
+  assert.equal(replace.rollback, true);
+
+  assert.throws(() => importOptions(['--archive-missing', '--allow-derived-keys']), /--allow-derived-keys/);
+  assert.throws(() => importOptions(['--archive-missing', '--max-archive', 'muchos']), /--max-archive/);
+  assert.throws(() => importOptions(['--max-archive', '-1']), /--max-archive/);
 });
