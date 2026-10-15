@@ -206,6 +206,8 @@ Producción (`ewntlvugbopokdrvnwvg`) sigue con el SMTP y las plantillas por defe
 2. **SMTP propio:** los mismos valores que en staging (tabla de arriba), con la key de producción.
 3. **Rate limit for sending emails:** 30 por hora.
 4. **Plantillas:** las tres, con sus asuntos, desde `supabase/templates/`. Van después del SMTP.
+   - Desde el 2026-10-15 enlazan con `{{ .RedirectTo }}?token_hash=…` y no con `{{ .ConfirmationURL }}` (RC2-P0-01, [decisión](./decisiones.md#enlaces-de-los-correos-de-auth-2026-10-15-rc2-p0-01)).
+   - Una plantilla vieja en el dashboard deja enlaces que solo funcionan en el mismo navegador.
 5. **URL Configuration:**
    - Site URL `https://biblioteca.discotica.com`;
    - en Redirect URLs, `https://biblioteca.discotica.com/auth/reset`. La app usa `window.location.origin` (U12).

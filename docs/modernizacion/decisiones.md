@@ -355,6 +355,65 @@ Decidido por el equipo sobre el [expediente de U18](./u18-qa-interfaz-2026-10-14
 - **Un acceso correcto reinicia el contador del usuario**, no el de la IP.
 - **Privacidad:** la tabla (`private.username_login_attempts`) guarda la IP como HMAC, nunca en claro, y borra las filas de más de un día.
 
+### Pasos 8 y 10 del lanzamiento (2026-10-15)
+
+Decididas al arrancar el paso 11 (E21-rc2). El usuario las delegó en el chat: "ya salió bien" para el paso 8 y "acéptalo tú por mí" para el paso 10. Claude tomó la recomendación del plan cuando la había.
+
+- **Paso 8, aceptado con la hoja tal como está.**
+  - El 2026-10-15, el TSV publicado sigue siendo `83f29cda…`, el mismo del reemplazo. No trae las correcciones 1 y 4 (el artista de REUNION y la clave `rel_002797` de OH MARGÓ). El reemplazo no se repite.
+  - Efecto en staging: REUNION (`rel_001634`) sigue archivada, y `rel_001638` conserva su UUID con los datos de OH MARGÓ, con el slug anterior como alias.
+  - Si la hoja cambia antes de congelarla para E22-A, el paso 8 se repite en staging antes del ensayo (regla del plan). E22 importa la hoja congelada, esté como esté.
+- **B4, créditos (E21-P0-03): se redefine el criterio de salida.** El criterio de E21 era: "Muestras exacto/aproximado y créditos aprobadas editorialmente".
+  - **Por qué no se aprueba una muestra en staging:**
+    - ninguna pantalla del Estudio marca créditos como `verified`. Solo lo hace aplicar un lote de E08, y un lote solo admite inferencias `high`;
+    - la prueba en seco de E08 dio `manual` en los 10 casos, porque la hoja no trae autor estructurado;
+    - lo que se aprobara en staging no pasaría a producción, que se importa desde la hoja.
+  - **Por qué no bloquea:** el sitio no muestra la calidad de los créditos. `creditQuality` se calcula, pero ninguna vista la usa. Los créditos publicados son los de la hoja, que el equipo limpió a mano.
+  - **Criterio nuevo para el lanzamiento:**
+    1. el flujo de E08 (cola, lote, aplicación y reversión) pasa su verificación en staging, con rollback, dentro de E21-rc2;
+    2. la verificación de créditos empieza en producción después del corte, como trabajo editorial del periodo de observación;
+    3. `legacy` es el estado esperado de los 2.782 lanzamientos al cortar.
+  - Con esto, E21-P0-03 se cierra por redefinición cuando se cumpla el punto 1.
+- **B6, cuenta de colaborador permanente en staging (E21-P1-01).**
+  - Se crea desde el registro real, con el correo `hola+colaborador@mamanche.com` y el usuario `colaborador_qa`.
+  - Se confirma y se le asigna el rol `colaborador` por SQL. No hay pantalla de roles: es el mismo camino que usan E01 y E09.
+  - La contraseña vive solo en `.env.local` (`E21_STAGING_COLAB_EMAIL` y `E21_STAGING_COLAB_PASSWORD`).
+- **Limpieza de U12.** Se borra la cuenta sin confirmar `hola+u12-10092308@mamanche.com` (`u12_10092308`), sin abrir su enlace:
+  - el enlace de U12 llevaba seis días y el remitente era el de antes de D3;
+  - la confirmación con el correo propio ya quedó probada en el paso 9 y se repite en el recorrido de E21-rc2.
+  - Queda otra cuenta de prueba sin confirmar, `prueba_d3` (2026-10-07). No estaba en el encargo y no se toca.
+
+### Enlaces de los correos de Auth (2026-10-15, RC2-P0-01)
+
+Lo pidió el usuario: los enlaces de confirmación, recuperación y cambio de correo tienen que funcionar siempre, también abiertos en otro dispositivo.
+
+- **Las plantillas enlazan a la app con `token_hash`,** no al endpoint `/verify` de Auth: `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=…`. La app lo canjea con `verifyOtp`.
+  - El enlace no depende del navegador en que se pidió.
+  - Funciona aunque `@supabase/ssr` imponga PKCE.
+- **Un solo destino:** `/auth/reset`, sin query. El tipo del enlace dice si es confirmación, recuperación o cambio de correo.
+  - En Redirect URLs basta `<origen>/auth/reset` por entorno.
+  - Producción: `https://biblioteca.discotica.com/auth/reset`.
+- **Las plantillas viven en `supabase/templates/`** y se pegan a mano en el dashboard de cada proyecto, nunca con `config push`.
+
+### Flags del lanzamiento (2026-10-15)
+
+Normaliza el inventario que E21 dejó con tres nombres que no existen. Lo decidió Claude en E21-rc2, como pide el paso 11. El detalle está en el [expediente de E21-rc2](./e21-rc2-2026-10-15.md#5-inventario-de-flags-normalizado).
+
+- **Hay cuatro flags, todos de presentación:** `VITE_CATALOG_SOURCE` (`legacy` | `canonical`), `VITE_EDITORIAL_ENABLED`, `VITE_ADMIN_CATALOG_ENABLED` y `VITE_BETA_INVITATION_ENABLED`.
+  - El valor seguro es `legacy` y `false`, el que aplica `deploy.yml` si la variable no existe.
+  - No sustituyen a RLS.
+- **Se retiran del inventario** `VITE_ISSUE_REPORTING_ENABLED`, `VITE_BETA_FEEDBACK_EMAIL` y `VITE_PUBLIC_LAUNCH_LABEL`. Nunca existieron en el código:
+  - los reportes (E18) son un canal permanente; su retirada es de código y de RLS;
+  - el correo de la beta está fijo (`hola@discotica.com`);
+  - no hay etiqueta de lanzamiento.
+
+  La bienvenida (E20) tampoco tiene flag.
+- **`VITE_APP_VERSION` no es un flag.** `deploy.yml` la fija con el commit desde `54e9a06`, para que los reportes digan qué build los generó.
+- **Día del corte:**
+  - `canonical`, editorial `true` y consola admin `true`;
+  - la beta la decide el usuario. Recomendación: `true` solo si ese día salen invitaciones con `?beta=1`.
+- **Rollback de la aplicación:** los cuatro a su valor seguro y Run workflow. Ensayado en E21-rc2 con Apache y el `.htaccess` real, contra staging.
+
 ### Manual
 
 - Sigue como página, con mejor tipografía.

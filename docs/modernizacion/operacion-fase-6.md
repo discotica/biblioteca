@@ -29,6 +29,7 @@ Las variables se crean en GitHub en Settings > Secrets and variables > Actions >
 | `VITE_EDITORIAL_ENABLED` | No | `true` o `false` | `false` |
 | `VITE_ADMIN_CATALOG_ENABLED` | No | `true` o `false` | `false` |
 | `VITE_BETA_INVITATION_ENABLED` | No | `true` o `false` | `false` |
+| `VITE_APP_VERSION` | No (la fija el workflow) | `github.sha`; no es un flag ni se crea en GitHub | `unknown` en los reportes de E18 |
 
 El paso "Verificar variables de despliegue" también rechaza una URL que no sea `https://`, una clave `sb_secret_` o un JWT con `role=service_role`, y valores fuera de `legacy|canonical` o `true|false`. Hasta E22, las cuatro opcionales se dejan sin crear (o en sus valores seguros).
 

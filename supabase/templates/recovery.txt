@@ -2,7 +2,7 @@ Restablece tu contraseña
 
 Recibimos una solicitud para cambiar la contraseña de la cuenta asociada a {{ .Email }}. Abre este enlace para elegir una nueva:
 
-{{ .ConfirmationURL }}
+{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery
 
 Si no pediste este cambio, ignora este correo: tu contraseña actual sigue funcionando.
 

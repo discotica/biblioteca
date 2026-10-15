@@ -37,6 +37,8 @@ type AuthMock = {
   emailLogin?: (body: { email: string; password: string }) => { status: number; body: unknown };
   signup?: (body: Record<string, unknown>) => { status: number; body: unknown };
   updateUser?: (body: Record<string, unknown>) => { status: number; body: unknown };
+  /** Respuesta de POST /verify (enlaces con token_hash). Por defecto, una sesión nueva. */
+  verify?: (body: Record<string, unknown>) => { status: number; body: unknown };
   profile?: Record<string, unknown>;
 };
 
@@ -65,6 +67,10 @@ async function mockSupabase(page: Page, mock: AuthMock = {}) {
       return json(route, result.body, result.status);
     }
     if (url.pathname === '/auth/v1/resend') return json(route, {});
+    if (url.pathname === '/auth/v1/verify' && request.method() === 'POST') {
+      const result = mock.verify?.(body()) ?? { status: 200, body: session };
+      return json(route, result.body, result.status);
+    }
     if (url.pathname === '/auth/v1/user') {
       if (request.method() === 'PUT') {
         const result = mock.updateUser?.(body()) ?? { status: 200, body: session.user };
@@ -215,7 +221,7 @@ test.describe('U12 registro', () => {
 
     await page.waitForURL('**/auth/confirmar');
     const signup = calls('/auth/v1/signup')[0];
-    expect(new URL(signup.url()).searchParams.get('redirect_to')).toMatch(/\/auth\/reset\?flow=signup$/);
+    expect(new URL(signup.url()).searchParams.get('redirect_to')).toMatch(/\/auth\/reset$/);
     expect(signup.postDataJSON()).toMatchObject({
       email: 'Nueva@Gmail.com',
       data: {
@@ -329,6 +335,53 @@ test.describe('U12 enlaces del correo', () => {
     await expect(page.getByText(/Confirmamos el enlace/)).toBeVisible();
     await expect(page.getByLabel('Usuario')).toHaveValue('persona');
     await expect(page).toHaveURL(/\/cuenta$/);
+  });
+
+  // RC2-P0-01: los enlaces de las plantillas traen token_hash y se canjean aquí,
+  // sin sesión previa ni code verifier (sirven abiertos en otro dispositivo).
+  test('el enlace de confirmación (token_hash) canjea con verifyOtp y aterriza en Mis colecciones', async ({ page }) => {
+    const { calls } = await mockSupabase(page);
+    await page.goto('/auth/reset?token_hash=hash-confirmar&type=email');
+    await page.waitForURL((url) => url.pathname === '/mis-colecciones');
+    await expect(page.getByRole('status').filter({ hasText: 'Tu cuenta está confirmada' })).toBeVisible();
+    expect(calls('/auth/v1/verify').map((r) => r.postDataJSON())).toMatchObject([{ token_hash: 'hash-confirmar', type: 'email' }]);
+    expect(calls('/auth/v1/token')).toHaveLength(0);
+  });
+
+  test('el enlace de recuperación (token_hash) abre el formulario, se quita de la URL y guarda la contraseña', async ({ page }) => {
+    const { calls } = await mockSupabase(page);
+    await page.goto('/auth/reset?token_hash=hash-recuperar&type=recovery');
+    await expect(page.getByRole('heading', { level: 1, name: 'Nueva contraseña' })).toBeVisible();
+    expect(calls('/auth/v1/verify').map((r) => r.postDataJSON())).toMatchObject([{ token_hash: 'hash-recuperar', type: 'recovery' }]);
+    await expect(page).toHaveURL(/\/auth\/reset\?flow=recovery$/);
+    await page.getByLabel('Contraseña nueva').fill('Una-Frase-Larga-2026');
+    await page.getByLabel('Repite la contraseña').fill('Una-Frase-Larga-2026');
+    await page.getByRole('button', { name: 'Guardar contraseña' }).click();
+    await page.waitForURL((url) => url.pathname === '/mis-colecciones');
+    expect(calls('/auth/v1/user').filter((r) => r.method() === 'PUT').map((r) => r.postDataJSON())).toMatchObject([{ password: 'Una-Frase-Larga-2026' }]);
+  });
+
+  test('un token_hash vencido o usado muestra "venció" y ofrece pedir otro', async ({ page }) => {
+    await mockSupabase(page, { verify: () => ({ status: 403, body: { code: 403, error_code: 'otp_expired', msg: 'Email link is invalid or has expired' } }) });
+    await page.goto('/auth/reset?token_hash=hash-viejo&type=recovery');
+    await expect(page.getByRole('heading', { level: 1, name: 'El enlace venció' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Pedir otro enlace' })).toHaveAttribute('href', '/auth/recuperar');
+    await expect(page).toHaveURL(/\/auth\/reset\?flow=recovery$/);
+  });
+
+  test('la primera de las dos confirmaciones de un cambio de correo avisa que falta la otra', async ({ page }) => {
+    await mockSupabase(page, { verify: () => ({ status: 200, body: { msg: 'Confirmation link accepted. Please proceed to confirm link sent to the other email', code: 200 } }) });
+    await page.goto('/auth/reset?token_hash=hash-cambio&type=email_change');
+    await expect(page.getByRole('heading', { level: 1, name: 'Falta un paso' })).toBeVisible();
+    await expect(page.getByText(/Abre también el enlace que llegó a la otra dirección/)).toBeVisible();
+  });
+
+  test('un enlace PKCE que el SDK ya canjeó no se vuelve a canjear', async ({ page }) => {
+    await signedIn(page);
+    const { calls } = await mockSupabase(page);
+    await page.goto('/auth/reset?code=ya-canjeado&flow=signup');
+    await page.waitForURL((url) => url.pathname === '/mis-colecciones');
+    expect(calls('/auth/v1/verify')).toHaveLength(0);
   });
 
   test('un enlace de confirmación vencido ofrece pedir otro', async ({ page }) => {

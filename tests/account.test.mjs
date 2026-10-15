@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  authLinkRedirect,
   parseLoginIdentifier,
+  readAuthLink,
   retryAfterSeconds,
   safeRedirect,
   webmailFor
@@ -43,4 +45,31 @@ test('U12: el destino tras entrar es siempre interno', () => {
   assert.equal(safeRedirect('https://evil.example'), '/mis-colecciones');
   assert.equal(safeRedirect(null), '/mis-colecciones');
   assert.equal(safeRedirect('', '/'), '/');
+});
+
+test('RC2-P0-01: los enlaces de Auth van a /auth/reset sin query', () => {
+  assert.equal(authLinkRedirect('https://biblioteca.discotica.com'), 'https://biblioteca.discotica.com/auth/reset');
+});
+
+test('RC2-P0-01: el enlace de las plantillas trae token_hash y el tipo dice el flujo', () => {
+  const read = (search, hash = '') => readAuthLink(new URLSearchParams(search), new URLSearchParams(hash));
+  assert.deepEqual(read('token_hash=abc&type=email'), { flow: 'signup', tokenHash: 'abc', otpType: 'email', code: null, error: false });
+  assert.deepEqual(read('token_hash=abc&type=signup'), { flow: 'signup', tokenHash: 'abc', otpType: 'email', code: null, error: false });
+  assert.deepEqual(read('token_hash=abc&type=recovery'), { flow: 'recovery', tokenHash: 'abc', otpType: 'recovery', code: null, error: false });
+  assert.deepEqual(read('token_hash=abc&type=email_change'), { flow: 'email_change', tokenHash: 'abc', otpType: 'email_change', code: null, error: false });
+  // Un token sin tipo reconocible se canjea según el flujo heredado.
+  assert.equal(read('token_hash=abc&flow=signup').otpType, 'email');
+  assert.equal(read('token_hash=abc').otpType, 'recovery');
+  assert.equal(read('token_hash=%20%20').tokenHash, null);
+});
+
+test('RC2-P0-01: los enlaces anteriores (flow, code, fragmento y error) se siguen leyendo', () => {
+  const read = (search, hash = '') => readAuthLink(new URLSearchParams(search), new URLSearchParams(hash));
+  assert.deepEqual(read('code=123&flow=signup'), { flow: 'signup', tokenHash: null, otpType: null, code: '123', error: false });
+  assert.equal(read('flow=email_change').flow, 'email_change');
+  assert.equal(read('', 'access_token=x&type=recovery').flow, 'recovery');
+  assert.equal(read('', 'access_token=x&type=signup').flow, 'signup');
+  assert.equal(read('flow=otra').flow, 'recovery');
+  assert.equal(read('flow=signup', 'error=access_denied&error_description=expired').error, true);
+  assert.equal(read('error_description=expired&type=recovery').error, true);
 });

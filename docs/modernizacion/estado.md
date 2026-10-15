@@ -2,7 +2,52 @@
 
 Actualizado: 2026-10-15.
 
-> **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:** paso 10 del plan de lanzamiento (S10, decisiones y cuentas, solo el usuario) y después el paso 11 (E21-rc2). El paso 9 (D3) está cerrado en staging. El paso 8 está hecho en staging con la hoja tal como estaba publicada: cuando la hoja traiga el artista de REUNION y la clave `rel_002797` para OH MARGÓ, hay que repetir el reemplazo ([registro](./catalogo-hoja-limpia-2026-10-14.md#pendiente)). Del paso 5 sigue abierto H3 (P1, grupo "Objetivos táctiles", Sonnet 5.5 `medium`) y los P2; no dependen de staging. Las comprobaciones manuales en iPhone y con VoiceOver se pueden hacer en paralelo.
+> **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:**
+>
+> 1. Se corrigen RC2-P1-01 y RC2-P1-02.
+> 2. Se repite el paso 11 como E21-rc3.
+>
+> RC2-P0-01 (enlaces de Auth) quedó corregido y verificado en staging con un correo real el 2026-10-15, con las plantillas nuevas ya en el dashboard ([expediente](./e21-rc2-2026-10-15.md#rc2-p0-01--los-enlaces-de-auth-terminan-en-el-enlace-venció)).
+>
+> El paso 11 (E21-rc2) dio **NO-GO** el 2026-10-15 ([expediente](./e21-rc2-2026-10-15.md)). Los pasos 1 a 10 están cerrados: el 8 se aceptó con la hoja tal como está y el 10 se decidió por delegación ([decisiones](./decisiones.md#pasos-8-y-10-del-lanzamiento-2026-10-15)). La QA manual en dispositivos conviene hacerla después de la corrección.
+
+## Paso 11 del lanzamiento — E21-rc2: NO-GO (2026-10-15)
+
+Expediente completo, con matriz, recorridos, plan de corte y checklist: [`e21-rc2-2026-10-15.md`](./e21-rc2-2026-10-15.md). Solo staging; producción no se consultó.
+
+- **Candidato** `discotica-e21-rc2`: commit `54e9a06`, manifiesto del build `be71b91c…` y artefacto `6918f340…` en `../discotica-backups/2026-10-15-e21-rc2/`. Staging tiene las 31 migraciones, sin drift.
+- **Al arrancar,** con lo que el usuario delegó:
+  - paso 9 aceptado (`0fed9be`);
+  - H3 corregido (`53af666`; las capas de la fila, en `54e9a06`);
+  - paso 8 aceptado con la hoja `83f29cda…`;
+  - paso 10 decidido: créditos redefinidos, `colaborador_qa` creada y la cuenta de U12 borrada.
+- **Suite:**
+  - `npm test` 158/158; build OK;
+  - `test:browser` ×3, con 320 pasan, 5 omitidas y 0 fallos; con beta apagada, 21/3/0;
+  - `visual:compare` 0 diferencias;
+  - `test:anchos` (nuevo: 1024 px y zoom al 200 %) 40/40;
+  - las 11 verificaciones SQL OK en staging (D2 con la copia adaptada de S9);
+  - advisors sin `WARN`.
+- **Recorridos en staging,** con anon, comunidad, colaborador y admin:
+  - colección, reordenar y compartir: OK;
+  - Sugerir → preparar → aprobar → archivar: OK;
+  - reporte con captura (E18): OK;
+  - 28 intentos negativos de RLS rechazados;
+  - rollback de flags ensayado con Apache y el `.htaccess` real.
+- **Los cuatro P0 de E21 están cerrados.**
+- **P0 nuevo, RC2-P0-01:** la confirmación, la recuperación y el cambio de correo terminan en "El enlace venció". La recuperación de contraseña es imposible.
+  - Causa: `@supabase/ssr` impone PKCE, el SDK canjea el código solo y `/auth/reset` lo vuelve a canjear.
+  - En otro navegador no hay verifier.
+  - H7 del paso 9 era esto.
+- **También:**
+  - RC2-P1-01: "Artista sin resolver" en el editor, por una carrera;
+  - RC2-P1-02: textos dañados en la hoja, con 79 campos candidatos;
+  - 58 URLs de medios rotas confirmadas en navegador;
+  - `static/bu lanzamientos/` sale publicado en el build.
+- **Pendiente del usuario:**
+  - QA manual (Safari iOS, Android, VoiceOver, iframes y llegada de 3 correos);
+  - las dos firmas;
+  - borrar la cuenta `e21rc2_comunidad` después de la repetición.
 
 ## Paso 9 del lanzamiento — D3: correo propio en staging (2026-10-15)
 

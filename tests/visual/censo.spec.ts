@@ -286,6 +286,9 @@ function emailTemplate(kind: 'confirmation' | 'recovery') {
   }[kind];
   const body = (custom ?? defaults.body)
     .replaceAll('{{ .ConfirmationURL }}', 'https://discotica.com/auth/reset?flow=signup')
+    // Desde RC2-P0-01 las plantillas enlazan a la app con token_hash.
+    .replaceAll('{{ .RedirectTo }}', 'https://biblioteca.discotica.com/auth/reset')
+    .replaceAll('{{ .TokenHash }}', 'pkce_3f9a6c0e1b2d4f5a8c7e9b0d1f2a3c4e5b6d7f8091a2b3c4d5e6f708')
     .replaceAll('{{ .Email }}', 'nueva@example.test')
     .replaceAll('{{ .SiteURL }}', 'https://discotica.com');
   const from = custom ? 'Discótica <hola@discotica.com>' : 'Supabase Auth &lt;noreply@mail.app.supabase.io&gt;';

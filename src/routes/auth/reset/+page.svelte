@@ -2,20 +2,26 @@
   import { onMount } from 'svelte';
   import AccountLayout from '$lib/layouts/AccountLayout.svelte';
   import { Button, Notice, PasswordField } from '$lib/ui';
-  import { goto } from '$app/navigation';
+  import { goto, replaceState } from '$app/navigation';
   import { page } from '$app/stores';
   import { supabase } from '$lib/supabase';
+  import { readAuthLink, type AuthLinkFlow } from '$lib/domain/account';
 
   /**
-   * Destino de los enlaces de los correos de Auth: confirmar la cuenta
-   * (`flow=signup`), elegir contraseña nueva (`flow=recovery`) y confirmar un
-   * cambio de correo (`flow=email_change`). Con flujo implícito, el SDK crea la
-   * sesión desde el fragmento (#) antes de que esta página decida.
+   * Destino de los enlaces de los correos de Auth: confirmar la cuenta,
+   * elegir contraseña nueva y confirmar un cambio de correo (RC2-P0-01).
+   * - `?token_hash=…&type=…` (las plantillas): se canjea aquí con `verifyOtp`.
+   *   No depende del navegador en que se pidió el enlace.
+   * - `?code=…` (enlaces PKCE anteriores): el SDK ya lo canjeó al cargar
+   *   (`detectSessionInUrl`). Canjearlo otra vez falla, así que solo se mira la sesión.
+   * - `#access_token=…` (flujo implícito): igual, la sesión ya está creada.
    */
-  type Flow = 'signup' | 'recovery' | 'email_change';
-
-  let flow = $state<Flow | null>(null);
+  let flow = $state<AuthLinkFlow | null>(null);
   let linkError = $state(false);
+  /** Cambio de correo con doble confirmación: falta el enlace de la otra dirección. */
+  let otherAddressPending = $state(false);
+  /** El formulario de contraseña no aparece hasta que el enlace está verificado. */
+  let checking = $state(true);
   let password = $state('');
   let passwordValid = $state(false);
   let confirmPassword = $state('');
@@ -28,30 +34,42 @@
       ? flow === 'signup'
         ? 'El enlace de confirmación venció'
         : 'El enlace venció'
-      : flow === 'recovery'
-        ? 'Nueva contraseña'
-        : 'Comprobando el enlace'
+      : otherAddressPending
+        ? 'Falta un paso'
+        : flow === 'recovery' && !checking
+          ? 'Nueva contraseña'
+          : 'Comprobando el enlace'
   );
 
   onMount(async () => {
-    const hash = new URLSearchParams(window.location.hash.slice(1));
-    const params = $page.url.searchParams;
-    const requested = params.get('flow') ?? params.get('type') ?? hash.get('type');
-    flow = requested === 'signup' || requested === 'email_change' ? requested : 'recovery';
+    await checkLink();
+    checking = false;
+  });
 
-    if (params.get('error_description') ?? hash.get('error_description')) {
+  async function checkLink() {
+    const link = readAuthLink($page.url.searchParams, new URLSearchParams(window.location.hash.slice(1)));
+    flow = link.flow;
+    if (link.error) {
       linkError = true;
       return;
     }
 
-    const code = params.get('code');
-    if (code) {
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (link.tokenHash && link.otpType) {
+      const { data, error } = await supabase.auth.verifyOtp({ token_hash: link.tokenHash, type: link.otpType });
+      // El token es de un solo uso: fuera de la URL, recargar no lo reintenta.
+      replaceState(`/auth/reset?flow=${link.flow}`, {});
       if (error) {
         linkError = true;
         return;
       }
+      if (!data.session) {
+        // Auth acepta la primera de las dos confirmaciones de un cambio de correo sin abrir sesión.
+        if (link.flow === 'email_change') otherAddressPending = true;
+        else linkError = true;
+        return;
+      }
     } else {
+      // getSession espera a que el SDK termine de leer la URL (code o fragmento).
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
         linkError = true;
@@ -61,7 +79,7 @@
 
     if (flow === 'signup') goto('/mis-colecciones?aviso=cuenta-confirmada', { replaceState: true });
     else if (flow === 'email_change') goto('/cuenta?aviso=correo', { replaceState: true });
-  });
+  }
 
   async function updatePassword(event: SubmitEvent) {
     event.preventDefault();
@@ -113,7 +131,14 @@
         <Button href="/auth/recuperar" block>Pedir otro enlace</Button>
       {/if}
     </div>
-  {:else if flow === 'recovery'}
+  {:else if otherAddressPending}
+    <Notice tone="info">
+      <p>Confirmamos esta dirección. Abre también el enlace que llegó a la otra dirección para terminar el cambio de correo.</p>
+    </Notice>
+    <div class="link-actions">
+      <Button href="/cuenta" variant="secondary" block>Ir a mi cuenta</Button>
+    </div>
+  {:else if flow === 'recovery' && !checking}
     <form class="account-form" onsubmit={updatePassword} novalidate>
       <PasswordField label="Contraseña nueva" name="password" bind:value={password} bind:valid={passwordValid} error={errors.password} required />
       <PasswordField

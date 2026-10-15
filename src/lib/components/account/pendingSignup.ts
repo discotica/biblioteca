@@ -1,3 +1,5 @@
+import { authLinkRedirect } from '$lib/domain/account';
+
 /**
  * Correo de la cuenta recién creada, para "Revisa tu correo" (U12). Vive en
  * sessionStorage: sobrevive a recargar la pestaña y no sale del navegador ni
@@ -24,7 +26,7 @@ export function writePendingSignup(pending: PendingSignup) {
   }
 }
 
-/** Destino del enlace de confirmación: /auth/reset crea la sesión y lleva a Mis colecciones. */
+/** Destino del enlace de confirmación: /auth/reset canjea el enlace y lleva a Mis colecciones. */
 export function confirmationRedirect(origin: string) {
-  return `${origin}/auth/reset?flow=signup`;
+  return authLinkRedirect(origin);
 }

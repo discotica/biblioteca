@@ -572,7 +572,8 @@ Se corrigió en el chat del paso 11 (E21-rc2), antes de fijar el candidato: el u
   - el borde de compartir;
   - 3,5 px de la fila siguiente.
 
-  Para resolverlo, la fila apila aparte (`isolation: isolate`), y el texto del título (un `span`) y compartir quedan por encima (`z-index: 3`). El aspecto no cambia.
+  Para resolverlo, la fila apila aparte (`isolation: isolate`). Las capas van, de abajo arriba, así: enlace estirado (1), país y sello (1, después en el DOM), texto del título (un `span`, 2), créditos y compartir (3). El aspecto no cambia.
+  - Un primer intento ponía el título en 3. Tapaba el área de 44 px de "Varios artistas" y la prueba de U5 del `/lab` falló en las tres corridas de E21-rc2. Se corrigió en `54e9a06`, con nuevo control negativo.
 - **Medido** en el inicio con datos de staging, a 390, 834 y 1440, en grilla y lista (40 enlaces por vista, muestreo con `elementFromPoint`):
   - **área:** 44 px de alto y, como mínimo, 37,9 px de ancho;
   - **en la grilla:** solo toma espacio vacío de la tarjeta (el enlace estirado del título). Donde se cruza con los géneros, ganan los géneros, como ya pasa entre chips. Quedan como mínimo 28 px exclusivos en el centro de cada enlace;

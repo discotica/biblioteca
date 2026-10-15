@@ -2,6 +2,7 @@
   import AccountLayout from '$lib/layouts/AccountLayout.svelte';
   import { Button, Field, Notice } from '$lib/ui';
   import { supabase } from '$lib/supabase';
+  import { authLinkRedirect } from '$lib/domain/account';
 
   let email = $state('');
   let sent = $state(false);
@@ -18,7 +19,7 @@
     }
     loading = true;
     const { error: err } = await supabase.auth.resetPasswordForEmail(target, {
-      redirectTo: `${window.location.origin}/auth/reset?flow=recovery`
+      redirectTo: authLinkRedirect(window.location.origin)
     });
     loading = false;
     // Solo el límite de envíos se distingue; cualquier otro resultado muestra

@@ -2,7 +2,7 @@ Confirma tu cuenta
 
 Gracias por registrarte en la Biblioteca de Discótica. Confirma que {{ .Email }} es tu correo para activar tu cuenta:
 
-{{ .ConfirmationURL }}
+{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email
 
 Si no creaste una cuenta en Discótica, ignora este correo: sin confirmación la cuenta no se activa.
 

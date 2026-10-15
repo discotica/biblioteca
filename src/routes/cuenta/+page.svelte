@@ -6,6 +6,7 @@
   import { Button, Checkbox, Field, Notice, PasswordField, Textarea } from '$lib/ui';
   import { afterNavigate, replaceState } from '$app/navigation';
   import { supabase } from '$lib/supabase';
+  import { authLinkRedirect } from '$lib/domain/account';
   import { loadOwnAccountProfile, updateOwnAccountProfile, type OwnAccountProfile } from '$lib/services/profiles';
   import type { SocialFieldErrors } from '$lib/domain/profileSocial';
 
@@ -120,7 +121,7 @@
     savingEmail = true;
     const { error } = await supabase.auth.updateUser(
       { email: target },
-      { emailRedirectTo: `${window.location.origin}/auth/reset?flow=email_change` }
+      { emailRedirectTo: authLinkRedirect(window.location.origin) }
     );
     savingEmail = false;
     // Un correo que ya usa otra cuenta recibe la misma respuesta que uno libre:
