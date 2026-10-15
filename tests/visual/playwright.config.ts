@@ -35,7 +35,8 @@ const baselineDir = process.env.VISUAL_BASELINE_DIR ?? 'baseline';
 
 export default defineConfig({
   testDir: here,
-  testMatch: 'censo.spec.ts',
+  // VISUAL_SPEC=anchos-zoom.spec.ts corre la comprobación de 1024 px y zoom (npm run test:anchos).
+  testMatch: process.env.VISUAL_SPEC ?? 'censo.spec.ts',
   outputDir: path.join(here, 'results'),
   snapshotPathTemplate: `{testDir}/${baselineDir}/{platform}/{arg}{ext}`,
   globalSetup: './support/global-setup.ts',

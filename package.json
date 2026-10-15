@@ -17,6 +17,7 @@
     "visual:data": "node tests/visual/record-staging.mjs",
     "visual:capture": "playwright test -c tests/visual/playwright.config.ts --update-snapshots=all",
     "visual:compare": "playwright test -c tests/visual/playwright.config.ts --update-snapshots=none",
+    "test:anchos": "VISUAL_SPEC=anchos-zoom.spec.ts playwright test -c tests/visual/playwright.config.ts --reporter=list",
     "verify:media": "node scripts/verify-release-media.mjs",
     "dev": "vite",
     "build": "vite build",

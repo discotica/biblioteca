@@ -109,13 +109,14 @@
     cursor: pointer;
   }
 
-  /* Créditos, país, sello, géneros y compartir, sobre el enlace estirado. */
+  /* Capas, de abajo arriba: enlace estirado (1), país y sello (1, después en el
+     DOM), texto del título (2), créditos y compartir (3). El área táctil de país
+     y sello (H3) solo toma lo que no es de otro control. */
   .fila :global(a:not(.fila__titulo-enlace)),
   .fila :global(button) {
     position: relative;
-    z-index: 2;
+    z-index: 3;
   }
-  /* El texto del título y compartir, sobre el área táctil de país y sello. */
-  .fila__titulo-texto { position: relative; z-index: 3; }
-  .fila :global(.fila__compartir) { z-index: 3; }
+  .fila :global(.datos a) { z-index: 1; }
+  .fila__titulo-texto { position: relative; z-index: 2; }
 </style>
