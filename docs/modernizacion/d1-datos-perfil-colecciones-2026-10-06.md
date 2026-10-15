@@ -161,6 +161,8 @@ La migración D1 añade `coleccion` y `mis-colecciones` a `private.reserved_user
 
 **Verificación pendiente:** no había stack local (el daemon de Docker no estaba activo). La tabla de arriba corresponde a la migración **antes** de este cambio. Falta repetir `d1-verify.sql`, `d1-concurrency.sh` y `d1-rollback-verify.sql` con la receta de "Entorno local", y comprobar que un alta con `username = 'coleccion'` o `'mis-colecciones'` falla con `Username unavailable.` Hasta entonces H8 queda escrito, no verificado.
 
+**Verificado en staging el 2026-10-14 (paso 7).** Una comprobación con rollback dio `Username unavailable.` para `coleccion` y `mis-colecciones`, y un nombre de control se creó. `d1-verify.sql` ya había pasado sobre la cadena vacía de S5 con este archivo.
+
 ## Advisors (local)
 
 `npx supabase db advisors --local --type all --level info`, antes y después de D1, sobre la misma base:
@@ -212,11 +214,20 @@ npx supabase stop --workdir $W --no-backup
 
 Histórico (D1, antes de S5): la cadena no construía desde cero y E18 se excluía de la copia temporal.
 
-## Pendiente para staging (cuando E21 libere el backup)
+## Staging (paso 7, 2026-10-14)
 
-1. Backup restaurable fresco de staging `hgocyrzhgohetfpzbmfs`.
-2. Corregir E18 (otro chat) o decidir explícitamente el orden de aplicación.
-3. Con `--project-ref hgocyrzhgohetfpzbmfs`, nunca `--linked`: comparar el `migration list` local y el remoto. Si aparece drift, detenerse y subir a `xhigh`.
-4. Aplicar la migración y comprobar el backfill: mismo número de ítems y `count(distinct (crate_id, position)) = count(*)`.
-5. Ejecutar `d1-verify.sql`, `d1-concurrency.sh` (con `PSQL` apuntando a staging; confirma fixtures temporales y los borra) y los advisors. Registrar los dos `WARN` esperados.
-6. Actualizar este documento y `estado.md`.
+Aplicada en `hgocyrzhgohetfpzbmfs` el 2026-10-15 a las 00:01:39 UTC, dentro de S9 (detalle en [`estado.md`](./estado.md), "Paso 7"). El "Pendiente para staging" de este relevo queda así:
+
+1. **Backup:** dump del mismo día, del paso 6. Antes del primer cambio, el inventario seguía idéntico al dump.
+2. **E18:** corregida en S5 y aplicada justo antes (23:58:55 UTC).
+3. **`migration list`** con `--project-ref hgocyrzhgohetfpzbmfs`, nunca `--linked`: sin drift. La base `20260830000000` se marcó como aplicada con `migration repair`.
+4. **Backfill:** 4 ítems en 2 colecciones antes y después; `count(distinct (crate_id, position)) = count(*)`; posiciones 0… en orden de `added_at`.
+5. **Verificación:**
+   - `d1-verify.sql`: `D1 verify: OK`, con rollback;
+   - H8 OK (arriba);
+   - **advisors** con el linter del CLI (`--db-url`): sin hallazgos nuevos. Los dos `WARN` 0029 esperados del linter alojado no se comprobaron: hace falta `--linked`, y el usuario decidió no usarlo;
+   - **humo** con la app apuntando a staging: alta, reordenado con `reorder_crate_items`, `/mis-colecciones` y la página de la colección, sin errores;
+   - **no se corrió `d1-concurrency.sh`:** confirma escrituras, y S9 solo admite verificaciones de solo lectura o con rollback.
+6. **Documentos:** este y `estado.md`.
+
+**Rollback:** sin cambios respecto de la sección "Rollback". Desde ahora hay datos reales que respaldar antes: el orden de 4 ítems, y las redes y la preferencia de los perfiles que las rellenen.

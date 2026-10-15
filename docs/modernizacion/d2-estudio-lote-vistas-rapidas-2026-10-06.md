@@ -279,14 +279,25 @@ npx supabase stop --workdir $W --no-backup
 
 El stack se detuvo con `--no-backup`: no quedaron contenedores ni volúmenes.
 
-## Pendiente para staging (cuando E21 libere el backup)
+## Staging (paso 7, 2026-10-14)
 
-1. Backup restaurable fresco de staging `hgocyrzhgohetfpzbmfs`.
-2. Corregir E18 (H2 y H3) en su etapa y aplicarla. D2 se niega a aplicarse sin ella.
-3. Decidir H1. Recomendación: corregir E06 antes de abrir U15 a uso real.
-4. Con `--project-ref hgocyrzhgohetfpzbmfs`, nunca `--linked`: comparar `migration list` local y remoto. Si aparece drift, detenerse.
-5. Aplicar D1 y D2. Ejecutar `d2-verify.sql` (necesita un admin, un colaborador y una persona de comunidad, que crea dentro de la transacción) y los advisors; registrar los dos `WARN` esperados. `d2-concurrency.sh` y `d2-mutations.py` son solo locales: el primero borra la auditoría de sus fixtures.
-6. Actualizar este documento y `estado.md`.
+Aplicada en `hgocyrzhgohetfpzbmfs` el 2026-10-15 a las 00:11:04 UTC, dentro de S9 (detalle en [`estado.md`](./estado.md), "Paso 7"). El "Pendiente para staging" de este relevo queda así:
+
+1. **Backup:** dump del mismo día, del paso 6. Antes del primer cambio, el inventario seguía idéntico al dump.
+2. **E18:** corregida en S5 y aplicada antes que D1 y D2.
+3. **H1:** corregido en S6, que se aplicó justo después de D2 (00:20:47 UTC).
+4. **`migration list`** con `--project-ref hgocyrzhgohetfpzbmfs`, nunca `--linked`: sin drift.
+5. **Verificación:**
+   - **`d2-verify.sql` adaptado a staging: `D2 verify (staging): OK`,** repetido después de S6 y de S7. Lotes de 50 en 180–225 ms.
+     - La versión del repositorio supone una base vacía en la sección 6 (listas y conteos de vistas rápidas). Staging tiene 2.790 lanzamientos, 15 de ellos incompletos y 8 sin portada, y la primera corrida falló en "Sin portada" por esos lanzamientos reales: D2 los marcaba bien.
+     - La copia adaptada acota las listas con `p_query => 'D2 Artista'` (el artista que solo tienen los fixtures), busca `'D2 cuatro'` en lugar de `'cuatro'` y compara los conteos como diferencia sobre una línea base tomada en la misma transacción, antes de crear los fixtures. El resto del script es idéntico.
+     - El archivo del repositorio no se cambió. Para repetirla en staging (S11) hay que aplicar esos mismos cambios.
+   - **Advisors** con el linter del CLI (`--db-url`): un solo `INFO` nuevo, `catalog_change_sets_batch_idx` sin uso. Desaparece el `unindexed_foreign_keys` de `problem_reports.release_id`. Los `WARN` 0029 esperados del linter alojado no se comprobaron: hace falta `--linked`, y el usuario decidió no usarlo.
+   - **Humo:** el Estudio en staging carga la lista (2.790), los conteos de las vistas rápidas (Borradores 0, Incompletos 15, Sin portada 8, Con reportes 0), propuestas y reportes, sin errores.
+   - **No se corrieron** `d2-concurrency.sh` ni `d2-mutations.py`: son solo locales.
+6. **Documentos:** este y `estado.md`.
+
+**Rollback:** sin cambios respecto de la sección "Rollback". La parada rápida (`revoke execute` del lote) sigue disponible.
 
 ## Relevo a U15
 

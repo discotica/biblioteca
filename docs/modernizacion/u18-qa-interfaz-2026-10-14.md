@@ -9,7 +9,7 @@ Estado: **expediente aceptado el 2026-10-14.** Las correcciones son el paso 5 y 
 | Hallazgo | Severidad | Estado |
 | --- | --- | --- |
 | H1 — header y «Buscar» no se quedan arriba | P1 | **Corregido** el 2026-10-14 (grupo "Scroll y header"). Ver "Paso 5 · H1". |
-| H2 — `login-with-username` sin límite de intentos | P1 | **Corregido** en local el 2026-10-14 (grupo "Seguridad de acceso"). Se despliega y se verifica en staging en el paso 7. Ver "Paso 5 · H2". |
+| H2 — `login-with-username` sin límite de intentos | P1 | **Corregido** en local el 2026-10-14 (grupo "Seguridad de acceso"). **En staging** desde el paso 7 (migración y función v4), con las tres comprobaciones hechas. Ver "Paso 5 · H2" y "Paso 7 · H2 en staging". |
 | H3 — país y sello por debajo de 44 px | P1 | Abierto. Grupo "Objetivos táctiles". |
 | H4, H6, H7, H8, H9, H13, tokens del radar | P2 | Abiertos. Grupo "Menores". |
 | H10, H11, H12 | P2 | Abiertos. Grupo "Objetivos táctiles". |
@@ -559,6 +559,62 @@ Grupo "Seguridad de acceso". Claude Opus 5.5, esfuerzo `high`. Referencia visual
 | `npm run build` | OK |
 | `npm run lint:tokens` | OK, 175 archivos, 2 excepciones (los radares, grupo "Menores") |
 | `npm run test:browser`, corridas 1 y 2 | **319 pasan, 5 omitidas, 0 fallos** |
+
+## Paso 7 · H2 en staging (2026-10-14)
+
+La migración `20261014120000` se aplicó en staging el 2026-10-15 a las 00:30:10 UTC (`u18-h2-verify.sql` OK, con rollback). Después se desplegó `login-with-username` v4 a las 00:32:31 UTC, con `--use-api` y `verify_jwt` falso como la v3.
+- La v3 era idéntica al `index.ts` de `5f7684f`: es el rollback.
+- Antes de desplegar se comprobó que la clave publicable de `.env.local` coincide con la `SUPABASE_ANON_KEY` del runtime: una petición inválida respondió 400, no 503.
+
+Sondas desde una sola máquina, con `curl` y `fetch`, contra `https://hgocyrzhgohetfpzbmfs.supabase.co/functions/v1/login-with-username`:
+
+**1. IP real y si se puede falsificar.** Un intento con un usuario inexistente por cada caso; luego se comparó el `ip_hash` de cada fila.
+
+| Petición | Respuesta | `ip_hash` |
+| --- | --- | --- |
+| Sin cabeceras extra | 401 | `e4526f6c8742…` |
+| `x-forwarded-for: 203.0.113.7` | 401 | el mismo |
+| `x-real-ip: 203.0.113.8` | 401 | el mismo |
+| `cf-connecting-ip: 203.0.113.9` | **403 de Cloudflare** (página HTML, 65 ms), sin llegar a la función | sin fila |
+
+- La IP sale de `cf-connecting-ip`. La pone Cloudflare, y una petición que la trae desde el cliente se rechaza antes de llegar a la función.
+- Como `clientIp` lee esa cabecera primero, `x-real-ip` y `x-forwarded-for` falsas no cambian el contador.
+- **No se puede falsificar desde el cliente.**
+- **No comprobado:** que el hash corresponda exactamente a la IP pública de quien llama. Hace falta la clave de servicio, que no se sacó del proyecto, o una segunda red de origen.
+
+**2. IP que ve Auth.** Un acceso correcto por la función y otro directo a `/auth/v1/token`. Datos de `auth.sessions`:
+
+| Origen | IP en la sesión | Agente |
+| --- | --- | --- |
+| Directo desde esta máquina | `206.62.142.170` (la IP pública propia) | `node` |
+| Función, 4 accesos | `34.224.168.248`, `98.80.8.128`, `98.84.124.60`, `13.219.225.246` | `Deno/2.1.4 (… SupabaseEdgeRuntime/1.77.0 …)` |
+
+- Auth ve la IP de salida del runtime: direcciones de AWS en us-east-1 que **rotan entre peticiones**.
+- El límite de Auth (30 cada 5 minutos por IP) se aplica a esas IPs compartidas, no a quien entra.
+- Que rote reparte la carga, así que una sola IP de cliente difícilmente agota el límite de una IP del runtime. Además, el límite propio (20 por IP) lo frena antes.
+- El riesgo que se anotó en el paso 5 queda como estaba: un ataque distribuido podría consumir el límite de Auth de una IP del runtime y bloquear a otras personas que entren con usuario por ella. Entrar con correo no pasa por el runtime.
+
+**3. Latencia frente al piso de 1200 ms.** Tiempos de punta a punta desde el cliente, que incluyen la red:
+
+| Caso | Tiempos (ms) | Mediana |
+| --- | --- | --- |
+| Acceso correcto: perfil, `getUserById`, bcrypt de `/token`, `finish` | 1432 (arranque en frío), 687, 731; y 702 el que reinició el contador | 731 (de los tres primeros) |
+| Contraseña incorrecta de un usuario real (4) | 1442, 1427, 1423, 1436 | 1436 |
+| Usuario inexistente (5) | 1396, 1441, 1410, 1488, 1462 | 1441 |
+| 6.º intento del usuario bloqueado | 429 en 356 | — |
+
+- El camino real, el más caro, tarda unos 730 ms en caliente con la red incluida, bien por debajo del piso.
+- Contraseña incorrecta e inexistente se distinguen por 5 ms de mediana, que es ruido de red.
+- El arranque en frío (1432 ms) suma su retraso antes de que corra el código, así que afecta igual a todos los casos: el piso cuenta desde dentro de la función.
+- 4 fallos y un acceso correcto reinician el contador: el acceso siguiente funcionó.
+- El límite por usuario responde 429 también en el entorno alojado.
+
+**Lo que dejaron las sondas en staging:**
+- 13 filas de fallo de usuarios `s9h2-*` en `private.username_login_attempts`, que se purgan en un día;
+- 8 accesos correctos de `jmamanche`;
+- todas las sesiones de la cuenta QA quedaron revocadas (`logout?scope=global`, 0 sesiones después).
+
+**Dictamen H2:** verificado en staging. Sigue abierto el riesgo aceptado en `decisiones.md`: quien conozca un usuario puede bloquear 15 minutos su entrada con usuario.
 
 ## Para el paso 5 (correcciones de U18)
 

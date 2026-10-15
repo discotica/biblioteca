@@ -2,11 +2,75 @@
 
 Actualizado: 2026-10-14.
 
-> **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:** seguir con el paso 5 del plan de lanzamiento (correcciones de U18). H1 y H2 están hechos (H2 en local; su migración y la función se despliegan en el paso 7). Queda un P1: H3 (grupo "Objetivos táctiles", Sonnet 5.5 `medium`). Después vienen los P2 según capacidad. Las comprobaciones manuales en iPhone y con VoiceOver se pueden hacer en paralelo.
+> **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:** paso 8 del plan de lanzamiento (reemplazar el catálogo de staging con la hoja limpia). Los pasos 6 y 7 están cerrados: staging tiene E18, D1, D2, S6, S7 y U18 H2, y `login-with-username` v4. Del paso 5 sigue abierto H3 (P1, grupo "Objetivos táctiles", Sonnet 5.5 `medium`) y los P2; no dependen de staging. Las comprobaciones manuales en iPhone y con VoiceOver se pueden hacer en paralelo.
+
+## Paso 7 del lanzamiento — S9: migraciones aplicadas en staging (2026-10-14)
+
+Etapa S9 del [plan de saneamiento](../producto/plan-saneamiento-2026-10-06.md) en staging (`hgocyrzhgohetfpzbmfs`), con autorización del usuario antes de cada cambio. Producción no se tocó.
+
+- **Requisitos:**
+  - paso 6 cerrado;
+  - dump del mismo día (16:53, hora local). Antes del primer cambio se repitió el inventario: 69/69 tablas idénticas al manifiesto del dump.
+- **Destino**, con dos señales:
+  - `migration list --project-ref` mostró 23 migraciones aplicadas, la última `20260918184855`, sin drift;
+  - `inet_server_addr()` = `2600:1f18:38df:9502::a50a`, igual al DNS de `db.hgocyrzhgohetfpzbmfs`.
+  - Además, el CLI resolvió el proyecto como "Biblioteca Staging".
+- **Método:**
+  - un workdir temporal por migración, con enlaces a las migraciones hasta esa y sin `.temp/project-ref`: si el CLI ignorara `--project-ref`, no tendría destino;
+  - en cada una: `migration list`, `db push --project-ref hgocyrzhgohetfpzbmfs --skip-vault --dry-run` (solo esa migración), autorización y `db push`. Nunca `--linked`;
+  - `db advisors` rechaza `--project-ref` sin `--linked`, así que se corrió con `--db-url` (la cadena de staging ya validada). Es el linter del CLI. Los `WARN` 0029 del linter alojado que esperaban D1 y D2 no se comprobaron, por decisión del usuario.
+
+| Paso | Migración | Aplicada (UTC) | Verificación en staging | Advisors | Humo |
+| --- | --- | --- | --- | --- | --- |
+| 0 | `20260830000000`, base de S5 (`migration repair --status applied`, sin ejecutar SQL) | 2026-10-14 23:34:39 | — | — | — |
+| 1 | E18 `20260923120000` | 2026-10-14 23:58:55 | `e18-verify.sql` OK | +2 `WARN` (políticas permisivas en las tablas de E18) y +5 `INFO` | 8/16; fallan solo D1 y D2 |
+| 2 | D1 `20261006131054` | 2026-10-15 00:01:39 | `d1-verify.sql` OK; backfill 4/4; H8 OK | sin cambios | 11/16; falla solo D2 |
+| 3 | D2 `20261006200859` | 2026-10-15 00:11:04 | `d2-verify.sql` adaptado OK | +1 `INFO` (`catalog_change_sets_batch_idx` sin uso) | 16/16 |
+| 4 | S6 `20261011190000` | 2026-10-15 00:20:47 | matriz B8 idéntica (26 líneas); `e06-verify`, `e06-reopen-verify` y D2 OK | −4 `WARN`: quedan 0 | 16/16 |
+| 5 | S7 `20261012120000` | 2026-10-15 00:23:49 | `s7-verify.sql` 8/8; E06 y D2 OK | sin nuevos | 16/16 |
+| 6 | U18 H2 `20261014120000` | 2026-10-15 00:30:10 | `u18-h2-verify.sql` OK | +1 `INFO` (`rls_enabled_no_policy` en la tabla privada, a propósito) | 16/16 |
+
+- **Advisors:** antes, 52 (2 `WARN`, en `contributions` y `contribution_events`); después, 51 (0 `WARN`, 51 `INFO`).
+- **Verificaciones:** todas son una transacción que termina en `rollback`. Staging no tiene `pg_net` ni webhooks, así que los fixtures no salen de la transacción. Después de correrlas: `releases` 2.790 y ningún fixture.
+  - **`d2-verify.sql` supone una base vacía** en las listas y los conteos de las vistas rápidas. Staging tiene 15 lanzamientos incompletos reales (8 sin portada), y el primer intento falló en "Sin portada" por eso, no por D2. La copia adaptada cambia dos cosas: acota las listas con `p_query => 'D2 Artista'`, el artista que solo tienen los fixtures, y mide los conteos como diferencia sobre una línea base tomada en la misma transacción. El resto es idéntico. El archivo del repositorio no se cambió.
+  - **H8 (nombres reservados), verificado por fin:** `d1-verify.sql` no lo cubre. Una comprobación aparte, con rollback, confirmó que `coleccion` y `mis-colecciones` dan `Username unavailable.` y que un nombre de control se crea.
+  - **Backfill de D1:** 4 ítems en 2 colecciones, `count(distinct (crate_id, position)) = count(*)`, en orden de `added_at`.
+  - **No se corrieron en staging:** `d1-concurrency.sh`, `d2-concurrency.sh` y `d2-mutations.py`. Confirman escrituras, así que son solo locales.
+- **Prueba de humo** (Playwright y supabase-js con `.env.local`, cuenta QA con rol admin):
+  - catálogo y ficha anónimos;
+  - Estudio: catálogo (2.790; vistas rápidas 0/15/8/0), inicio, propuestas y reportes;
+  - `/sugerir` y `/reportar`, solo hasta el formulario. Esas tablas no se pueden borrar desde el cliente, y el envío lo cubren `e18-verify`, `e06-verify` y la matriz B8;
+  - colección privada temporal con 3 ítems, reordenada con `reorder_crate_items`, vista en `/mis-colecciones` y en su página, y borrada.
+  - Sin errores de consola ni respuestas ≥ 400 de Supabase. La corrida de antes de empezar dio 8/16, con exactamente los fallos esperados.
+- **Edge Functions:**
+  - `login-with-username` v4 se desplegó a las 00:32:31 UTC, después de su migración, con `--use-api` y `verify_jwt` falso como antes;
+  - la v3 era idéntica al `index.ts` de `5f7684f`: ese es el rollback;
+  - `inspect-release-source` no cambió en el paso 5 y no se desplegó (sigue la v3 del 2026-09-17).
+- **H2 en staging** (detalle en el [expediente de U18](./u18-qa-interfaz-2026-10-14.md#paso-7--h2-en-staging-2026-10-14)):
+  - la IP sale de `cf-connecting-ip`, y no se puede falsificar;
+  - Auth ve la IP del runtime;
+  - la latencia del camino real (mediana 731 ms) queda bajo el piso de 1200 ms;
+  - el 6.º intento recibe 429.
+- **Lo que queda en staging de las sondas:**
+  - 13 filas de fallo de usuarios `s9h2-*` en `private.username_login_attempts`, que se purgan en un día;
+  - 8 de acceso correcto de `jmamanche`;
+  - las sesiones de QA están cerradas;
+  - la colección de humo se borró en cada corrida.
+- **Incidente:** una sonda falló y el error de Node imprimió la cadena de conexión de staging, con su contraseña, en la salida de la sesión de Claude. No llegó a ningún otro servicio. Recomendado: rotar la contraseña de la base de staging y actualizar `E06_STAGING_DATABASE_URL` en `.env.local`.
+- **`migration list` final:** 30 migraciones aplicadas en remoto, de `20260830000000` a `20261014120000`; ninguna pendiente y sin drift.
+- **Rollback:** el de cada migración, en su sección (más abajo y en los relevos de D1 y D2). E18 no tiene un rollback ensayado: revertirla exigiría una migración nueva de `drop`.
+
+## Paso 6 del lanzamiento — S8: dump de staging y restauración local: cerrado (2026-10-14)
+
+Registro completo en [`operacion-fase-6.md`](./operacion-fase-6.md#2026-10-14--s8-dump-de-staging-y-restauración-local-conteos-idénticos).
+
+- Dump de staging hecho con `pg_dump` 17.6 (SHA-256 `8671fbdb…`). La restauración en un stack aislado dio datos y estructura idénticos en 69 tablas.
+- Cierra E21-P0-02.
+- El paso 7 lo usó como backup del mismo día.
 
 ## Paso 5 del lanzamiento — correcciones de U18, grupo "Seguridad de acceso" (H2): aceptado (2026-10-14)
 
-Detalle en el [expediente de U18](./u18-qa-interfaz-2026-10-14.md#paso-5--h2-2026-10-14). **Solo en local:** no se aplicó nada en staging ni en producción.
+Detalle en el [expediente de U18](./u18-qa-interfaz-2026-10-14.md#paso-5--h2-2026-10-14). Hecho en local. La migración y la función se aplicaron en staging en el paso 7 (2026-10-14); producción no se tocó.
 
 - **H2 (P1), corregido:** `login-with-username` tiene límite de intentos propio.
   - **Límites:** 5 fallos por usuario (exista o no) y 20 por IP, en 15 minutos. Al superarlos, 429 y "Demasiados intentos seguidos…" en la pantalla de entrar.
@@ -161,7 +225,7 @@ Cierra B5 / E21-P0-04. Termina y verifica los cambios que dejó el chat del 2026
   - No rompe ninguna prueba y no se tocó: es orquestación de E12/E17.
 - **Sin commit:** los commits los hace el paso 2.
 
-## Saneamiento S7 — metadatos de portadas y enlaces (H4): lista en local, sin aplicar en staging (2026-10-12)
+## Saneamiento S7 — metadatos de portadas y enlaces (H4): aplicada en staging en el paso 7 (2026-10-14) (lista en local el 2026-10-12)
 
 Migración `20261012120000_s7_preserve_release_media_metadata.sql`. Redefine `private.apply_catalog_payload` con las mismas validaciones que `20260917181154`; cambia solo el bloque de enlaces y portadas. `catalog_snapshot` no cambia, así que `before_state`/`after_state` conservan forma y contenido.
 
@@ -170,10 +234,10 @@ Migración `20261012120000_s7_preserve_release_media_metadata.sql`. Redefine `pr
 - **Portadas `storage`:** el payload no las expresa, así que ya no se borran.
 - **Verificación** (stack aislado `discotica-s7`, 544xx, cadena vacía con `db reset`): `tests/sql/s7-verify.sql` (nuevo, 8 comprobaciones: edición sin media, cambio de un enlace, quitar y añadir, intercambio de primario, portada, duplicados, auditoría con revert, lote de D2), `e06-verify.sql`, `e06-reopen-verify.sql`, `d2-verify.sql` y `d2-concurrency.sh` en verde. La huella de `d2-verify.sql` ahora incluye `xmin` y metadatos de enlaces y portadas: el lote rechazado de 50 elementos deja la huella idéntica. Control negativo: `s7-verify.sql` sobre el cuerpo antiguo falla en la comprobación 1.
 - **Rollback:** `tests/sql/s7-rollback-verify.sql` (bloque `>>> S7 ROLLBACK`, ensayado: `S7 rollback verify: OK`), migración posterior `npx supabase migration new s7_rollback_preserve_release_media_metadata`. Sin pérdida de datos, pero desde la siguiente escritura vuelven a perderse los metadatos y las portadas `storage` de ese lanzamiento: no revertir una vez que `verify:media` o Storage los hayan guardado.
-- **Para staging (no ejecutado):** va después de S6, con backup del mismo día (S8).
+- **Staging:** aplicada el 2026-10-15 a las 00:23:49 UTC, después de S6 (paso 7). `s7-verify.sql` dio 8/8 y la regresión de E06 y D2 quedó en verde.
 - **Sin commit ni push.**
 
-## Saneamiento S6 — concurrencia y fixtures de E06: lista en local, sin aplicar en staging (2026-10-11)
+## Saneamiento S6 — concurrencia y fixtures de E06: aplicada en staging en el paso 7 (2026-10-14) (lista en local el 2026-10-11)
 
 Migración `20261011190000_s6_e06_concurrency_and_policy_consolidation.sql`. E06 ya está en staging; no se editó ninguna migración existente.
 
@@ -200,7 +264,7 @@ Migración `20261011190000_s6_e06_concurrency_and_policy_consolidation.sql`. E06
 - **Verificación** sobre `supabase db reset` en un stack aislado (`discotica-s6`, 545xx, detenido con `--no-backup`): `e06-verify.sql`, `e06-reopen-verify.sql`, `d1-verify.sql`, `d2-verify.sql`, `e18-verify.sql` en verde sobre la cadena vacía; `d1-concurrency.sh` y `d2-concurrency.sh` en verde; `playwright test e07-admin-console`: 8 de 8 (las RPC van simuladas, así que no ejercitan la base).
   - Control negativo de H5: el cuerpo de rollback seguido de `e06-verify.sql` falla con `releases_published_type_required_check`.
 - **Rollback:** `tests/sql/s6-rollback-verify.sql` (cuerpo entre `>>> S6 ROLLBACK` y `<<< S6 ROLLBACK`, ensayado: `S6 rollback verify: OK`). Es una migración posterior (`npx supabase migration new s6_rollback_e06_concurrency_and_policies`), nunca se edita la de S6. Devuelve las cuatro RPC a los cuerpos de 20260916220554 y las policies a las de E09 y E18, sin tocar datos ni auditoría. **Reintroduce la pérdida de actualizaciones concurrentes (H1)**: solo como último recurso.
-- **Para staging (no ejecutado):** va después de E18, D1 y D2 y antes de S7, con backup del mismo día (S8). Los scripts `d2-concurrency.sh` y `s6-b8-policy-matrix.sql` en staging: la matriz es transaccional y se puede correr; `d2-concurrency.sh` es solo local.
+- **Staging:** aplicada el 2026-10-15 a las 00:20:47 UTC (paso 7). La matriz B8 dio las mismas 26 líneas antes y después, con una política por tabla. `e06-verify`, `e06-reopen-verify` y D2 en verde, y advisors sin ningún `WARN`. `d2-concurrency.sh` no se corrió: es solo local.
 - **Sin commit ni push.**
 
 ## Saneamiento S4 — arreglos menores y documentación (2026-10-11)
@@ -331,7 +395,7 @@ Migración `20261011190000_s6_e06_concurrency_and_policy_consolidation.sql`. E06
 - **Visual:** contra `tests/visual/.ref-pre-u12/`, 31 diferencias, todas del alcance, más 5 capturas nuevas. La línea base no se recapturó.
 - **Staging:** probado entrar con usuario y con correo, los seis casos de error con el mismo texto, el registro real (alta 200, correo enviado según `auth.users`) y reenviar (200 y luego el límite).
   - **Pendiente manual:** abrir el enlace de confirmación de `hola+u12-10092308@mamanche.com` y borrar esa cuenta de prueba.
-- **D1** sigue sin aplicar en staging: las redes del alta no llegan al perfil, y `/cuenta` oculta las redes.
+- **D1** sigue sin aplicar en staging: las redes del alta no llegan al perfil, y `/cuenta` oculta las redes. (Aplicada el 2026-10-14 en el paso 7.)
 - **Hallazgo para U18:** `login-with-username` no tiene un límite de intentos propio.
 - Relevo: [`u12-cuenta-2026-10-09.md`](./u12-cuenta-2026-10-09.md). Sin commit, push ni producción.
 
@@ -482,7 +546,7 @@ Migración `20261011190000_s6_e06_concurrency_and_policy_consolidation.sql`. E06
   - Supabase envía solo HTML, sin `text/plain`;
   - el logo depende del próximo despliegue.
 
-## S5 — E18 aplicable y cadena de migraciones desde cero: lista en local, sin aplicar en staging (2026-10-11)
+## S5 — E18 aplicable y cadena de migraciones desde cero: aplicada en staging en el paso 7 (2026-10-14) (lista en local el 2026-10-11)
 
 - **B2 / H2, B3 / H3 (E18):** FK a `public.releases(id)` y `grant execute` de `private.valid_problem_report_context(jsonb)` a `authenticated`, sin `USAGE` en `private` ni trigger `SECURITY DEFINER`. Justificación y advisors en [el expediente de E18](./e18-reportes-problemas-2026-09-23.md), "Corrección 2026-10".
 - **H7:** nueva migración base `20260830000000_base_profiles_crates_pre_phase4.sql`, anterior a la primera migración versionada.
@@ -493,9 +557,9 @@ Migración `20261011190000_s6_e06_concurrency_and_policy_consolidation.sql`. E06
   - `e18-verify.sql`, `d1-verify.sql` y `d2-verify.sql` en verde. `e18-verify.sql` ahora crea sus fixtures y tiene control negativo;
   - `db lint --level warning` sin errores;
   - advisors: nada nuevo respecto de D1/D2 salvo los 6 propios de E18 (2 `WARN` de políticas permisivas múltiples, que absorbe B8/S6).
-- **Para staging (`hgocyrzhgohetfpzbmfs`, no ejecutado):** el historial remoto no contiene `20260830000000`, y el CLI se niega a insertar una migración anterior a la última remota. Antes del `db push` hay que marcarla con `supabase migration repair --status applied 20260830000000 --project-ref hgocyrzhgohetfpzbmfs`; así no se ejecuta ni una sola vez allí. Si se ejecutara (`--include-all`), es un no-op.
+- **Staging (paso 7):** `20260830000000` se marcó con `migration repair` el 2026-10-14 a las 23:34:39 UTC, y E18 se aplicó a las 23:58:55 UTC (`e18-verify.sql` OK). Nota original: el historial remoto no contiene `20260830000000`, y el CLI se niega a insertar una migración anterior a la última remota. Antes del `db push` hay que marcarla con `supabase migration repair --status applied 20260830000000 --project-ref hgocyrzhgohetfpzbmfs`; así no se ejecuta ni una sola vez allí. Si se ejecutara (`--include-all`), es un no-op.
 
-## D2 — Datos del Estudio: lote y vistas rápidas: lista en local, sin aplicar en staging (2026-10-06)
+## D2 — Datos del Estudio: lote y vistas rápidas: aplicada en staging en el paso 7 (2026-10-14) (lista en local el 2026-10-06)
 
 - Migración `20261006200859_d2_studio_batch_and_quick_views.sql`:
   - publicar o archivar en lote (solo admin, todo o nada, hasta 50, informe por elemento), pasando cada lanzamiento por la RPC individual de E06;
@@ -512,19 +576,19 @@ Migración `20261011190000_s6_e06_concurrency_and_policy_consolidation.sql`. E06
   - regresión de E06, D1 y la consola E07 (8/8);
   - advisors sin hallazgos nuevos y `db lint` limpio;
   - `npm test` 74/74 y `npm run build` en verde.
-- **No aplicada en staging:** el bloqueo de backup de E21 sigue abierto. No se consultó staging ni producción, y no hubo commit ni push.
+- **Staging:** aplicada el 2026-10-15 a las 00:11:04 UTC (paso 7). `d2-verify.sql` adaptado a staging dio OK, y U15 ya funciona allí. Detalle en el [relevo D2](./d2-estudio-lote-vistas-rapidas-2026-10-06.md#staging-paso-7-2026-10-14).
 - **Depende de E18:** la migración se detiene si no existe `public.problem_reports`. Desde S5 E18 está corregida en el repositorio y D2 se prueba sobre la cadena completa, sin parches.
 - **Hallazgos preexistentes que requieren decisión** (detalle en el relevo D2):
   - **H1, E06:** dos ediciones individuales simultáneas con la misma versión pierden una actualización sin `40001`, y la auditoría queda con un `before_state` falso. El lote no lo sufre. Se recomienda corregir E06 antes de U15.
-  - **H2 y H3, E18: resueltos en local (S5, 2026-10-11).** La FK apunta a `public.releases(id)` y `authenticated` tiene `EXECUTE` sobre el validador del `CHECK`. Detalle en [`e18-reportes-problemas-2026-09-23.md`](./e18-reportes-problemas-2026-09-23.md), "Corrección 2026-10". Siguen sin aplicarse en staging.
+  - **H2 y H3, E18: resueltos en local (S5, 2026-10-11).** La FK apunta a `public.releases(id)` y `authenticated` tiene `EXECUTE` sobre el validador del `CHECK`. Detalle en [`e18-reportes-problemas-2026-09-23.md`](./e18-reportes-problemas-2026-09-23.md), "Corrección 2026-10". Aplicados en staging en el paso 7.
   - **H4:** cada escritura de E06 borra metadatos de portadas y enlaces.
 - U15 puede programarse sobre este contrato, pero solo se publica después de aplicar D2 en el entorno correspondiente.
 
-## D1 — Datos de perfil y colecciones: lista en local, sin aplicar en staging (2026-10-06)
+## D1 — Datos de perfil y colecciones: aplicada en staging en el paso 7 (2026-10-14) (lista en local el 2026-10-06)
 
 - Migración `20261006131054_d1_profile_social_and_collection_order.sql`: redes en `profiles`, preferencia de aportes públicos con su RPC, y orden manual de colecciones con su RPC. Además, tipos y servicios de cliente. No se construyó interfaz. Relevo completo: [`d1-datos-perfil-colecciones-2026-10-06.md`](./d1-datos-perfil-colecciones-2026-10-06.md).
 - Verificada en un stack Supabase local: RLS (`tests/sql/d1-verify.sql`, con 8/8 mutaciones detectadas), concurrencia (`tests/sql/d1-concurrency.sh`, con control negativo), rollback ensayado, API real con supabase-js, advisors sin hallazgos nuevos y `db lint` limpio. `npm test` 73/73 y `npm run build` en verde.
-- **No aplicada en staging:** el bloqueo de backup de E21 sigue abierto. No se consultó staging ni producción, y no hubo commit ni push.
+- **Staging:** aplicada el 2026-10-15 a las 00:01:39 UTC (paso 7), con backfill 4/4, `d1-verify.sql` OK y H8 verificado. Detalle en el [relevo D1](./d1-datos-perfil-colecciones-2026-10-06.md#staging-paso-7-2026-10-14).
 - **Hallazgo preexistente, resuelto en S5:** E18 no aplicaba sobre una cadena limpia (FK a la vista `public.catalog_releases`, `42809`). Corregido en el archivo de E18; ver la sección S5.
 - Bandcamp acepta página de artista (`artista.bandcamp.com`) y de fan (`bandcamp.com/usuario`); el formulario pide el enlace ([`decisiones.md`](./decisiones.md), contrato D1).
 - U12 y U14 pueden programarse sobre este contrato, pero solo se publican después de aplicar D1 en el entorno correspondiente.
