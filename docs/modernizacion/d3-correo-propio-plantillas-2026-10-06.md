@@ -1,6 +1,12 @@
 # D3 — Correo propio y plantillas (2026-10-06)
 
-Estado: **plantillas versionadas y validadas en local. Pendiente del gate humano**: cuenta en Resend, registros DNS y credenciales en staging. Sin envío real todavía, así que la etapa **no está cerrada**. No se tocó staging ni producción. No hubo commit, push ni despliegue.
+Estado: **cerrada en staging el 2026-10-15** (paso 9 del plan de lanzamiento).
+- Dominio verificado en Resend.
+- SMTP, límite y plantillas cargados en el dashboard de staging.
+- Los tres correos se enviaron de verdad: llegaron a la bandeja de entrada con SPF, DKIM y DMARC en `pass`, enlaces a staging y parte `text/plain`.
+- Producción no se tocó; se configura en E22-B (ver "Producción").
+
+Historia: el 2026-10-06 quedaron las plantillas validadas en local; el 2026-10-15 se hicieron la configuración y el envío real en staging.
 
 Ejecución: Claude Opus 5.5 (`claude-opus-5-5`), esfuerzo `high`.
 
@@ -21,7 +27,7 @@ Ejecución: Claude Opus 5.5 (`claude-opus-5-5`), esfuerzo `high`.
 | Retención de logs | 30 días |
 | SMTP | `smtp.resend.com`, puerto `465` (TLS implícito). Usuario `resend`; la contraseña es una API key. |
 | Límite por SMTP | El mismo que por API |
-| Seguimiento de aperturas y clics | Se configura por dominio. **Debe quedar apagado:** Supabase advierte que reescribe los enlaces de Auth. |
+| Seguimiento de aperturas y clics | Se configura por dominio. **Debe quedar apagado:** Supabase advierte que reescribe los enlaces de Auth. El 2026-10-15 el de aperturas quedó apagado; el de clics no se deja apagar, pero no reescribió los enlaces (H6). |
 
 Notas sobre los límites:
 
@@ -35,12 +41,16 @@ El DNS de discotica.com está en Hostinger (`ns1/ns2.dns-parking.com`). El apex 
 
 Resend verifica el dominio sin tocar el apex: el Return-Path va en `send.discotica.com` y la firma DKIM en `resend._domainkey`. DMARC queda alineado por DKIM (`d=discotica.com`) y también por SPF en modo relajado.
 
+Valores públicos, comprobados con `dig +short` el 2026-10-15. Respuesta idéntica en el autoritativo (`ns1.dns-parking.com`), en 8.8.8.8 y en 1.1.1.1. Resend muestra `discotica.com` como **Verified**. La región de envío es `sa-east-1`.
+
 | Tipo | Nombre | Valor | Estado |
 | --- | --- | --- | --- |
-| MX | `send` | el que entregue Resend (p. ej. `feedback-smtp.<región>.amazonses.com`), prioridad 10 | pendiente |
-| TXT | `send` | el que entregue Resend (p. ej. `v=spf1 include:amazonses.com ~all`) | pendiente |
-| TXT | `resend._domainkey` | la clave pública DKIM que entregue Resend (`p=…`) | pendiente |
-| TXT | `_dmarc` | `v=DMARC1; p=none;` | pendiente |
+| MX | `send` | `feedback-smtp.sa-east-1.amazonses.com`, prioridad 10 | resuelve |
+| TXT | `send` | `v=spf1 include:amazonses.com ~all` | resuelve |
+| TXT | `resend._domainkey` | `p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDUoYD42419Hf5MqrFuQr7S/qGHFbplI7tF/d9wH2h8P4okCzNDs6KXYhueMkx/JqAtpxBpQxxEn84Mx/39wFwkjJYNGt+WmiJFuTHOaucpuFqbz9LxqfhFJgSkNZUJWYBIY73+TnYwMTPc5ZfFlzDwPK5Y1KHubtvcE/S7T0KTdwIDAQAB` | resuelve |
+| TXT | `_dmarc` | `v=DMARC1; p=none;` | resuelve |
+
+El apex no cambió: no tiene MX ni TXT y el A sigue en Cargo. `biblioteca.discotica.com` (la app, en Hostinger) no lleva registros de correo, porque el remitente está en `discotica.com`.
 
 Sobre DMARC:
 
@@ -50,6 +60,13 @@ Sobre DMARC:
 Los valores exactos se copian aquí cuando Resend los entregue, junto con la salida de `dig` que confirme que resuelven.
 
 ## Configuración en staging (`hgocyrzhgohetfpzbmfs`), sin secretos
+
+**Aplicada el 2026-10-15** por el usuario, desde el dashboard. Lo que se aplicó:
+- SMTP como en la tabla, con la API key `supabase-staging` (solo envío, limitada a discotica.com);
+- *Rate limit for sending emails* = 30 por hora;
+- las tres plantillas con sus asuntos.
+
+La key no pasó por el chat ni por el repo.
 
 **SMTP propio** (*Authentication → Emails → SMTP Settings*):
 
@@ -100,13 +117,29 @@ Diseño:
 
 - **H1. hola@discotica.com no recibe correo.** discotica.com no tiene MX, así que las respuestas rebotan. La dirección ya se anuncia como contacto en `/privacidad` y en el diálogo beta (`src/lib/domain/betaInvitation.ts`). El equipo decidió tratarlo fuera de D3. Si se crea un buzón, el MX del apex no choca con los registros de Resend, que viven en `send`.
 - **H2. El CLI está enlazado a producción.** `supabase/.temp/project-ref` = `ewntlvugbopokdrvnwvg`, el proyecto final. Cualquier `supabase config push` o comando enlazado sin `--project-ref` afectaría producción. Además, `config push` subiría el `config.toml` local completo (`site_url = http://localhost:5173`, `enable_confirmations = false`, el límite local de 2 correos por hora). D3 no lo usa.
-- **H3. Supabase no envía parte de texto plano.**
+- **H3. Supabase no envía parte de texto plano, pero Resend sí la añade. Resuelto el 2026-10-15.**
   - Las plantillas de Auth son solo HTML: no hay campo de texto ni en `config.toml` ni en la API.
-  - Los `.txt` quedan versionados como referencia.
-  - Pendiente: revisar en el mensaje crudo de la prueba real si el SMTP de Resend añade `text/plain`.
-  - Si no lo añade, se decide entre aceptar solo HTML o un Send Email Hook que envíe HTML y texto por la API de Resend. El hook amplía el alcance.
+  - En la prueba real, los tres mensajes llegaron como `multipart/alternative` con `text/plain` y `text/html`. Resend genera el texto a partir del HTML:
+    - el `h1` aparece en mayúsculas;
+    - cada enlace va entre corchetes;
+    - el logo aparece como `Discótica [url]`.
+  - El texto se lee bien y conserva el enlace completo. No hace falta Send Email Hook.
+  - Los `.txt` versionados no se usan en el envío; quedan como referencia.
 - **H4. El logo depende de un despliegue.** `static/email/logo-discotica.png` solo existe en la URL de producción después del próximo despliegue del frontend, que no es parte de D3. Mientras tanto, los correos de staging muestran el texto alternativo.
 - **H5. Escáneres de enlaces.** Los enlaces que contienen el token se consumen si un escáner corporativo (p. ej. Microsoft Safe Links) los abre antes que la persona. Supabase propone confirmar con `token_hash` en una página propia. Eso cambia el destino de confirmación, así que queda como nota para U12.
+- **H6. El click tracking de Resend no se queda apagado** (2026-10-15).
+  - El interruptor de clics del dominio se apaga y vuelve a encenderse; el de aperturas sí quedó apagado.
+  - En los tres mensajes crudos de staging, todos los `href` apuntan directo a `https://hgocyrzhgohetfpzbmfs.supabase.co/auth/v1/verify?…`, sin redirección de Resend. En los envíos por SMTP no hubo reescritura.
+  - **En E22-B hay que repetir la comprobación** en el mensaje crudo de producción. Si algún enlace pasa por un dominio de seguimiento, hay que resolverlo antes de abrir el registro: soporte de Resend o un dominio aparte.
+- **H7. "El enlace de confirmación venció" tras confirmar** (2026-10-15, nota para U12).
+  - El usuario abrió el enlace de confirmación y vio esa pantalla.
+  - Staging muestra que la confirmación funcionó:
+    - `email_confirmed_at` a las 17:22:49 UTC, 80 s después del envío;
+    - el token se consumió una sola vez;
+    - hubo una sola sesión, desde Chrome en macOS. Ningún escáner abrió el enlace antes.
+  - Lo más probable es una segunda apertura del mismo enlace, porque `localhost:5173` no cargó y se recargó o se volvió a pulsar. No se confirmó.
+  - Si se reproduce con un solo clic y la app en marcha, el fallo está en `/auth/reset`, no en D3.
+  - El texto de la pantalla ya contempla el caso: "Si ya confirmaste tu cuenta, puedes entrar".
 
 ## Pruebas
 
@@ -122,23 +155,75 @@ Diseño:
 - **MIME:** `Content-Type: text/html; charset=UTF-8`, una sola parte. Confirma H3: GoTrue no envía `text/plain`.
 - Revisión visual en Chromium a 390 y 1440 px: el logo se ve, el botón se lee y no hay scroll horizontal. Los correos largos se parten en el guion.
 
-**Staging, con envío real:** pendiente del gate humano.
+**Staging, con envío real (2026-10-15).**
+
+Los envíos se dispararon con la API de Auth de staging y la clave publicable, como hace la app:
+
+| Hora (UTC) | Llamada | Resultado |
+| --- | --- | --- |
+| 17:21:29 | `POST /auth/v1/signup` para `hola+d3-20261015@mamanche.com`, usuario `d3_20261015` | confirmación |
+| 17:23:55 | `POST /auth/v1/recover` | recuperación |
+| 17:23:55 | `PUT /auth/v1/user` → `hola+d3-20261015b@mamanche.com` | dos correos de cambio, al correo actual y al nuevo (`double_confirm_changes`) |
+
+- Todas las llamadas devolvieron 200 y llevaban `redirect_to` a `http://localhost:5173/auth/reset?flow=…`, igual que en U12.
+- La confirmación se abrió desde el buzón; la cuenta quedó confirmada (H7).
+- 4 envíos de la cuota diaria de Resend.
+
+Mensajes crudos revisados (Gmail → *Mostrar original*): la confirmación, la recuperación y el cambio de correo al correo nuevo. Los tres coinciden en:
+- `Authentication-Results: mx.google.com`:
+  - `dkim=pass header.i=@discotica.com header.s=resend`;
+  - `spf=pass`, con `smtp.mailfrom=…@send.discotica.com` desde `*.smtp-out.sa-east-1.amazonses.com`;
+  - `dmarc=pass (p=NONE) header.from=discotica.com`.
+- `From: Discótica <hola@discotica.com>` y el asunto de cada plantilla, con tildes y eñes correctas (codificadas en UTF-8).
+- `X-Pm-Metadata-Project-Ref: hgocyrzhgohetfpzbmfs`, es decir, staging.
+- `multipart/alternative` con `text/plain` + `text/html` (H3).
+- Enlaces directos a `https://hgocyrzhgohetfpzbmfs.supabase.co/auth/v1/verify?token=…&type=signup|recovery|email_change&redirect_to=…`, sin reescritura (H6).
+- Las variables se resuelven: `.Email` y `.NewEmail` correctos y ningún `{{` en el cuerpo. El `+` del correo sale como `&#43;` en el HTML y se ve bien.
+
+Revisión en clientes. Los cuatro llegaron a la bandeja de entrada, no al spam. El usuario los revisó y dio el visto bueno global ("llegan bien todos, no a spam"), sin desglose por cliente.
 
 | Comprobación | Gmail web | Gmail móvil | Apple Mail |
 | --- | --- | --- | --- |
-| Confirmación en bandeja de entrada | pendiente | pendiente | pendiente |
-| Recuperación en bandeja de entrada | pendiente | pendiente | pendiente |
-| Cambio de correo en bandeja de entrada | pendiente | pendiente | pendiente |
-| SPF / DKIM / DMARC `pass` en encabezados | pendiente | — | — |
-| Enlaces apuntan a staging | pendiente | pendiente | pendiente |
+| Confirmación en bandeja de entrada | sí | sí | sí |
+| Recuperación en bandeja de entrada | sí | sí | sí |
+| Cambio de correo (×2) en bandeja de entrada | sí | sí | sí |
+| SPF / DKIM / DMARC `pass` en encabezados | sí (3 mensajes crudos) | — | — |
+| Enlaces apuntan a staging | sí (mensaje crudo) | igual | igual |
+| Logo | texto alternativo, como se esperaba (H4) | igual | igual |
 
 ## Rollback
 
 - **Staging:** desactivar *Custom SMTP* y restaurar las plantillas por defecto (*Reset to default* en cada plantilla).
-- **Resend:** revocar la API key.
+- **Resend:** revocar la API key (`supabase-staging`). Producción tendrá la suya, así que se pueden revocar por separado.
 - **DNS:** borrar los cuatro registros. Ninguno toca el apex ni el sitio en Cargo.
 - **Repo:** borrar `supabase/templates/`, `static/email/` y los tres bloques `[auth.email.template.*]` de `config.toml`.
 
+## Producción: qué repetir en E22-B
+
+Producción (`ewntlvugbopokdrvnwvg`) sigue con el SMTP y las plantillas por defecto de Supabase. En E22-B, desde el dashboard de producción y nunca con `supabase config push` (H2):
+
+1. **Resend:** una API key nueva, `supabase-production`, solo envío y limitada a discotica.com. El DNS ya está y no se toca.
+2. **SMTP propio:** los mismos valores que en staging (tabla de arriba), con la key de producción.
+3. **Rate limit for sending emails:** 30 por hora.
+4. **Plantillas:** las tres, con sus asuntos, desde `supabase/templates/`. Van después del SMTP.
+5. **URL Configuration:**
+   - Site URL `https://biblioteca.discotica.com`;
+   - en Redirect URLs, `https://biblioteca.discotica.com/auth/reset`. La app usa `window.location.origin` (U12).
+6. **Después del despliegue del frontend:** comprobar que `https://biblioteca.discotica.com/email/logo-discotica.png` responde 200 (H4).
+7. **Prueba:** un registro real y el mensaje crudo. Hay que ver:
+   - SPF, DKIM y DMARC en `pass`;
+   - el ref de producción en `X-Pm-Metadata-Project-Ref`;
+   - enlaces sin reescribir (H6);
+   - `redirect_to` a `biblioteca.discotica.com`.
+
+**Cuota compartida.** Staging y producción usan la misma cuenta y el mismo dominio de Resend: comparten **100 correos al día** (3.000 al mes). Supabase limita cada proyecto a 30 por hora, pero esos límites no se suman contra Resend. Después del corte, conviene que la QA de staging use pocos envíos, o desactivar el SMTP propio de staging si la cuota se queda corta.
+
+## Limpieza pendiente
+
+- Cuenta de prueba `d3_20261015` en staging: el correo es `hola+d3-20261015@mamanche.com` y tiene pendiente el cambio a `…b@`. Se puede reutilizar en la prueba de punta a punta de E21-rc2, o borrarla en *Authentication → Users*.
+
 ## Relevo para U12 y U18
 
-Pendiente hasta el envío real: configuración aplicada, registros DNS con valores, capturas y resultado del texto plano.
+- Los correos de Auth de staging ya salen desde `Discótica <hola@discotica.com>` con las plantillas de la marca. Las pruebas de punta a punta de U18 y E21-rc2 (registro → correo → confirmación) ya pueden hacerse con el correo real.
+- **U12:** H5 (`token_hash`) y H7 (la pantalla de "venció" tras una segunda apertura) quedan como notas, no como bloqueo.
+- **Pendiente fuera de D3:** H1, que hola@discotica.com no recibe correo.

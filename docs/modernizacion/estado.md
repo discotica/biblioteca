@@ -1,8 +1,27 @@
 # Estado operativo
 
-Actualizado: 2026-10-14.
+Actualizado: 2026-10-15.
 
-> **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:** paso 9 del plan de lanzamiento (D3, correo propio en staging; requiere el paso 0). El paso 8 está hecho en staging con la hoja tal como estaba publicada: cuando la hoja traiga el artista de REUNION y la clave `rel_002797` para OH MARGÓ, hay que repetir el reemplazo ([registro](./catalogo-hoja-limpia-2026-10-14.md#pendiente)). Del paso 5 sigue abierto H3 (P1, grupo "Objetivos táctiles", Sonnet 5.5 `medium`) y los P2; no dependen de staging. Las comprobaciones manuales en iPhone y con VoiceOver se pueden hacer en paralelo.
+> **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:** paso 10 del plan de lanzamiento (S10, decisiones y cuentas, solo el usuario) y después el paso 11 (E21-rc2). El paso 9 (D3) está cerrado en staging. El paso 8 está hecho en staging con la hoja tal como estaba publicada: cuando la hoja traiga el artista de REUNION y la clave `rel_002797` para OH MARGÓ, hay que repetir el reemplazo ([registro](./catalogo-hoja-limpia-2026-10-14.md#pendiente)). Del paso 5 sigue abierto H3 (P1, grupo "Objetivos táctiles", Sonnet 5.5 `medium`) y los P2; no dependen de staging. Las comprobaciones manuales en iPhone y con VoiceOver se pueden hacer en paralelo.
+
+## Paso 9 del lanzamiento — D3: correo propio en staging (2026-10-15)
+
+Registro completo en [`d3-correo-propio-plantillas-2026-10-06.md`](./d3-correo-propio-plantillas-2026-10-06.md). Solo staging; producción no se tocó.
+
+- **DNS:** los cuatro registros de Resend (`send` MX/TXT, `resend._domainkey`, `_dmarc` `p=none`) resuelven en el autoritativo y en resolvers públicos. Resend muestra `discotica.com` como **Verified** (región `sa-east-1`).
+- **Dashboard de staging** (el usuario):
+  - SMTP de Resend con remitente `Discótica <hola@discotica.com>` y la key `supabase-staging`;
+  - límite de 30 correos por hora;
+  - las tres plantillas.
+- **Envío real** a `hola+d3-20261015@mamanche.com`: confirmación, recuperación y cambio de correo (×2).
+  - Todos llegaron a la bandeja de entrada.
+  - SPF, DKIM (`d=discotica.com`) y DMARC en `pass`.
+  - Enlaces directos a staging.
+  - Parte `text/plain` generada por Resend, con lo que H3 queda resuelto sin hook.
+- **Hallazgos nuevos:**
+  - H6: el click tracking de Resend no se deja apagar, aunque no reescribió enlaces. Hay que repetir la comprobación en producción.
+  - H7: la pantalla de "venció" tras una confirmación que sí funcionó. Nota para U12.
+- **Para E22-B:** la lista de qué repetir en producción y la cuota compartida de 100 correos al día están en la sección "Producción" del registro.
 
 ## Paso 8 del lanzamiento — catálogo de staging reemplazado con la hoja limpia (2026-10-14)
 
@@ -562,7 +581,7 @@ Migración `20261011190000_s6_e06_concurrency_and_policy_consolidation.sql`. E06
 - **Aceptada** al arrancar U5. La línea base se recapturó sobre U4; la previa quedó en `tests/visual/.ref-pre-u4/`. Sigue sin haber commit del árbol.
 - Relevo: [`u4-tokens-v2-2026-10-07.md`](./u4-tokens-v2-2026-10-07.md). Sin commit, push, datos ni producción.
 
-## D3 — Correo propio y plantillas: plantillas listas en local, esperando el gate humano (2026-10-06)
+## D3 — Correo propio y plantillas: cerrada en staging en el paso 9 (2026-10-15) (plantillas listas en local el 2026-10-06)
 
 - **Proveedor aprobado:** Resend Free (3.000 correos al mes, 100 al día). El remitente es `hola@discotica.com`.
 - **Pendiente de una persona con acceso:**
