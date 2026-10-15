@@ -10,7 +10,7 @@ Estado: **expediente aceptado el 2026-10-14.** Las correcciones son el paso 5 y 
 | --- | --- | --- |
 | H1 — header y «Buscar» no se quedan arriba | P1 | **Corregido** el 2026-10-14 (grupo "Scroll y header"). Ver "Paso 5 · H1". |
 | H2 — `login-with-username` sin límite de intentos | P1 | **Corregido** en local el 2026-10-14 (grupo "Seguridad de acceso"). **En staging** desde el paso 7 (migración y función v4), con las tres comprobaciones hechas. Ver "Paso 5 · H2" y "Paso 7 · H2 en staging". |
-| H3 — país y sello por debajo de 44 px | P1 | Abierto. Grupo "Objetivos táctiles". |
+| H3 — país y sello por debajo de 44 px | P1 | **Corregido** el 2026-10-15, al arrancar el paso 11, por delegación del usuario. Ver "Paso 5 · H3". |
 | H4, H6, H7, H8, H9, H13, tokens del radar | P2 | Abiertos. Grupo "Menores". |
 | H10, H11, H12 | P2 | Abiertos. Grupo "Objetivos táctiles". |
 | H14 — huecos del censo | P2 | Abierto. Grupo "Censo". |
@@ -560,6 +560,30 @@ Grupo "Seguridad de acceso". Claude Opus 5.5, esfuerzo `high`. Referencia visual
 | `npm run lint:tokens` | OK, 175 archivos, 2 excepciones (los radares, grupo "Menores") |
 | `npm run test:browser`, corridas 1 y 2 | **319 pasan, 5 omitidas, 0 fallos** |
 
+## Paso 5 · H3 (2026-10-15)
+
+Se corrigió en el chat del paso 11 (E21-rc2), antes de fijar el candidato: el usuario lo delegó. Opción A de las decisiones del 2026-10-14. Solo H3; H10 a H12 siguen como P2.
+
+- **`DatosLanzamiento.svelte`:**
+  - el texto de país y sello va en un `span` que trunca. El enlace ya no lleva `overflow: hidden`, que recortaría el área;
+  - un `::after` amplía el área a `--target-touch` (44 px) de alto con el patrón de `Chip`. A lo ancho, cada área llega hasta el "·" vecino (`--space-1` a cada lado).
+- **`LanzamientoFila.svelte`.** En la lista, el área se cruzaba con tres controles:
+  - el texto del título, el 60 % inferior de su línea;
+  - el borde de compartir;
+  - 3,5 px de la fila siguiente.
+
+  Para resolverlo, la fila apila aparte (`isolation: isolate`), y el texto del título (un `span`) y compartir quedan por encima (`z-index: 3`). El aspecto no cambia.
+- **Medido** en el inicio con datos de staging, a 390, 834 y 1440, en grilla y lista (40 enlaces por vista, muestreo con `elementFromPoint`):
+  - **área:** 44 px de alto y, como mínimo, 37,9 px de ancho;
+  - **en la grilla:** solo toma espacio vacío de la tarjeta (el enlace estirado del título). Donde se cruza con los géneros, ganan los géneros, como ya pasa entre chips. Quedan como mínimo 28 px exclusivos en el centro de cada enlace;
+  - **en la lista:** no toma nada del texto del título, de compartir ni de la fila siguiente. Quedan como mínimo 23–24 px exclusivos, donde cede al título.
+- **Prueba nueva** en `u8-tarjeta.spec.ts`: "país y sello llegan a 44 de alto sin quitar el toque al título ni a la fila siguiente". Comprueba la grilla y la lista a 390, con el dedo. El control negativo pasó: sin `isolation` falla la comprobación de la fila siguiente, y sin el `z-index` del título falla la del título.
+- **Verificado:**
+  - `npm test` 158/158; `lint:tokens` OK (las 2 excepciones de los radares);
+  - `u8-tarjeta` 19/19;
+  - `visual:compare`: 181 de 182 iguales. La diferencia fue `lab-u6-M`, con 340 px en los números de las portadas de relleno del `/lab` de U6, que no contiene esta línea. Repetida dos veces, salió igual: es intermitente;
+  - la suite completa corre tres veces en E21-rc2.
+
 ## Paso 7 · H2 en staging (2026-10-14)
 
 La migración `20261014120000` se aplicó en staging el 2026-10-15 a las 00:30:10 UTC (`u18-h2-verify.sql` OK, con rollback). Después se desplegó `login-with-username` v4 a las 00:32:31 UTC, con `--use-api` y `verify_jwt` falso como la v3.
@@ -629,7 +653,8 @@ Sondas desde una sola máquina, con `curl` y `fetch`, contra `https://hgocyrzhgo
 **Hecho:**
 
 - "Scroll y header" (H1 y H15), el 2026-10-14;
-- "Seguridad de acceso" (H2), el 2026-10-14, en local. Falta desplegarlo en staging (paso 7).
+- "Seguridad de acceso" (H2), el 2026-10-14, en local. En staging desde el paso 7;
+- H3 (del grupo "Objetivos táctiles"), el 2026-10-15. Desde aquí no queda ningún P0/P1.
 
 **Listo cuando:**
 

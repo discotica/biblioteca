@@ -1,6 +1,7 @@
 <script lang="ts">
   // Año · país · sello en una línea (U8). El país filtra el catálogo y el sello
   // lleva a su página. Siempre una línea: el sello cede ancho y se trunca.
+  // El área táctil de los dos enlaces llega a 44 px sin cambiar la línea (U18 H3).
   import { goto } from '$app/navigation';
   import { filterHref, isModifiedClick, labelHref } from './lanzamiento';
 
@@ -30,9 +31,9 @@
   <p class="datos {className}">
     {#if year}<span class="datos__ano">{year}</span>{/if}
     {#if year && country}{@render sep()}{/if}
-    {#if country}<a class="datos__pais" href={countryHref} title={country} onclick={onCountryClick}>{country}</a>{/if}
+    {#if country}<a class="datos__pais" href={countryHref} title={country} onclick={onCountryClick}><span class="datos__texto">{country}</span></a>{/if}
     {#if (year || country) && label}{@render sep()}{/if}
-    {#if label}<a class="datos__sello" href={labelHref(label, search)} title={label}>{label}</a>{/if}
+    {#if label}<a class="datos__sello" href={labelHref(label, search)} title={label}><span class="datos__texto">{label}</span></a>{/if}
   </p>
 {:else}
   <p class="datos {className}" aria-hidden="true"></p>
@@ -59,12 +60,22 @@
   .datos__sello { flex: 0 1 auto; font-style: italic; }
   .datos__pais,
   .datos__sello {
-    overflow: hidden;
-    text-overflow: ellipsis;
+    position: relative;
+    display: flex;
     color: inherit;
     font-weight: 500;
     text-decoration: none;
     transition: color var(--motion-fast) var(--ease-standard);
+  }
+  /* El truncado va en el texto: en el enlace recortaría el área táctil. */
+  .datos__texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  /* 44 px de alto; a lo ancho, cada área llega hasta el "·" vecino. */
+  .datos__pais::after,
+  .datos__sello::after {
+    content: '';
+    position: absolute;
+    inset-block: min(0px, calc((100% - var(--target-touch)) / 2));
+    inset-inline: calc(-1 * var(--space-1));
   }
   .datos__pais:hover,
   .datos__sello:hover { color: var(--color-texto-alto); text-decoration: underline; }

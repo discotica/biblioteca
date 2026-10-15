@@ -45,7 +45,7 @@
       <CreditLine release={lanzamiento} hrefFor={artistHref(search)} />
     </div>
     <h3 class="fila__titulo">
-      <a class="fila__titulo-enlace" {href} title={datos.title} aria-label={`Abrir ${datos.title || 'lanzamiento'}`} onclick={onOpenClick}>{datos.title}</a>
+      <a class="fila__titulo-enlace" {href} title={datos.title} aria-label={`Abrir ${datos.title || 'lanzamiento'}`} onclick={onOpenClick}><span class="fila__titulo-texto">{datos.title}</span></a>
     </h3>
   </div>
 
@@ -54,8 +54,11 @@
 </article>
 
 <style>
+  /* Cada fila apila aparte: el área táctil de país y sello (H3) no pasa a la
+     fila siguiente, que se pinta encima. */
   .fila {
     position: relative;
+    isolation: isolate;
     display: grid;
     grid-template-columns: var(--row-cover) minmax(0, 1fr) auto;
     grid-template-areas:
@@ -112,4 +115,7 @@
     position: relative;
     z-index: 2;
   }
+  /* El texto del título y compartir, sobre el área táctil de país y sello. */
+  .fila__titulo-texto { position: relative; z-index: 3; }
+  .fila :global(.fila__compartir) { z-index: 3; }
 </style>

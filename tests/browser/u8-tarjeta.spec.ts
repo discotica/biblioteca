@@ -294,4 +294,41 @@ test.describe('radar con el dedo (390)', () => {
       expect(size.h).toBeGreaterThanOrEqual(44);
     }
   });
+
+  // U18 H3: el área de país y sello mide 44 de alto; donde se cruza con el texto
+  // del título, compartir o la fila siguiente, gana el otro control.
+  test('país y sello llegan a 44 de alto sin quitar el toque al título ni a la fila siguiente', async ({ page }) => {
+    const area = (link: Locator) => link.evaluate((el) => {
+      const after = getComputedStyle(el, '::after');
+      const box = el.getBoundingClientRect();
+      return { top: box.top + parseFloat(after.top), bottom: box.bottom - parseFloat(after.bottom), x: box.left + box.width / 2 };
+    });
+    for (const view of ['grid', 'list'] as const) {
+      if (view === 'list') {
+        await page.locator('.ui-view-toggle button:visible').last().click();
+        await expect(page.locator('.fila')).toHaveCount(12);
+      }
+      const item = view === 'grid' ? homeCard(page, 1) : page.locator('.fila').first();
+      const name = await item.locator(view === 'grid' ? '.card__titulo-enlace' : '.fila__titulo-enlace').textContent();
+      await item.scrollIntoViewIfNeeded();
+      for (const data of ['Colombia', 'Sello U8']) {
+        const { top, bottom } = await area(item.getByRole('link', { name: data, exact: true }));
+        expect(bottom - top, `${view} · ${data}`).toBeGreaterThanOrEqual(44);
+      }
+      const title = item.getByRole('link', { name: `Abrir ${name}`, exact: true });
+      const { x: countryX } = await area(item.getByRole('link', { name: 'Colombia', exact: true }));
+      const hit = await title.evaluate((el, px) => {
+        const rect = el.getClientRects()[0];
+        return document.elementFromPoint(Math.min(px, rect.right - 2), rect.bottom - 2)?.closest('a') === el;
+      }, countryX);
+      expect(hit, `${view}: el borde inferior del título abre la ficha`).toBe(true);
+    }
+    const row = page.locator('.fila').first();
+    const { bottom, x } = await area(row.getByRole('link', { name: 'Sello U8', exact: true }));
+    const rowBottom = await row.evaluate((el) => el.getBoundingClientRect().bottom);
+    if (bottom > rowBottom + 1) {
+      const next = await row.evaluate((el, [px, py]) => document.elementFromPoint(px, py)?.closest('.fila') === el.nextElementSibling, [x, bottom - 1]);
+      expect(next, 'el borde de la fila siguiente es de la fila siguiente').toBe(true);
+    }
+  });
 });
