@@ -171,6 +171,34 @@ test.describe('U15 rutas', () => {
   });
 });
 
+test.describe('U15 acceso desde el header', () => {
+  const access = [['anonimo', null], ['comunidad', null], ['colaborador', 'propuestas'], ['admin', 'catalogo']] as const;
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 640 }]) {
+    for (const [role, section] of access) {
+      test(`${role}: ${section ? 'entra al Estudio' : 'sin botón «Estudio»'} desde el header (${viewport.width} px)`, async ({ page }) => {
+        await page.setViewportSize(viewport);
+        await mockStudio(page, role);
+        const header = page.getByRole('banner');
+        const studioButton = header.getByRole('link', { name: 'Estudio', exact: true }).locator('visible=true');
+        await page.goto('/manual');
+        await expect(header.getByRole('link', { name: 'Sugerir' }).locator('visible=true')).toBeVisible();
+        if (!section) {
+          // El rol se lee después de pintar: se espera a que llegue antes de negar.
+          await page.waitForLoadState('networkidle');
+          await expect(studioButton).toHaveCount(0);
+          return;
+        }
+        await expect(studioButton).toBeVisible();
+        await noHorizontalOverflow(page);
+        await studioButton.click();
+        await expect(page).toHaveURL(new RegExp(`/estudio/${section}$`));
+        // Dentro del Estudio sobra.
+        await expect(studioButton).toHaveCount(0);
+      });
+    }
+  }
+});
+
 test.describe('U15 permisos por rol', () => {
   test('sin sesión: pide entrar y vuelve a la misma sección', async ({ page }) => {
     const calls = await mockStudio(page, 'anonimo');

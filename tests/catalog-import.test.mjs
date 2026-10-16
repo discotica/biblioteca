@@ -101,3 +101,66 @@ test('archivar las claves ausentes es explícito, con un tope y nunca con claves
   assert.throws(() => importOptions(['--archive-missing', '--max-archive', 'muchos']), /--max-archive/);
   assert.throws(() => importOptions(['--max-archive', '-1']), /--max-archive/);
 });
+
+// U19: géneros y países con lista cerrada, alias y valores de legado.
+const dictionaries = {
+  genres: [{ name: 'Electro', status: 'selectable' }, { name: 'House', status: 'selectable' }, { name: 'Trip Hop', status: 'legacy' }],
+  countries: [
+    { name: 'Colombia', status: 'selectable' },
+    { name: 'Estados Unidos', status: 'legacy' },
+    { name: 'WORLD', status: 'retired' }
+  ],
+  genreAliases: [{ name: 'Electró', status: 'selectable', target: 'Electro' }],
+  countryAliases: [{ name: 'USA', status: 'legacy', target: 'Estados Unidos' }],
+  labelAliases: [{ name: 'Sello 1', target: 'Sello Uno' }],
+  artistAliases: [{ name: 'Arbol Viejo', target: 'Árbol' }]
+};
+
+test('sin diccionarios no valida géneros ni países y lo dice', () => {
+  const result = buildImportPayloads(tsv.replace('Electro, House', 'Polka'));
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.dictionariesChecked, false);
+  assert.deepEqual(result.rejectedValues, []);
+});
+
+test('rechaza géneros y países desconocidos o retirados con un error legible', () => {
+  const result = buildImportPayloads(tsv.replace('Electro, House', 'Electro, Polka').replace('\tColombia\t', '\tWORLD, Colombia\t'), { dictionaries });
+  assert.equal(result.dictionariesChecked, true);
+  assert.deepEqual(result.errors.map(({ field, message }) => [field, message]), [
+    ['genre', 'género desconocido: «Polka». La importación no crea géneros; usa un valor de la lista o pide a admin que lo añada'],
+    ['country', 'país desconocido: «WORLD». La importación no crea países; usa un valor de la lista o pide a admin que lo añada']
+  ]);
+  assert.equal(result.entries[0].issues.length, 2);
+  assert.deepEqual(result.rejectedValues, [
+    { field: 'country', value: 'WORLD', rows: [2] },
+    { field: 'genre', value: 'Polka', rows: [2] }
+  ]);
+});
+
+test('acepta los valores de legado y traduce los alias al nombre conservado', () => {
+  const row = tsv
+    .replace('Árbol, Invitada', 'Arbol Viejo, Invitada')
+    .replace('Electro, House', 'electró, Trip Hop, Electro')
+    .replace('\tColombia\t', '\tUSA\t')
+    .replace('Sello Uno', 'Sello 1');
+  const result = buildImportPayloads(row, { dictionaries });
+  assert.equal(result.errors.length, 0);
+  const [payload] = result.payloads;
+  assert.deepEqual(payload.genres.map((genre) => genre.name), ['Electro', 'Trip Hop']);
+  assert.deepEqual(payload.countries.map((country) => [country.name, country.key]), [['Estados Unidos', 'estados unidos']]);
+  assert.equal(payload.label, 'Sello Uno');
+  assert.equal(payload.primary_artists[0].name, 'Árbol');
+  assert.equal(result.warnings.filter((warning) => warning.field === 'genre').length, 1);
+});
+
+test('agrupa los valores rechazados por campo y valor, con sus filas', () => {
+  const header = tsv.split('\n')[0];
+  const base = tsv.split('\n')[1];
+  const rows = [base.replace('Colombia', 'LATAM').replace('rel-001', 'rel-1'), base.replace('Colombia', 'Latam').replace('rel-001', 'rel-2'), base.replace('Electro, House', 'Polka').replace('rel-001', 'rel-3')];
+  const result = buildImportPayloads([header, ...rows].join('\n'), { dictionaries });
+  assert.deepEqual(result.rejectedValues, [
+    { field: 'country', value: 'LATAM', rows: [2, 3], spellings: ['LATAM', 'Latam'] },
+    { field: 'genre', value: 'Polka', rows: [4] }
+  ]);
+  assert.deepEqual(presentSourceKeys(result), []);
+});

@@ -1,4 +1,12 @@
 import { supabase } from '$lib/supabase';
+import type {
+  CatalogCreation,
+  ContributionPayloadV3,
+  ReleaseTypeSlug,
+  SourceDuplicate
+} from '$lib/domain/contributionContract';
+
+export type { ReleaseTypeSlug };
 
 export type ProfileRole = 'comunidad' | 'colaborador' | 'admin';
 export type ContributionStatus =
@@ -9,7 +17,6 @@ export type ContributionStatus =
   | 'rejected'
   | 'approved';
 export type ContributionQueue = 'community' | 'collaborator' | null;
-export type ReleaseTypeSlug = 'album' | 'ep' | 'single' | 'compilado' | 'sample-pack';
 
 export const RELEASE_TYPE_OPTIONS: Array<{ value: ReleaseTypeSlug; label: string }> = [
   { value: 'album', label: 'Álbum' },
@@ -57,6 +64,8 @@ export interface Contribution {
   detected_metadata: DetectedMetadata;
   queue_kind: ContributionQueue;
   submitted_at: string | null;
+  /** U19: desde que el equipo la corrigió, la marcó lista o la revisó; el autor ya no la edita. */
+  taken_at?: string | null;
   reviewer_note: string | null;
   reviewed_at: string | null;
   release_id: string | null;
@@ -72,10 +81,13 @@ export type SourceProvider = 'bandcamp' | 'spotify' | 'soundcloud';
  */
 export const ADMIN_NEW_RELEASE_HREF = '/estudio/catalogo?nuevo=1';
 
-function rpcError(error: { message: string; code?: string } | null) {
+function rpcError(error: { message: string; code?: string; details?: string | null; hint?: string | null } | null) {
   if (!error) return;
-  const next = new Error(error.message) as Error & { code?: string };
+  // details lleva el valor rechazado de los errores v3 (U19); describeContributionError lo usa.
+  const next = new Error(error.message) as Error & { code?: string; details?: string | null; hint?: string | null };
   next.code = error.code;
+  next.details = error.details ?? null;
+  next.hint = error.hint ?? null;
   throw next;
 }
 
@@ -165,6 +177,83 @@ export async function submitContribution(id: string, input: {
   });
   rpcError(error);
   return data as Contribution;
+}
+
+type SourceInput = {
+  sourceUrl: string;
+  sourceProvider: SourceProvider;
+  payload: ContributionPayload | ContributionPayloadV3;
+  detectedMetadata: DetectedMetadata;
+};
+
+/** U19: el autor edita su propuesta enviada mientras nadie del equipo la haya tomado. */
+export async function updateSubmittedContribution(id: string, input: SourceInput): Promise<Contribution> {
+  const { data, error } = await supabase.rpc('update_submitted_contribution', {
+    p_contribution_id: id,
+    p_source_url: input.sourceUrl,
+    p_source_provider: input.sourceProvider,
+    p_payload: input.payload,
+    p_detected_metadata: input.detectedMetadata
+  });
+  rpcError(error);
+  return data as Contribution;
+}
+
+/**
+ * U19: corrección del equipo (admin o colaborador). `expectedUpdatedAt` es el `updated_at` con el
+ * que se abrió, tal como lo devolvió la fila (texto con microsegundos; un Date los pierde); si
+ * cambió, el servidor responde contribution_version_conflict. La primera corrección marca la
+ * propuesta como tomada.
+ */
+export async function saveContributionCorrection(id: string, input: {
+  expectedUpdatedAt: string;
+  payload: ContributionPayloadV3;
+  sourceUrl?: string;
+  sourceProvider?: SourceProvider;
+  note?: string;
+}): Promise<Contribution> {
+  const { data, error } = await supabase.rpc('save_contribution_correction', {
+    p_contribution_id: id,
+    p_expected_updated_at: input.expectedUpdatedAt,
+    p_payload: input.payload,
+    p_source_url: input.sourceUrl ?? null,
+    p_source_provider: input.sourceProvider ?? null,
+    p_note: input.note ?? null
+  });
+  rpcError(error);
+  return data as Contribution;
+}
+
+/** U19: admin acepta como borrador (`publish: false`) o publicando. */
+export async function acceptContribution(id: string, input: { publish: boolean; expectedUpdatedAt: string; note?: string }): Promise<CatalogCreation> {
+  const { data, error } = await supabase.rpc('accept_contribution', {
+    p_contribution_id: id,
+    p_publish: input.publish,
+    p_expected_updated_at: input.expectedUpdatedAt,
+    p_note: input.note ?? null
+  });
+  rpcError(error);
+  return data as CatalogCreation;
+}
+
+/** U19: «Crear borrador» de admin desde Sugerir. Crea un borrador del catálogo, sin cola. */
+export async function adminCreateDraftFromSuggestion(input: SourceInput & { reason?: string }): Promise<CatalogCreation> {
+  const { data, error } = await supabase.rpc('admin_create_draft_from_suggestion', {
+    p_source_url: input.sourceUrl,
+    p_source_provider: input.sourceProvider,
+    p_payload: input.payload,
+    p_detected_metadata: input.detectedMetadata,
+    p_reason: input.reason ?? null
+  });
+  rpcError(error);
+  return data as CatalogCreation;
+}
+
+/** U19: ¿el enlace ya está en el catálogo o en la cola? Nunca devuelve propuestas ajenas. */
+export async function checkSourceDuplicate(url: string): Promise<SourceDuplicate> {
+  const { data, error } = await supabase.rpc('check_source_duplicate', { p_source_url: url });
+  rpcError(error);
+  return data as SourceDuplicate;
 }
 
 export async function inspectSource(url: string): Promise<DetectedMetadata> {

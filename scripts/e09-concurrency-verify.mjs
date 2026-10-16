@@ -5,7 +5,7 @@ import { Client } from 'pg';
 const env = await readFile('.env.local', 'utf8');
 const connectionString = env.match(/^E06_STAGING_DATABASE_URL=(.+)$/m)?.[1]?.trim();
 if (!connectionString?.includes('hgocyrzhgohetfpzbmfs')) throw new Error('E09 requires Biblioteca Staging.');
-const payload = { version: 2, title: `E09 concurrency ${Date.now()}`, primary_artists: ['E09 Primary'], collaborators: [], release_type: 'ep', release_date: '2026-09-18', genres: ['E09 Genre'], countries: ['E09 Country'] };
+const payload = { version: 2, title: `E09 concurrency ${Date.now()}`, primary_artists: ['E09 Primary'], collaborators: [], release_type: 'ep', release_date: '2026-09-18', genres: ['Techno'], countries: ['Colombia'], label: 'E09 Label' };
 const clients = [new Client({ connectionString }), new Client({ connectionString }), new Client({ connectionString })];
 let contributionId;
 try {

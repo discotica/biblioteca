@@ -6,7 +6,7 @@ const env = await readFile('.env.local', 'utf8');
 const connectionString = process.env.E06_STAGING_DATABASE_URL ?? env.match(/^E06_STAGING_DATABASE_URL=(.+)$/m)?.[1]?.trim();
 if (!connectionString?.includes('hgocyrzhgohetfpzbmfs')) throw new Error('E09 requires Biblioteca Staging.');
 
-const payload = (suffix = '') => ({ version: 2, title: `E09 Fixture ${suffix}`, primary_artists: ['E09 Primary'], collaborators: ['E09 Collaborator'], release_type: 'ep', release_date: '2026-09-18', genres: ['E09 Genre'], countries: ['E09 Country'], label: 'E09 Label', team_note: 'fixture' });
+const payload = (suffix = '') => ({ version: 2, title: `E09 Fixture ${suffix}`, primary_artists: ['E09 Primary'], collaborators: ['E09 Collaborator'], release_type: 'ep', release_date: '2026-09-18', genres: ['Techno'], countries: ['Colombia'], label: 'E09 Label', team_note: 'fixture' });
 let savepoint = 0;
 const expect = async (fn, code) => {
   const name = `e09_expected_${++savepoint}`;
@@ -79,8 +79,10 @@ try {
   await as(author); await expect(() => rpc('submit_contribution', [rejected.id, 'https://example.test/e09-changes', 'manual', payload('terminal'), {}]), '22023');
   ok('terminal_statuses_do_not_reopen', rejected.status === 'rejected');
 
-  const malformed = await rpc('create_contribution_draft', ['https://example.test/e09-bad', 'manual', { ...payload('bad'), primary_artists: [''], cover_url: 'https://forbidden.test/cover.jpg' }, {}]);
-  await expect(() => rpc('submit_contribution', [malformed.id, 'https://example.test/e09-bad', 'manual', { ...payload('bad'), primary_artists: [''], cover_url: 'https://forbidden.test/cover.jpg' }, {}]), '22023');
+  // U19 (contrato v3): el borrador ya valida lo que trae; la portada editable es solo de admin.
+  await expect(() => rpc('create_contribution_draft', ['https://example.test/e09-bad', 'manual', { ...payload('bad'), primary_artists: [''] }, {}]), '22023');
+  await expect(() => rpc('create_contribution_draft', ['https://example.test/e09-bad', 'manual', { ...payload('bad'), cover_url: 'https://forbidden.test/cover.jpg' }, {}]), '42501');
+  await expect(() => rpc('create_contribution_draft', ['https://example.test/e09-bad', 'manual', { ...payload('bad'), genres: ['E09 Genre'] }, {}]), '22023');
   ok('malformed_payload_unknown_or_editable_cover_cannot_submit', true);
   await db.query('rollback');
   console.log(JSON.stringify({ checks, count: checks.length, rolled_back: true }));

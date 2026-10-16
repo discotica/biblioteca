@@ -35,8 +35,8 @@ Variables opcionales:
 
 ## Estado de la línea base
 
-- **Estado que representa:** el árbol tras la corrección de H1 y H15 de U18 (paso 5 del lanzamiento, aceptada el 2026-10-14): header y «Buscar» sticky, y reserva de `scroll-padding`. Antes representaba el cierre de U17 (commit `02223ea`, aceptado el 2026-10-11), que incluye R1 (ficha y reproductor), R2 (errores visibles menores), U2 (saneamiento) y U3 (colecciones) además de U4–U17.
-- **Último cambio:** 7 capturas, listadas con su motivo en el [expediente de U18](../../docs/modernizacion/u18-qa-interfaz-2026-10-14.md#paso-5--h1-2026-10-14). La referencia temporal `.ref-pre-u18fix/` se borró al recapturar.
+- **Estado que representa:** el árbol tras G1 de U19 (paso 11b del lanzamiento, aceptado el 2026-10-15): botón «Estudio» en el header para admin y colaborador. Antes representaba la corrección de H1 y H15 de U18 (paso 5, aceptada el 2026-10-14) sobre el cierre de U17 (commit `02223ea`), que incluye R1, R2, U2 y U3 además de U4–U17.
+- **Último cambio:** 3 capturas (`perfil-admin-D`, `perfil-colab-M`, `sugerir-admin-D`), listadas en el [expediente de U19](../../docs/modernizacion/u19-estudio-flujo-2026-10-15.md#g1--servidor-listas-cerradas-alias-y-validación--opus-55-xhigh). `lab-u6-D/M` y `estudio-propuesta-nota-D` fallan a veces con 4 workers y pasan al repetirlas.
 - **Cómo se llegó:** la línea base de U1 se perdió durante U2 y la de R1+R2 (2026-10-05) nunca se versionó. Las diferencias de R1, R2, U2 y U3 se aceptaron al recapturar sobre U17 y quedan descritas solo en sus expedientes de `docs/modernizacion/`. S2 (2026-10-11) confirmó 0 diferencias en 182 capturas y que las referencias temporales `.ref-pre-u3/` y `playwright.ref.config.ts` ya no existen.
 - **Verificada:** `npm run visual:compare` → 182 iguales, 0 diferentes, 0 inestables. La corrección de H2 de U18 (límite de intentos de `login-with-username`, 2026-10-14) dio 0 diferencias contra `.ref-pre-u18fix`, así que no se recapturó; la referencia temporal se borró.
 

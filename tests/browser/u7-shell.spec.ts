@@ -161,7 +161,7 @@ test.describe('U7 header', () => {
   });
 });
 
-test.describe('U7 roles: header y acceso al Estudio desde el perfil propio', () => {
+test.describe('U7 roles: header y acceso al Estudio desde el header y el perfil propio', () => {
   const studio: Record<Role, Array<[string, string]>> = {
     anonimo: [],
     comunidad: [],
@@ -179,8 +179,10 @@ test.describe('U7 roles: header y acceso al Estudio desde el perfil propio', () 
         await expect(page.getByRole('heading', { level: 1, name: `Persona ${username}` })).toBeVisible();
 
         const header = page.locator('header.site-header');
-        // El header no lleva acceso a herramientas para ningún rol.
-        await expect(header.getByRole('link', { name: /Estudio|Catálogo|Editorial/ })).toHaveCount(0);
+        // El header lleva «Estudio» solo a quien ve alguna sección (sustituye a I3
+        // "solo desde el perfil"); nunca enlaces sueltos a las secciones.
+        await expect(header.getByRole('link', { name: 'Estudio', exact: true }).locator('visible=true')).toHaveCount(studio[role].length ? 1 : 0);
+        await expect(header.getByRole('link', { name: /Catálogo|Propuestas|Reportes|Editorial/ })).toHaveCount(0);
         const entrar = header.getByRole('link', { name: 'Entrar' }).locator('visible=true');
         await expect(entrar).toHaveCount(role === 'anonimo' ? 1 : 0);
         if (width > 768) {

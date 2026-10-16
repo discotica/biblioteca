@@ -45,8 +45,9 @@
   let acceptedMore = $state(false);
   let acceptedOffset = 0;
 
-  // Acceso al Estudio (ronda 3, I3): sale del perfil propio de admin y
-  // colaborador, no del header. Una entrada por sección que ve el rol (U15).
+  // Acceso al Estudio (ronda 3, I3): el perfil propio de admin y colaborador
+  // tiene una entrada por sección que ve el rol (U15). Desde el 2026-10-15
+  // también hay un botón «Estudio» en el header.
   const studioLinks = $derived(
     studioSectionsFor(role, { adminCatalog: adminCatalogEnabled, editorial: editorialEnabled }).map((id) => ({
       label: STUDIO_SECTIONS.find((section) => section.id === id)!.label,

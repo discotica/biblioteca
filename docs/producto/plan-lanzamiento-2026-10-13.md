@@ -67,6 +67,7 @@ rama de trabajo ─► PR ─► CI verde ─► main ─► [Run workflow] ─�
 | 10 | S10: decisiones y cuentas | Tú | — | Registradas en `decisiones.md` |
 | | **E. Candidato** | | | |
 | 11 | E21-rc2: QA integral y GO/NO-GO | Claude + tú (QA manual y firma) | Opus 5.5 · `xhigh` | GO firmado |
+| 11b | U19: flujo del Estudio y diccionarios (después del NO-GO de rc2) | Claude (G1–G5) + tú (hoja) | Opus 5.5 · `xhigh`/`high` por grupo | Grupos aceptados, hoja normalizada y paso 8 repetido; después, rc3 |
 | | **F. Producción** | | | |
 | 12 | E22-A: ensayo del corte sobre una copia de producción | Tú autorizas + Claude | Opus 5.5 · `xhigh` | Guion de corte probado |
 | 13 | E22-B: corte a producción | Tú autorizas + Claude | Opus 5.5 · `xhigh` | Sitio nuevo en vivo |
@@ -233,6 +234,29 @@ La fuente del catálogo de producción ya está decidida: la hoja limpia, con el
   - la QA manual que te pida: Safari iOS, Android Chrome, VoiceOver e iframes reales;
   - la firma de producto. E21 pide además la firma de una segunda persona operativa.
 - **Listo cuando:** el dictamen es GO, con todos los P0 cerrados. Si es NO-GO, corrige con el prompt de corrección y repite este paso.
+
+### Paso 11b — U19: flujo del Estudio y diccionarios
+
+Se añadió el 2026-10-15, después del NO-GO de E21-rc2, a partir de la lista de correcciones del Estudio del usuario. El expediente es [`u19-estudio-flujo-2026-10-15.md`](../modernizacion/u19-estudio-flujo-2026-10-15.md).
+
+- **Qué cambia:**
+  - géneros y países pasan a ser listas cerradas;
+  - el sello es obligatorio;
+  - hay un solo flujo para crear (Sugerir, para todos los roles);
+  - la cola se corrige en el editor del Estudio;
+  - se añade una pantalla de diccionarios con alias y huérfanos.
+- **Orden, un chat por grupo:**
+  1. G1 — servidor (Opus 5.5 `xhigh`);
+  2. G2 — Sugerir (`high`);
+  3. G3 — cola en el editor (`xhigh`; incluye RC2-P1-01);
+  4. G4 — diccionarios (`high`);
+  5. G5 — aplicar en staging (`high`, con tu autorización).
+- **Tú:**
+  - aceptas cada grupo;
+  - normalizas la hoja contra las listas cerradas, junto con RC2-P1-02.
+
+  Después se repite el paso 8 y luego el paso 11 como E21-rc3.
+- **Listo cuando:** los cinco grupos están aceptados, la hoja importa sin rechazos y staging está igual a la hoja.
 
 ### Paso 12 — E22-A: ensayo del corte
 

@@ -414,6 +414,47 @@ Normaliza el inventario que E21 dejó con tres nombres que no existen. Lo decidi
   - la beta la decide el usuario. Recomendación: `true` solo si ese día salen invitaciones con `?beta=1`.
 - **Rollback de la aplicación:** los cuatro a su valor seguro y Run workflow. Ensayado en E21-rc2 con Apache y el `.htaccess` real, contra staging.
 
+### U19 — Flujo del Estudio y diccionarios (2026-10-15)
+
+Las decidió el usuario en cinco rondas de preguntas, a partir de su lista de correcciones del Estudio. El detalle está en [`u19-estudio-flujo-2026-10-15.md`](./u19-estudio-flujo-2026-10-15.md). **Todo va antes de E21-rc3** (paso 11b del plan de lanzamiento).
+
+- **Diccionarios:**
+  - **Géneros y países: listas cerradas en todos los formularios**, Estudio incluido. Solo admin los crea o cambia, desde una pantalla de diccionarios. El servidor rechaza valores de fuera de la lista.
+  - **Países:** la lista seleccionable tiene los 33 estados independientes de Latinoamérica y el Caribe más Puerto Rico, sin «Diáspora». Los demás países que traiga la hoja se aceptan como legado: no se ofrecen al elegir ni aparecen en la búsqueda.
+  - **Artistas y sellos: libres.** Si no existen, se crean al guardar o aceptar, sin alta auditada aparte, con un aviso de nombres parecidos. La limpieza se hace al revisar el lanzamiento y en la pantalla de diccionarios.
+- **Sello obligatorio.** «Independiente» es un sello más y aparece fijo arriba en el buscador.
+- **Pantalla de diccionarios (solo admin):**
+  - crear, renombrar, fusionar y marcar seleccionable o legado;
+  - al fusionar, la grafía vieja queda como alias, que reconocen la búsqueda y la importación, y la URL vieja redirige;
+  - los huérfanos (sin lanzamientos) se listan para borrarlos. Nada se borra solo.
+- **Un solo flujo para crear:**
+  - «Nuevo lanzamiento» del Estudio lleva a Sugerir;
+  - **admin** termina con «Crear borrador»: un borrador del catálogo con su historial, sin pasar por la cola. La pantalla final ofrece «Añadir otro», «Abrir el borrador» e «Ir al Estudio»;
+  - comunidad y colaboración envían a la cola como hasta ahora.
+- **Radar en Sugerir:** opcional, para todos.
+- **La cola se corrige en el editor del Estudio.**
+  - Admin edita cualquier propuesta o borrador y acepta como borrador o publicando.
+  - El colaborador corrige en el mismo editor, sin acceso al Catálogo, y marca la propuesta lista.
+  - El autor edita su propuesta enviada hasta que alguien del equipo guarde la primera corrección, la marque lista o la acepte.
+- **Duplicados:** Sugerir avisa si el enlace ya está en el catálogo o en la cola.
+- **Botón «Estudio» en el header** para admin y colaborador. Sustituye la parte de I3 que decía «desde el perfil, no desde el header». Aparece solo si el rol ve alguna sección, lleva a `/estudio` y no se muestra dentro del Estudio. En móvil ocupa el lugar de «Entrar», que con sesión no está. El acceso desde el perfil propio se conserva.
+- **No entran:** la comparación entre versiones, el límite de propuestas pendientes y el bloqueo visible al abrir una propuesta.
+
+**Añadidas al cerrar G1 (2026-10-15):**
+- **LATAM es seleccionable:** la lista tiene 35 valores, los 33 estados, Puerto Rico y LATAM. Lo decidió el usuario.
+- **Duplicados de la hoja:** EE.UU, EEUU y USA quedan como alias de Estados Unidos, y UK de Reino Unido (decisión del usuario). La hoja no necesita corregirlos.
+- **WORLD, Entrañas y TSA se rechazan en la importación** (decisión del usuario). En staging quedan en estado `retired`: se conservan en sus lanzamientos hasta que la hoja los corrija, nadie los acepta de nuevo y, cuando quedan huérfanos, la poda los borra (Claude).
+- **Legado con tilde:** Canadá, Líbano y Pakistán (decisión del usuario).
+- **Reseña y portada de una propuesta solo las cambia admin.** El colaborador corrige el resto, radar incluido (Claude, según la tabla del expediente).
+- **Aceptar y publicar exige lo mismo que cualquier publicado,** portada incluida. Antes E09 publicaba sin portada (Claude).
+- **El editor conserva los valores de legado que ya tiene un lanzamiento, pero no deja añadir otros.** La reversión del historial restaura tal cual (Claude).
+- **Pendiente sin grupo:** ocultar los países de legado en los filtros públicos. El servidor ya expone `status`; la propuesta es que lo haga G4.
+
+**Sustituye:**
+- en «Sugerir (U13)»: el «Continuar en la consola» de admin y los cuatro «Añadir «…»»;
+- en «Editor del Estudio (U16)»: el alta de géneros desde el Combobox;
+- en «Bandeja del Estudio (U17)»: «las acciones no cambian» del colaborador.
+
 ### Manual
 
 - Sigue como página, con mejor tipografía.

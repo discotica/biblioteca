@@ -6,6 +6,14 @@
 -- Las huellas incluyen xmin: si una escritura toca una fila que debía quedar igual, la huella cambia.
 begin;
 
+-- U19: la importación ya no crea géneros ni países. Los del fixture existen antes: uno seleccionable
+-- y dos de legado, que la importación también acepta.
+insert into public.genres (name, normalized_name, slug, status) values
+  ('SR Género', 'sr genero', 'sr-' || substr(md5('sr genero'), 1, 12), 'selectable'),
+  ('SR Otro', 'sr otro', 'sr-' || substr(md5('sr otro'), 1, 12), 'legacy');
+insert into public.countries (name, normalized_name, slug, status) values
+  ('SR País', 'sr pais', 'sr-' || substr(md5('sr pais'), 1, 12), 'legacy');
+
 create function pg_temp.sr_release(p_id uuid) returns text language sql as $$
   select concat_ws(',', r.id, r.xmin, r.title, r.status, r.credit_quality, r.catalog_version, r.updated_at)
   from public.releases r where r.id = p_id;
@@ -185,8 +193,11 @@ begin
   -- 9. Diccionarios sin uso ---------------------------------------------------
   insert into public.artists (name, normalized_name, slug) values ('SR Huérfano', 'sr huerfano', 'sr-' || substr(md5('sr huerfano'), 1, 12));
   insert into public.labels (name, normalized_name, slug) values ('SR Sello huérfano', 'sr sello huerfano', 'sr-' || substr(md5('sr sello huerfano'), 1, 12));
-  insert into public.genres (name, normalized_name, slug) values ('SR Género huérfano', 'sr genero huerfano', 'sr-' || substr(md5('sr genero huerfano'), 1, 12));
-  insert into public.countries (name, normalized_name, slug) values ('SR País huérfano', 'sr pais huerfano', 'sr-' || substr(md5('sr pais huerfano'), 1, 12));
+  -- U19: solo se podan géneros y países retirados; los de las listas se conservan aunque no se usen.
+  insert into public.genres (name, normalized_name, slug, status) values ('SR Género huérfano', 'sr genero huerfano', 'sr-' || substr(md5('sr genero huerfano'), 1, 12), 'retired');
+  insert into public.countries (name, normalized_name, slug, status) values ('SR País huérfano', 'sr pais huerfano', 'sr-' || substr(md5('sr pais huerfano'), 1, 12), 'retired');
+  insert into public.genres (name, normalized_name, slug, status) values ('SR Género libre', 'sr genero libre', 'sr-' || substr(md5('sr genero libre'), 1, 12), 'selectable');
+  insert into public.countries (name, normalized_name, slug, status) values ('SR País libre', 'sr pais libre', 'sr-' || substr(md5('sr pais libre'), 1, 12), 'legacy');
   -- r1 (archivado) es el único que usa 'SR Segunda': un archivado también cuenta como uso.
   select count(*) into v_count from private.prune_unused_catalog_dictionaries() p
   where p.name in ('SR Huérfano', 'SR Sello huérfano', 'SR Género huérfano', 'SR País huérfano');
@@ -194,7 +205,9 @@ begin
   if exists (select 1 from public.artists where normalized_name = 'sr huerfano')
     or not exists (select 1 from public.artists where normalized_name = 'sr segunda')
     or not exists (select 1 from public.genres where normalized_name = 'sr otro')
-    or not exists (select 1 from public.labels where normalized_name = 'sr sello') then
+    or not exists (select 1 from public.labels where normalized_name = 'sr sello')
+    or not exists (select 1 from public.genres where normalized_name = 'sr genero libre')
+    or not exists (select 1 from public.countries where normalized_name = 'sr pais libre') then
     raise exception 'SHEET FAIL 9: borró algo en uso o dejó un huérfano';
   end if;
 

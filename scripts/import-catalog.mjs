@@ -107,6 +107,71 @@ function uniqueNamedEntities(values, rowNumber, field, warnings) {
   return entities;
 }
 
+// U19: géneros y países son listas cerradas; artistas y sellos, libres. `dictionaries` es lo que
+// devuelve loadDictionaries (o el mismo formato en las pruebas). Sin diccionarios no se valida.
+const DICTIONARY_FIELDS = {
+  genre: { entities: 'genres', aliases: 'genreAliases', label: 'género', plural: 'géneros' },
+  country: { entities: 'countries', aliases: 'countryAliases', label: 'país', plural: 'países' }
+};
+
+export function dictionaryIndex(dictionaries) {
+  if (!dictionaries) return null;
+  const byKey = (rows = [], pick) => new Map(rows.map((row) => [normalize(row.name), pick(row)]));
+  const index = {};
+  for (const config of Object.values(DICTIONARY_FIELDS)) {
+    const entities = byKey(dictionaries[config.entities], (row) => ({ name: row.name, status: row.status }));
+    for (const [key, alias] of byKey(dictionaries[config.aliases], (row) => ({ name: row.target, status: row.status }))) {
+      if (!entities.has(key)) entities.set(key, alias);
+    }
+    index[config.entities] = entities;
+  }
+  index.labelAliases = byKey(dictionaries.labelAliases, (row) => row.target);
+  index.artistAliases = byKey(dictionaries.artistAliases, (row) => row.target);
+  return index;
+}
+
+// Nombre canónico de un género o país de la hoja, o un error legible si no está en la lista.
+function closedDictionaryEntity(value, field, index) {
+  const config = DICTIONARY_FIELDS[field];
+  const match = index[config.entities].get(normalize(value));
+  if (!match || match.status === 'retired') {
+    return {
+      error: `${config.label} desconocido: «${String(value).trim()}». La importación no crea ${config.plural}; usa un valor de la lista o pide a admin que lo añada`
+    };
+  }
+  return { entity: namedEntity(match.name) };
+}
+
+function closedDictionaryEntities(values, field, index, rowNumber, errors, warnings, rejected) {
+  if (!index) return values.map(namedEntity);
+  const entities = [];
+  const seen = new Set();
+  for (const value of values) {
+    const result = closedDictionaryEntity(value, field, index);
+    if (result.error) {
+      errors.push({ row: rowNumber, field, message: result.error });
+      const spelling = String(value).trim();
+      const key = `${field}\u0000${normalize(value)}`;
+      const entry = rejected.get(key) ?? { field, value: spelling, rows: [] };
+      entry.rows.push(rowNumber);
+      if (spelling !== entry.value) entry.spellings = [...new Set([...(entry.spellings ?? [entry.value]), spelling])];
+      rejected.set(key, entry);
+      continue;
+    }
+    if (seen.has(result.entity.key)) {
+      warnings.push({ row: rowNumber, field, message: `valor repetido: ${result.entity.name}; se conserva una sola relación canónica` });
+      continue;
+    }
+    seen.add(result.entity.key);
+    entities.push(result.entity);
+  }
+  return entities;
+}
+
+function translateAlias(name, aliases) {
+  return aliases?.get(normalize(name)) ?? name;
+}
+
 function radar(row, errors, rowNumber) {
   const values = {};
   for (const key of ['experimental', 'denso', 'sintetico', 'bailable', 'rapido']) {
@@ -171,19 +236,21 @@ export function buildImportPayloads(rawTsv, options = {}) {
   const sourceName = options.sourceName ?? DEFAULT_SOURCE;
   const sourceKeyColumn = headerKey(options.sourceKeyColumn ?? 'catalog_key');
   const allowDerivedKeys = Boolean(options.allowDerivedKeys);
+  const dictionaries = dictionaryIndex(options.dictionaries);
   const errors = [];
   const warnings = [];
   const payloads = [];
   const entries = [];
+  const rejected = new Map();
 
   records.forEach((row, index) => {
     const rowNumber = index + 2;
     const errorStart = errors.length;
-    const artists = list(row.artist);
+    const artists = list(row.artist).map((name) => translateAlias(name, dictionaries?.artistAliases));
     const title = String(row.title ?? '').trim();
     const rawType = String(row.type ?? '').trim();
     const canonicalType = canonicalReleaseType(rawType);
-    const label = String(row.label ?? '').trim();
+    const label = translateAlias(String(row.label ?? '').trim(), dictionaries?.labelAliases);
     const releaseDate = parseDate(row.release_date);
     const genres = list(row.genre);
     const countries = list(row.country);
@@ -227,7 +294,7 @@ export function buildImportPayloads(rawTsv, options = {}) {
     const legacy = legacySlug(title, artists);
     const primaryArtists = uniqueNamedEntities(artists, rowNumber, 'artist', warnings);
     const collaborators = uniqueNamedEntities(
-      list(row.collaborator ?? row.collaborators),
+      list(row.collaborator ?? row.collaborators).map((name) => translateAlias(name, dictionaries?.artistAliases)),
       rowNumber,
       'collaborator',
       warnings
@@ -262,8 +329,8 @@ export function buildImportPayloads(rawTsv, options = {}) {
       primary_artists: primaryArtists,
       collaborators,
       credit_quality: 'legacy',
-      genres: genres.map(namedEntity),
-      countries: countries.map(namedEntity),
+      genres: closedDictionaryEntities(genres, 'genre', dictionaries, rowNumber, errors, warnings, rejected),
+      countries: closedDictionaryEntities(countries, 'country', dictionaries, rowNumber, errors, warnings, rejected),
       radar: releaseRadar,
       buy_link: buyLink,
       provider: provider(buyLink),
@@ -290,21 +357,58 @@ export function buildImportPayloads(rawTsv, options = {}) {
     entries,
     errors,
     warnings,
-    derivedKeys: payloads.filter((payload) => payload.source_key.startsWith('derived:')).length
+    derivedKeys: payloads.filter((payload) => payload.source_key.startsWith('derived:')).length,
+    dictionariesChecked: Boolean(dictionaries),
+    // Valores de géneros y países que la hoja tiene que corregir, con sus filas.
+    rejectedValues: [...rejected.values()].sort((a, b) => a.field.localeCompare(b.field) || b.rows.length - a.rows.length || a.value.localeCompare(b.value, 'es'))
   };
 }
 
+// Diccionarios cerrados y alias, leídos de la base de destino (U19).
+export async function loadDictionaries(client) {
+  const { rows } = await client.query(`
+    select 'genres' as kind, name, status, null::text as target from public.genres
+    union all select 'countries', name, status, null from public.countries
+    union all select 'genreAliases', a.name, g.status, g.name from public.genre_aliases a join public.genres g on g.id = a.genre_id
+    union all select 'countryAliases', a.name, c.status, c.name from public.country_aliases a join public.countries c on c.id = a.country_id
+    union all select 'labelAliases', a.name, null, l.name from public.label_aliases a join public.labels l on l.id = a.label_id
+    union all select 'artistAliases', a.name, null, ar.name from public.artist_aliases a join public.artists ar on ar.id = a.artist_id`);
+  const dictionaries = { genres: [], countries: [], genreAliases: [], countryAliases: [], labelAliases: [], artistAliases: [] };
+  for (const row of rows) dictionaries[row.kind].push({ name: row.name, status: row.status, target: row.target });
+  return dictionaries;
+}
+
 async function main() {
-  const { input, sourceName, sourceKeyColumn, dryRun, allowDerivedKeys, keepInvalid, archiveMissing, maxArchive, pruneDictionaries, rollback } =
-    importOptions(process.argv.slice(2));
-  const raw = await readFile(resolve(input), 'utf8');
-  const report = buildImportPayloads(raw, { sourceName, sourceKeyColumn, allowDerivedKeys });
+  const options = importOptions(process.argv.slice(2));
+  const raw = await readFile(resolve(options.input), 'utf8');
+  // Con base configurada, también --dry-run valida contra sus diccionarios (U19). Sin base, el dry
+  // run solo valida la forma y lo dice en el informe (dictionaries: 'not_checked').
+  const connectionString = process.env.DATABASE_URL;
+  const hasDatabase = Boolean(connectionString || process.env.PGHOST);
+  if (!hasDatabase && !options.dryRun) {
+    throw new Error('Defina DATABASE_URL o las variables PGHOST, PGPORT, PGUSER, PGPASSWORD y PGDATABASE. Use --dry-run para validar sin conectarse.');
+  }
+  const client = hasDatabase ? (connectionString ? new Client({ connectionString }) : new Client()) : null;
+  if (client) await client.connect();
+  try {
+    await runImport(client, options, raw);
+  } finally {
+    if (client) await client.end();
+  }
+}
+
+async function runImport(client, options, raw) {
+  const { input, sourceName, sourceKeyColumn, dryRun, allowDerivedKeys, keepInvalid, archiveMissing, maxArchive, pruneDictionaries, rollback } = options;
+  const dictionaries = client ? await loadDictionaries(client) : undefined;
+  const report = buildImportPayloads(raw, { sourceName, sourceKeyColumn, allowDerivedKeys, dictionaries });
   const output = {
     input: basename(input),
     inputSha256: digest(raw),
     records: report.records,
     derivedKeys: report.derivedKeys,
     rejectedRows: report.entries.filter((entry) => entry.issues.length).length,
+    dictionaries: report.dictionariesChecked ? 'checked' : 'not_checked',
+    rejectedValues: report.rejectedValues,
     errors: report.errors,
     warnings: report.warnings
   };
@@ -316,16 +420,10 @@ async function main() {
     process.exitCode = report.errors.length ? 1 : 0;
     return;
   }
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString && !process.env.PGHOST) {
-    throw new Error('Defina DATABASE_URL o las variables PGHOST, PGPORT, PGUSER, PGPASSWORD y PGDATABASE. Use --dry-run para validar sin conectarse.');
-  }
 
-  const client = connectionString ? new Client({ connectionString }) : new Client();
   const actions = { created: 0, updated: 0, republished: 0, unchanged: 0, rejected: 0 };
   let archived = [];
   let pruned = [];
-  await client.connect();
   try {
     await client.query('begin');
     for (const entry of report.entries) {
@@ -366,8 +464,6 @@ async function main() {
   } catch (error) {
     await client.query('rollback');
     throw error;
-  } finally {
-    await client.end();
   }
   const summary = { ...output, applied: !rollback, actions };
   if (rollback) summary.reason = 'rollback';

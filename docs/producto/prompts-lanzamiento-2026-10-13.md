@@ -419,6 +419,144 @@ No hagas ningún despliegue.
 Cierre: cuando el usuario acepte el expediente, haz commit en `modernizacion-2026` y push de la rama.
 ```
 
+## Paso 11b — U19: flujo del Estudio y diccionarios
+
+Cinco chats, en orden y nunca dos a la vez. Todos comparten el mismo arranque y el mismo cierre:
+
+```text
+Lee primero:
+- `docs/modernizacion/u19-estudio-flujo-2026-10-15.md` completo: hallazgos, diseño y tu grupo;
+- la sección "U19 — Flujo del Estudio y diccionarios" de `docs/modernizacion/decisiones.md` y las que sustituye;
+- `docs/modernizacion/estado.md` y `tests/visual/README.md`.
+Ejecuta `git status --short`. Captura el árbol de partida: `VISUAL_BASELINE_DIR=.ref-pre-u19gN npm run visual:capture` (N = tu grupo).
+
+Reglas:
+- Las migraciones se verifican en el stack local aislado (project_id propio, puertos 544xx) y no se aplican en staging; eso es G5. El proyecto final no se toca.
+- Respeta el contrato del plan de interfaz: tokens, primitivas de `$lib/ui`, 44 px y sin literales.
+- Los permisos los decide el servidor. Cada RPC nuevo lleva intentos negativos de anon, comunidad y colaborador.
+- Si una decisión del expediente no alcanza para un caso, pregunta al usuario antes de inventarla.
+
+Aceptación:
+- `npm test`, `build`, `lint:tokens` y dos corridas de `test:browser` en verde;
+- las diferencias visuales contra la referencia son solo las del grupo, listadas con su motivo.
+
+Con la aceptación del usuario:
+- recaptura la línea base y borra la referencia;
+- actualiza el estado del grupo en el expediente de U19, `estado.md` y, si hubo decisiones nuevas, `decisiones.md`;
+- haz commit en `modernizacion-2026` y push. La CI del PR debe seguir en verde.
+```
+
+### G1 — Servidor: listas cerradas, alias y validación
+
+**Modelo:** Claude Opus 5.5 (`claude-opus-5-5`)
+**Esfuerzo:** `xhigh`
+
+```text
+Ejecuta el grupo G1 del paso 11b (U19) de `docs/producto/plan-lanzamiento-2026-10-13.md`. [Arranque, reglas, aceptación y cierre comunes del paso 11b.]
+
+Haz los nueve puntos de G1 del expediente. Antes de escribir la migración, muestra al usuario:
+- la lista de países seleccionables (33 estados más Puerto Rico), con sus nombres;
+- los países y géneros existentes que quedan como legado o se renombran.
+
+Espera su visto bueno.
+
+Diseña el contrato v3 de la propuesta pensando en G2 y G3:
+- nombres nuevos de artistas y sello;
+- radar opcional;
+- aceptar como borrador o publicando;
+- la marca de "tomada".
+
+Documenta cada RPC (firma, quién lo puede llamar, errores) en el expediente. Así los grupos siguientes no tienen que leer el SQL.
+
+La importación (`scripts/import-catalog.mjs` y `catalog_sheet_replace_import`):
+- rechaza géneros y países desconocidos con un error legible;
+- traduce los alias;
+- acepta los países de legado.
+
+Pruébala con la hoja actual en local y entrega la lista de valores que hoy rechazaría. Es la lista que el usuario corrige en la hoja.
+```
+
+### G2 — Sugerir: un solo flujo para crear
+
+**Modelo:** Claude Opus 5.5 (`claude-opus-5-5`)
+**Esfuerzo:** `high`
+
+```text
+Ejecuta el grupo G2 del paso 11b (U19) de `docs/producto/plan-lanzamiento-2026-10-13.md`. Requiere G1 aceptado. [Arranque, reglas, aceptación y cierre comunes del paso 11b.]
+
+Haz los ocho puntos de G2 del expediente, usando los RPC que documentó G1.
+
+Pruebas de navegador por rol:
+- comunidad y colaborador envían a la cola;
+- admin crea un borrador con artistas y sello nuevos, que aparecen en los créditos del borrador (U19-01);
+- el aviso de duplicado aparece;
+- no se puede escribir un género ni un país de fuera de la lista;
+- el sello es obligatorio y «Independiente» está fijado arriba.
+
+Muestra al usuario las capturas de los cuatro pasos y de las tres pantallas finales antes de pedir la aceptación.
+```
+
+### G3 — La cola en el editor
+
+**Modelo:** Claude Opus 5.5 (`claude-opus-5-5`)
+**Esfuerzo:** `xhigh`
+
+```text
+Ejecuta el grupo G3 del paso 11b (U19) de `docs/producto/plan-lanzamiento-2026-10-13.md`. Requiere G1 y G2 aceptados. [Arranque, reglas, aceptación y cierre comunes del paso 11b.]
+
+Haz los cinco puntos de G3 del expediente, incluido RC2-P1-01 del expediente de E21-rc2.
+- El colaborador usa el editor sin ver el Catálogo: comprueba que no aparece en su barra lateral y que sus intentos de publicar o leer el catálogo administrativo fallan en el servidor.
+- El bloqueo del autor ("tomada") se prueba con dos sesiones: el autor edita, el colaborador guarda una corrección y el siguiente guardado del autor falla con un mensaje claro.
+
+Muestra al usuario las capturas del editor con una propuesta abierta, como admin y como colaborador.
+```
+
+### G4 — Pantalla de diccionarios
+
+**Modelo:** Claude Opus 5.5 (`claude-opus-5-5`)
+**Esfuerzo:** `high`
+
+```text
+Ejecuta el grupo G4 del paso 11b (U19) de `docs/producto/plan-lanzamiento-2026-10-13.md`. Requiere G1 aceptado. [Arranque, reglas, aceptación y cierre comunes del paso 11b.]
+
+Haz los seis puntos de G4 del expediente.
+- Fusionar es una transacción. Después de fusionar no quedan referencias al valor viejo, el alias existe y la URL vieja de artista o sello redirige.
+- Pruébalo en local con los duplicados reales de staging: EEUU → Estados Unidos y Triphop → Trip Hop.
+- Borrar huérfanos solo acepta valores sin lanzamientos; el servidor lo comprueba.
+
+Muestra al usuario las capturas de las cuatro pestañas antes de pedir la aceptación.
+```
+
+### G5 — Aplicar en staging
+
+**Modelo:** Claude Opus 5.5 (`claude-opus-5-5`)
+**Esfuerzo:** `high`
+
+```text
+Ejecuta el grupo G5 del paso 11b (U19) de `docs/producto/plan-lanzamiento-2026-10-13.md`. Requiere G1 a G4 aceptados.
+
+Lee primero:
+- el expediente de U19;
+- la sección del paso 7 en `docs/modernizacion/estado.md` (método de migración en staging);
+- `docs/modernizacion/operacion-fase-6.md`.
+
+1. Pide autorización explícita en el chat para escribir en staging (`hgocyrzhgohetfpzbmfs`). Nunca uses `--linked`: el `.temp` del CLI apunta a producción. Comprueba el destino con dos señales.
+2. Aplica las migraciones de G1 a G4 por `--project-ref`. Corre los advisors (sin `WARN` nuevos) y las verificaciones de cada grupo.
+3. Haz un recorrido corto con las cuatro cuentas de E21-rc2 y una app local contra staging:
+   - sugerir por rol;
+   - corregir en la cola como colaborador;
+   - aceptar como admin;
+   - fusionar un duplicado;
+   - borrar un huérfano de prueba;
+   - el aviso de duplicado.
+   Archiva o borra lo que cree la prueba.
+4. Registra en el expediente y en `estado.md`.
+5. Recuerda al usuario:
+   - corregir la hoja con la lista de rechazos de G1;
+   - después, repetir el paso 8 y el paso 11 como E21-rc3.
+No hagas ningún despliegue. Cierre: commit y push con la aceptación del usuario.
+```
+
 ## Paso 12 — E22-A: ensayo del corte
 
 Antes: la cadena de conexión de producción en `.env.local` como `E22_PROD_DATABASE_URL`, la fecha del corte fijada y la hoja congelada.

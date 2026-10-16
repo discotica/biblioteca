@@ -177,21 +177,22 @@ begin
     raise exception 'rejected legacy approval left a release or audit trail';
   end if;
 
-  -- A confirmed v2 approval does publish, and the E06 compatibility trigger
-  -- still leaves its create audit evidence.
-  insert into public.contributions(author_id, status, source_url, payload, payload_version, payload_quality, queue_kind)
+  -- A confirmed v2 approval does publish and leaves exactly one create audit
+  -- entry (U19: written by the acceptance itself; the E06 trigger is gone).
+  -- U19 also requires a label, listed genres/countries and, to publish, a cover.
+  insert into public.contributions(author_id, status, source_url, payload, payload_version, payload_quality, queue_kind, detected_metadata)
   values (community_id, 'pending', 'https://example.test/e06-v2', jsonb_build_object(
     'version', 2, 'title', 'E06 confirmed approval fixture', 'primary_artists', jsonb_build_array('E06 confirmed artist'),
-    'genres', jsonb_build_array('E06 genre'), 'countries', jsonb_build_array('E06 country'),
+    'genres', jsonb_build_array('Techno'), 'countries', jsonb_build_array('Colombia'), 'label', 'E06 confirmed label',
     'release_type', 'ep', 'release_date', '2026-09-18'
-  ), 2, 'confirmed', 'community') returning id into contribution_id;
+  ), 2, 'confirmed', 'community', jsonb_build_object('cover_url', 'https://example.test/e06-v2.jpg')) returning id into contribution_id;
   select rc.release_id into legacy_release_id from public.review_contribution(contribution_id, 'approved', null) rc;
-  if legacy_release_id is null or not exists (
-    select 1 from private.catalog_change_sets
+  if legacy_release_id is null or (
+    select count(*) from private.catalog_change_sets
     where entity_id = legacy_release_id and operation = 'create'
-      and reason = 'Approved contribution ' || contribution_id::text
-  ) then
-    raise exception 'confirmed approval did not leave E06 audit evidence';
+      and reason like '%' || contribution_id::text || '%'
+  ) <> 1 or (select status from public.releases where id = legacy_release_id) <> 'published' then
+    raise exception 'confirmed approval did not publish with exactly one create audit entry';
   end if;
 
   -- S6 / H5: a release can be created directly as published (E06 requires a

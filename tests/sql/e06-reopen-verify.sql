@@ -48,7 +48,8 @@ begin
   end if;
   select id into v_artist from public.artists order by id limit 1;
   select id into v_type from public.release_types where name = 'EP' order by id limit 1;
-  select id into v_country from public.countries order by id limit 1;
+  -- U19: un lanzamiento nuevo solo acepta países de la lista.
+  select id into v_country from public.countries where status = 'selectable' order by id limit 1;
   if v_artist is null then
     insert into public.artists (name, normalized_name, slug) values ('E06 fixture artist', 'e06 fixture artist', 'e06-fixture-artist') returning id into v_artist;
   end if;

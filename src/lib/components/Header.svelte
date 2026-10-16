@@ -10,11 +10,14 @@
   import Menu, { type MenuGroup } from '$lib/ui/Menu.svelte';
   import { supabase } from '$lib/supabase';
   import { user } from '$lib/stores/authStore';
+  import { loadProfileRole, profileRole } from '$lib/stores/profileRole';
+  import { STUDIO_BASE, studioSectionsFor } from '$lib/domain/studio';
 
   const suggestionReturn = '/sugerir';
   // "Mis aportes" es una página propia (U14); sin la función editorial no hay
   // aportes que mostrar.
   const editorialEnabled = import.meta.env.VITE_EDITORIAL_ENABLED === 'true';
+  const adminCatalogEnabled = import.meta.env.VITE_ADMIN_CATALOG_ENABLED === 'true';
   const menuItems = [
     { label: 'Manual', href: '/manual', icon: '/img/manual.svg' },
     { label: 'Reportar un problema', href: '/reportar', icon: '/img/sugerir.svg' },
@@ -51,6 +54,13 @@
   // tomaba el toque en el visible por un clic fuera, lo cancelaba y cerraba el
   // menú antes del clic: ningún enlace del menú global navegaba.
   let menuMovil = false;
+
+  // Acceso al Estudio desde el header para admin y colaborador (sustituye "desde
+  // el perfil" de I3). Sale solo si el rol ve alguna sección; dentro del Estudio
+  // no hace falta.
+  $: if ($user && (editorialEnabled || adminCatalogEnabled)) void loadProfileRole($user.id).catch(() => {});
+  $: sessionRole = $user && $profileRole?.userId === $user.id ? $profileRole.role : '';
+  $: showStudio = !toolRoute && studioSectionsFor(sessionRole, { adminCatalog: adminCatalogEnabled, editorial: editorialEnabled }).length > 0;
 
   $: suggestionHref = $user ? suggestionReturn : `/auth/login?redirect=${encodeURIComponent(suggestionReturn)}`;
   $: username = ($user?.user_metadata?.username as string | undefined) ?? '';
@@ -162,6 +172,7 @@
     <a class="logo" href="/" aria-label="Discótica inicio"><img src="/img/logo.svg" alt="Discótica" /></a>
 
     <nav class="desktop-nav" aria-label="Principal">
+      {#if showStudio}<Button variant="secondary" href={STUDIO_BASE} class="nav-btn">Estudio</Button>{/if}
       <Button variant="secondary" href={suggestionHref} class="nav-btn">Sugerir</Button>
       {#if $user}
         <Menu label={`Cuenta ${accountName}`} groups={accountGroups} bind:open={accountMenuOpen} class="account-menu">
@@ -193,6 +204,7 @@
     </nav>
 
     <div class="mobile-nav">
+      {#if showStudio}<Button variant="secondary" size="sm" href={STUDIO_BASE} class="nav-btn">Estudio</Button>{/if}
       <Button variant="secondary" size="sm" href={suggestionHref} class="nav-btn">Sugerir</Button>
       {#if !$user}<Button size="sm" href="/auth/login" class="nav-btn">Entrar</Button>{/if}
       <IconButton

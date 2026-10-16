@@ -4,12 +4,28 @@ Actualizado: 2026-10-15.
 
 > **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:**
 >
-> 1. Se corrigen RC2-P1-01 y RC2-P1-02.
-> 2. Se repite el paso 11 como E21-rc3.
+> 1. Paso 11b — U19: flujo del Estudio y diccionarios ([expediente](./u19-estudio-flujo-2026-10-15.md)), grupos G1 a G5 en orden. G1 aceptado y cerrado el 2026-10-15. Sigue G2. RC2-P1-01 entra en G3.
+> 2. El usuario normaliza la hoja contra las listas cerradas y corrige los textos dañados (RC2-P1-02). Después se repite el paso 8.
+> 3. Se repite el paso 11 como E21-rc3.
 >
 > RC2-P0-01 (enlaces de Auth) quedó corregido y verificado en staging con un correo real el 2026-10-15, con las plantillas nuevas ya en el dashboard ([expediente](./e21-rc2-2026-10-15.md#rc2-p0-01--los-enlaces-de-auth-terminan-en-el-enlace-venció)).
 >
 > El paso 11 (E21-rc2) dio **NO-GO** el 2026-10-15 ([expediente](./e21-rc2-2026-10-15.md)). Los pasos 1 a 10 están cerrados: el 8 se aceptó con la hoja tal como está y el 10 se decidió por delegación ([decisiones](./decisiones.md#pasos-8-y-10-del-lanzamiento-2026-10-15)). La QA manual en dispositivos conviene hacerla después de la corrección.
+
+## Paso 11b — U19, G1: servidor (2026-10-15)
+
+Contrato completo, RPC por RPC, en el [expediente](./u19-estudio-flujo-2026-10-15.md#contrato-del-servidor-g1). Solo stack local; staging y producción no se tocaron.
+
+- **Migraciones `20261015190000`, `20261015190100` y `20261015190200`:**
+  - géneros y países con estado `selectable`, `legacy` o `retired`;
+  - alias de nombre y de slug;
+  - propuesta v3, corrección del equipo y marca de «tomada»;
+  - aceptar como borrador o publicando, alta directa de admin desde Sugerir y duplicados por enlace;
+  - importación con listas cerradas.
+- **Siembra:** 36 géneros, 35 países seleccionables (con LATAM) y 20 de legado; EE.UU, EEUU, USA y UK quedan como alias; WORLD, Entrañas y TSA, retirados.
+- **Verificación:** `u19-g1-verify.sql` (129 comprobaciones), la regresión SQL, un ensayo con los diccionarios de staging, la importación completa con `--rollback`, `npm test` 170/170, `build` y `lint:tokens`.
+- **Cierre:** `test:browser` ×2 (337 pasan, 5 omitidas) y `visual:compare` con 3 capturas distintas por el botón «Estudio» del header, recapturadas.
+- **La hoja actual rechazaría 110 filas:** WORLD (103), Entrañas (1), TSA (1) y los 7 de siempre. La lista está en `../discotica-backups/2026-10-15-u19-g1/rechazos-hoja-actual.tsv`.
 
 ## Paso 11 del lanzamiento — E21-rc2: NO-GO (2026-10-15)
 
