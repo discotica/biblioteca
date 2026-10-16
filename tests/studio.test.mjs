@@ -18,8 +18,8 @@ import {
 
 const ON = { adminCatalog: true, editorial: true };
 
-test('U15: cada rol ve las mismas secciones que antes', () => {
-  assert.deepEqual(studioSectionsFor('admin', ON), ['catalogo', 'propuestas', 'reportes']);
+test('U15: cada rol ve las mismas secciones que antes (U19 G4: más Diccionarios para admin)', () => {
+  assert.deepEqual(studioSectionsFor('admin', ON), ['catalogo', 'propuestas', 'reportes', 'diccionarios']);
   assert.deepEqual(studioSectionsFor('colaborador', ON), ['propuestas']);
   assert.deepEqual(studioSectionsFor('comunidad', ON), []);
   assert.deepEqual(studioSectionsFor('', ON), []);
@@ -27,7 +27,7 @@ test('U15: cada rol ve las mismas secciones que antes', () => {
 
 test('U15: cada interruptor apaga solo sus secciones', () => {
   assert.deepEqual(studioSectionsFor('admin', { adminCatalog: false, editorial: true }), ['propuestas', 'reportes']);
-  assert.deepEqual(studioSectionsFor('admin', { adminCatalog: true, editorial: false }), ['catalogo']);
+  assert.deepEqual(studioSectionsFor('admin', { adminCatalog: true, editorial: false }), ['catalogo', 'diccionarios']);
   assert.deepEqual(studioSectionsFor('colaborador', { adminCatalog: true, editorial: false }), []);
 });
 

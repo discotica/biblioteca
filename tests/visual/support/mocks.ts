@@ -30,6 +30,56 @@ const SNAPSHOT_TABLES = new Set(['catalog_releases', 'labels', 'genres', 'countr
 const inflight = new WeakMap<BrowserContext, { count: number }>();
 export const pendingRequests = (ctx: BrowserContext) => inflight.get(ctx)?.count ?? 0;
 
+// ---------- Diccionarios del Estudio (U19, G4) ----------
+// Lista sobre el snapshot (solo publicados: publicados = total). Los estados de G1 se aplican solo
+// aquí, para no cambiar las listas de Sugerir y del editor. Sin alias: el snapshot es anterior a G1.
+type DictionaryBody = { p_kind: string; p_query?: string | null; p_filter?: string; p_page?: number; p_page_size?: number };
+const G1_LEGACY = new Set(['Alemania', 'Australia', 'Austria', 'Canada', 'Corea del Sur', 'España', 'Estados Unidos', 'Francia', 'Hungría', 'India',
+  'Islandia', 'Italia', 'Japón', 'Libano', 'Países Bajos', 'Pakistan', 'Reino Unido', 'Rumania', 'Suecia', 'Suiza', 'Trip Hop', 'Triphop', 'Hard', 'Progresivo', 'Sample']);
+const G1_RETIRED = new Set(['WORLD', 'Entrañas', 'TSA', 'EE.UU', 'EEUU', 'USA', 'UK']);
+const fold = (text: unknown) => String(text ?? '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+const slugify = (text: unknown) => fold(text).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+let dictionaryCounts: Record<string, Map<string, number>> | null = null;
+function dictionaryPage(body: DictionaryBody) {
+  if (!dictionaryCounts) {
+    dictionaryCounts = { genre: new Map(), country: new Map(), label: new Map(), artist: new Map() };
+    const bump = (kind: string, name: unknown) => dictionaryCounts![kind].set(String(name), (dictionaryCounts![kind].get(String(name)) ?? 0) + 1);
+    for (const release of tables.catalog_releases as Row[]) {
+      for (const name of (release.genres as string[]) ?? []) bump('genre', name);
+      for (const name of (release.countries as string[]) ?? []) bump('country', name);
+      for (const name of new Set([...((release.artists as string[]) ?? []), ...(((release.collaborators as Row[]) ?? []).map((c) => c.name))])) bump('artist', name);
+      if (release.label) bump('label', release.label);
+    }
+  }
+  const kind = body.p_kind;
+  const table = { genre: 'genres', country: 'countries', label: 'labels', artist: 'artists' }[kind] ?? 'genres';
+  const closed = kind === 'genre' || kind === 'country';
+  const all = (tables[table] as Row[]).map((row) => {
+    const count = dictionaryCounts![kind].get(String(row.name)) ?? 0;
+    const status = !closed ? null : G1_RETIRED.has(String(row.name)) ? 'retired' : G1_LEGACY.has(String(row.name)) ? 'legacy' : 'selectable';
+    return {
+      id: row.id, name: row.name, slug: row.slug, status, release_count: count, published_count: count, aliases: [], slug_aliases: [],
+      public_slug: kind === 'artist' ? row.slug : kind === 'label' ? slugify(row.name) : null
+    };
+  }).sort((a, b) => fold(a.name).localeCompare(fold(b.name)) || String(a.name).localeCompare(String(b.name)));
+  const filter = body.p_filter ?? 'all';
+  const query = fold(body.p_query);
+  const filtered = all.filter((item) => (filter === 'all' || (filter === 'orphans' ? item.release_count === 0 : item.status === filter))
+    && (!query || fold(item.name).includes(query)));
+  const size = body.p_page_size ?? 50;
+  const page = body.p_page ?? 1;
+  return {
+    kind, filter, page, page_size: size, total: filtered.length,
+    counts: {
+      all: all.length, orphans: all.filter((item) => !item.release_count).length,
+      selectable: all.filter((item) => item.status === 'selectable').length,
+      legacy: all.filter((item) => item.status === 'legacy').length,
+      retired: all.filter((item) => item.status === 'retired').length
+    },
+    items: filtered.slice((page - 1) * size, page * size)
+  };
+}
+
 export async function installNetwork(ctx: BrowserContext, base: string, role: Role | null, opts: MockOptions = {}) {
   const log: NetworkLog = { unmocked: [], blocked: [], writes: [] };
   const counter = { count: 0 };
@@ -124,6 +174,7 @@ export async function installNetwork(ctx: BrowserContext, base: string, role: Ro
           return { name, id: row?.id ?? null, canonical: row?.name ?? null };
         }));
       }
+      if (fn === 'admin_list_catalog_dictionary') return send(dictionaryPage(request.postDataJSON() as DictionaryBody));
       if (fn === 'admin_catalog_quick_view_counts') return send(adminQuickViewCounts);
       if (fn === 'admin_get_catalog_release') return send(adminSelected);
       if (fn === 'admin_get_catalog_history') return send(adminHistory);

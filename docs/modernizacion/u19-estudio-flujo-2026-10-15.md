@@ -11,7 +11,7 @@ Lo origina la lista de correcciones del Estudio que el usuario anotó al usarlo 
 | G1 — Servidor | Listas cerradas, alias, validación, aceptar sin altas implícitas, radar en la propuesta, duplicados por enlace | Aceptado el 2026-10-15, sin commit (ver [contrato](#contrato-del-servidor-g1)) |
 | G2 — Sugerir | Un solo flujo para crear, para todos los roles; sello obligatorio; textos; radar opcional | Aceptado el 2026-10-15 |
 | G3 — Cola en el editor | Admin y colaborador corrigen en el editor; el autor edita hasta que alguien la toma; artistas nuevos en los créditos; RC2-P1-01 | Aceptado el 2026-10-16 (ver [cierre](#g3--la-cola-en-el-editor--opus-55-xhigh)) |
-| G4 — Diccionarios | Pantalla de admin: crear, renombrar, fusionar con alias y borrar huérfanos | Abierto |
+| G4 — Diccionarios | Pantalla de admin: crear, renombrar, fusionar con alias y borrar huérfanos | Aceptado el 2026-10-16 (ver [cierre](#g4--pantalla-de-diccionarios--opus-55-high)) |
 | G5 — Staging | Migraciones de G1 a G4 aplicadas en staging y recorrido corto | Abierto |
 
 ## Lo que hay hoy (verificado en el código y en staging)
@@ -263,6 +263,29 @@ Migración [`20261016120000_u19_g3_editor_pending_names.sql`](../../supabase/mig
 - **`resolve_catalog_names(p_kind, p_names)`** → `jsonb`. `p_kind`: `artist` o `label`; `p_names`: hasta 200 textos. Devuelve, en el mismo orden, `[{name, id, canonical}]`, con `id` y `canonical` en null si el nombre se crearía nuevo. Solo `authenticated` (anon recibe `42501`); `22023` con otro tipo, más de 200 nombres o valores que no son texto. El editor de propuestas lo usa para marcar como «nuevo» solo lo que de verdad se creará al aceptar.
 - **El colaborador no toca el catálogo administrativo:** listar, leer, historial, conteos, guardar, publicar, publicar en lote y el alta directa dan `42501` para colaborador, comunidad y anon, y los intentos no crean artistas (u19-g3-verify, sección 4).
 
+### Añadido en G4
+
+Migración [`20261016180000_u19_g4_dictionaries.sql`](../../supabase/migrations/20261016180000_u19_g4_dictionaries.sql). Verificación: `tests/sql/u19-g4-verify.sql` (104 comprobaciones). Los envoltorios están en [`adminDictionaries.ts`](../../src/lib/services/adminDictionaries.ts) y la traducción de errores en [`dictionaries.ts`](../../src/lib/domain/dictionaries.ts) (`describeDictionaryError`).
+
+| RPC | Firma | Qué hace |
+| --- | --- | --- |
+| `admin_list_catalog_dictionary` | `(p_kind, p_query = null, p_filter = 'all', p_page = 1, p_page_size = 50)` → `jsonb` | Una página con lanzamientos (de cualquier estado y publicados), alias, alias de slug y URL pública, más los conteos por filtro. Busca por nombre y alias. Filtros: `all`, `orphans` y, en géneros y países, `selectable`, `legacy`, `retired`. |
+| `admin_create_catalog_dictionary_value` | `(p_kind, p_name, p_status = 'selectable', p_reason)` | Solo géneros y países; `selectable` o `legacy`. |
+| `admin_rename_catalog_dictionary_value` | `(p_kind, p_id, p_name, p_reason)` | Cambia nombre, clave y slug. Si cambia la clave, el nombre viejo queda como alias. En artistas y sellos, la URL vieja queda como alias de slug. Si el nombre nuevo era alias del mismo valor, el alias se retira. |
+| `admin_merge_catalog_dictionary_values` | `(p_kind, p_source_id, p_target_id, p_reason)` | Ver abajo. |
+| `admin_set_catalog_dictionary_status` | `(p_kind, p_id, p_status, p_reason)` | Solo géneros y países; `selectable` o `legacy` (un retirado también puede volver). |
+| `admin_delete_catalog_dictionary_orphans` | `(p_kind, p_ids, p_reason)` | Solo sellos y artistas, de 1 a 200. Si uno tiene lanzamientos (de cualquier estado) o no existe, no borra ninguno. Sus alias se van con él. |
+
+- **Fusionar,** en una transacción:
+  - las referencias pasan al valor conservado; si un lanzamiento tenía los dos, queda uno. En créditos, si el viejo era principal y el conservado colaborador, el conservado pasa a principal en el lugar del viejo; las posiciones se renumeran;
+  - los lanzamientos afectados suben de `catalog_version`: un editor abierto recibe 40001 y recarga;
+  - las propuestas de créditos de E08 abiertas cambian el id;
+  - los alias y alias de slug del viejo pasan al conservado; el nombre viejo queda como alias y, en artistas y sellos, su URL (el `slug` del artista y `slugifyReleaseIdentity` del nombre) como alias de slug;
+  - el valor viejo se borra. No se escribe una entrada en el historial de cada lanzamiento: el registro del diccionario guarda la lista de lanzamientos.
+- **Auditoría:** `private.catalog_dictionary_change_events` acepta ahora `country` y `artist`, y las operaciones `rename`, `merge`, `status` y `delete` (con `result_version` vacío). La FK de `catalog_artist_change_events.artist_id` se quitó: el registro de altas conserva el id de un artista fusionado o borrado.
+- **`artist_slug_aliases`** admite el sufijo `--hash` de los slugs de artista.
+- **Errores** (`message`, con el valor en `details`): `42501`, `22023 reason_required`, `dictionary_kind_invalid`, `dictionary_name_invalid`, `dictionary_status_invalid`, `dictionary_filter_invalid`, `dictionary_batch_invalid`, `merge_same_value`; `23505 dictionary_value_exists`, `dictionary_alias_exists`; `23503 dictionary_value_in_use`; `P0002 dictionary_value_not_found`.
+
 ### Importación de la hoja
 
 - `scripts/import-catalog.mjs` lee los diccionarios y los alias de la base de destino, también con `--dry-run` si hay `DATABASE_URL`. Sin base, el informe dice `dictionaries: 'not_checked'`.
@@ -383,6 +406,23 @@ Un chat por grupo, en este orden y nunca dos a la vez. Los prompts están en [`p
 4. Cada operación es un RPC de admin auditado, con observación. Fusionar mueve las referencias en una transacción y deja el alias.
 5. Las URL viejas de artista y sello redirigen.
 6. Pruebas de servidor (intentos negativos de colaborador y comunidad) y de navegador.
+
+**Cierre de G4 (2026-10-16).** Lo aceptó el usuario. Antes de construir decidió dos cosas: renombrar también deja la grafía vieja como alias (salvo si solo cambian tildes o mayúsculas), y el lado público queda fuera: los alias los reconocen el servidor, Sugerir, el editor y la importación, no el buscador público.
+- **Qué quedó:**
+  - [`/estudio/diccionarios`](../../src/routes/estudio/diccionarios/+page.svelte), con las pestañas en la URL (`?tipo=`, `?filtro=`, `?q=`, `?p=`). Cada fila tiene un menú: Renombrar, Fusionar con…, Marcar seleccionable o legado, Ver en el catálogo y Borrar (solo sin lanzamientos). Sellos y artistas tienen selección en lote de los huérfanos en escritorio. Cada operación pide la observación y dice antes qué va a pasar.
+  - Sección «Diccionarios» en la barra lateral para admin, con el interruptor del Catálogo, y el icono `etiqueta`.
+  - Las rutas `/artista/[slug]` y `/sello/[slug]` redirigen la URL de un valor fusionado o renombrado (`resolveEntitySlugAlias`).
+  - Estado en la tabla: seleccionable neutro, legado en aviso y retirado en peligro.
+  - Contra un entorno sin la migración (staging hasta G5), la pantalla dice que falta aplicarla.
+- **Pruebas:**
+  - `u19-g4-verify.sql` (104): permisos de los seis RPC con anon, comunidad y colaborador, y cada operación. Tres controles negativos la hacen fallar (fusionar sin subir la versión, borrar sin comprobar el uso, `EXECUTE` para anon). G1 (129), G3 (59) y la regresión SQL en verde; advisors sin hallazgos;
+  - ensayo con un dump de solo lectura de las tablas del catálogo de staging (2.791 lanzamientos), cargado en la cadena anterior a G1 y con G1→G4 aplicados encima:
+    - EEUU → Estados Unidos: como G1 ya lo fusiona, se reconstruyó EEUU con su id y su lanzamiento y se fusionó con el RPC. No quedan referencias, el alias resuelve y el resultado es idéntico al de la migración de G1;
+    - Triphop → Trip Hop: sin referencias al viejo, con alias y la versión subida en sus dos lanzamientos (archivados);
+    - en la app: «Anaquia)» → «Anaquia» e «In-Correcto» → «Incorrecto», con sus URL viejas redirigiendo; el renombre a un nombre vivo da el error que pide fusionar; el único sello huérfano («NVR») se borró;
+  - `npm test` 194/194, `build`, `lint:tokens` y `test:browser` ×2 (364 pasan, 5 omitidas); [`u19-diccionarios.spec.ts`](../../tests/browser/u19-diccionarios.spec.ts) (11), con el área táctil de 44 px en escritorio y móvil. U7 y U15 se adaptaron a la cuarta sección.
+- **Capturas** en [`capturas-u19/`](./capturas-u19/) (`diccionarios-*`, con los datos reales). En la suite visual cambiaron 25: 21 de admin en el Estudio por la entrada de la barra lateral, `perfil-admin-D` por el botón «Diccionarios» y `lab-D/M` por el icono. Hay 7 nuevas: `estudio-diccionarios-{generos,artistas}-D/M`, `-paises-D`, `-sellos-D` y `-fusionar-D`.
+- **Duplicados reales vistos en staging** que se pueden fusionar después de G5: artistas como «A C R U X» / «ACRUX», «Addly Muff» / «Addlymuff», «Anti Yo» / «Anti-Yo», «Badgyal» / «Bad Gyal», y sellos como «LocalTalk» / «Local Talk». Ninguno se tocó en staging.
 
 ### G5 — Aplicar en staging · Opus 5.5 `high`
 

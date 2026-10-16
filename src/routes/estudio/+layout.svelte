@@ -27,7 +27,7 @@
     editorial: import.meta.env.VITE_EDITORIAL_ENABLED === 'true'
   };
   const enabled = flags.adminCatalog || flags.editorial;
-  const ICONS = { catalogo: 'grilla', propuestas: 'lista', reportes: 'reportar' } as const;
+  const ICONS = { catalogo: 'grilla', propuestas: 'lista', reportes: 'reportar', diccionarios: 'etiqueta' } as const;
 
   let role = $state<string | null>(null);
   let roleError = $state('');

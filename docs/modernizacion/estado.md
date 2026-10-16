@@ -4,13 +4,26 @@ Actualizado: 2026-10-16.
 
 > **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:**
 >
-> 1. Paso 11b — U19: flujo del Estudio y diccionarios ([expediente](./u19-estudio-flujo-2026-10-15.md)), grupos G1 a G5 en orden. G1 y G2 aceptados y cerrados el 2026-10-15; G3 (cola en el editor, con RC2-P1-01) el 2026-10-16. Sigue G4 (diccionarios).
+> 1. Paso 11b — U19: flujo del Estudio y diccionarios ([expediente](./u19-estudio-flujo-2026-10-15.md)), grupos G1 a G5 en orden. G1 y G2 aceptados y cerrados el 2026-10-15; G3 (cola en el editor, con RC2-P1-01) y G4 (diccionarios) el 2026-10-16. Sigue G5 (aplicar G1 a G4 en staging, con autorización del usuario).
 > 2. El usuario normaliza la hoja contra las listas cerradas y corrige los textos dañados (RC2-P1-02). Después se repite el paso 8.
 > 3. Se repite el paso 11 como E21-rc3.
 >
 > RC2-P0-01 (enlaces de Auth) quedó corregido y verificado en staging con un correo real el 2026-10-15, con las plantillas nuevas ya en el dashboard ([expediente](./e21-rc2-2026-10-15.md#rc2-p0-01--los-enlaces-de-auth-terminan-en-el-enlace-venció)).
 >
 > El paso 11 (E21-rc2) dio **NO-GO** el 2026-10-15 ([expediente](./e21-rc2-2026-10-15.md)). Los pasos 1 a 10 están cerrados: el 8 se aceptó con la hoja tal como está y el 10 se decidió por delegación ([decisiones](./decisiones.md#pasos-8-y-10-del-lanzamiento-2026-10-15)). La QA manual en dispositivos conviene hacerla después de la corrección.
+
+## Paso 11b — U19, G4: diccionarios (2026-10-16)
+
+Pantalla `/estudio/diccionarios`, solo para admin, con pestañas Géneros, Países, Sellos y Artistas. Los detalles están en el [cierre de G4](./u19-estudio-flujo-2026-10-15.md#g4--pantalla-de-diccionarios--opus-55-high).
+
+- **Migración `20261016180000`:** seis RPC de admin auditados con observación: listar, crear (géneros y países), renombrar (la grafía vieja queda como alias), fusionar (una transacción: referencias, alias, URL vieja), marcar seleccionable o legado y borrar huérfanos (todo o nada, comprobado en el servidor).
+- **URL viejas:** `/artista/…` y `/sello/…` redirigen con `artist_slug_aliases` y `label_slug_aliases`.
+- **Verificación:**
+  - `u19-g4-verify.sql` (104, con tres controles negativos), G1 (129), G3 (59) y la regresión SQL en el stack local; advisors sin hallazgos;
+  - ensayo con un dump de solo lectura de staging (`../discotica-backups/2026-10-16-u19-g4/`): G1→G4 aplicados encima; EEUU → Estados Unidos da el mismo resultado que la migración de G1 y Triphop → Trip Hop queda sin referencias;
+  - `npm test` 194/194, `build`, `lint:tokens` y `test:browser` ×2 (364/364, 5 omitidas);
+  - visual: 25 capturas recapturadas y 7 nuevas (193).
+- **Sin aplicar en staging** (eso es G5). Mientras tanto, la pantalla contra staging dice que falta la migración.
 
 ## Paso 11b — U19, G3: la cola en el editor (2026-10-16)
 

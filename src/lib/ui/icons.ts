@@ -87,6 +87,8 @@ export const ICONS = {
       'M4 18h10', 'M18 18h2', circle(16, 18, 2)
     ]
   },
+  // Diccionarios del Estudio (U19): géneros, países, sellos y artistas son etiquetas.
+  etiqueta: { paths: ['M4 4h7.2l8.8 8.8-7.2 7.2L4 11.2Z', circle(8.5, 8.5, 1.5)] },
 
   // ---- Redes (perfil, D1) -------------------------------------------------
   bandcamp: { filled: true, paths: ['M2 18 8.5 6H22l-6.5 12H2Z'] },

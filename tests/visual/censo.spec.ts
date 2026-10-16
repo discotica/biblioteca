@@ -511,6 +511,24 @@ add('estudio-lote-error-D', 'D', STUDIO, {
   setup: async (page) => { await openBatch([0, 1, 3, 4], 'Publicar')(page); await confirmBatch(page); }
 });
 each(['D', 'M'], 'estudio-reportes', '/estudio/reportes', { role: 'admin', full: true, maxH: 2400, supplementary: true });
+// U19 (G4): diccionarios, una captura por pestaña y la fusión.
+const DICCIONARIOS = '/estudio/diccionarios';
+each(['D', 'M'], 'estudio-diccionarios-generos', DICCIONARIOS, { role: 'admin', full: true, maxH: 2400, supplementary: true });
+add('estudio-diccionarios-paises-D', 'D', `${DICCIONARIOS}?tipo=paises`, { role: 'admin', full: true, maxH: 2400, supplementary: true });
+add('estudio-diccionarios-sellos-D', 'D', `${DICCIONARIOS}?tipo=sellos`, { role: 'admin', full: true, maxH: 2400, supplementary: true });
+each(['D', 'M'], 'estudio-diccionarios-artistas', `${DICCIONARIOS}?tipo=artistas`, { role: 'admin', full: true, maxH: 2400, supplementary: true });
+add('estudio-diccionarios-fusionar-D', 'D', `${DICCIONARIOS}?tipo=paises&q=eeuu`, {
+  role: 'admin', supplementary: true,
+  setup: async (page) => {
+    await page.getByRole('button', { name: 'Acciones de EEUU' }).click();
+    await page.getByRole('menuitem', { name: 'Fusionar con…' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Conservar').fill('Estados');
+    await dialog.getByRole('option', { name: /^Estados Unidos/ }).click();
+    await dialog.getByLabel(/Observación del cambio/).fill('Grafía duplicada de la hoja');
+    await settle(page);
+  }
+});
 // U17: bandeja. En móvil, el detalle abierto (con "Volver"); en tablet, lista y detalle.
 const PROPUESTA = '/estudio/propuestas?propuesta=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb03';
 add('estudio-propuesta-M', 'M', PROPUESTA, { role: 'admin', full: true, maxH: 3600, supplementary: true });

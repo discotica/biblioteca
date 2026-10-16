@@ -192,6 +192,25 @@ export async function findReleasesByLabelSlug(slug: string): Promise<{ labelName
   return { labelName: releases[0]?.label || decodeURIComponent(slug), releases };
 }
 
+/**
+ * U19 (G4): URL vieja de un artista o un sello fusionado o renombrado. Devuelve el slug público
+ * del valor conservado (el de su /artista/ o /sello/), o null si el slug no es un alias. Solo en
+ * el catálogo canónico: el TSV no tiene diccionarios.
+ */
+export async function resolveEntitySlugAlias(kind: 'artist' | 'label', slug: string): Promise<string | null> {
+  if (catalogSource !== 'canonical' || !slug) return null;
+  if (kind === 'artist') {
+    const { data, error } = await supabase.from('artist_slug_aliases').select('artist:artists(slug)').eq('slug', slug).maybeSingle();
+    if (error || !data) return null;
+    const target = (data as { artist?: { slug?: string } | null }).artist?.slug;
+    return target && target !== slug ? target : null;
+  }
+  const { data, error } = await supabase.from('label_slug_aliases').select('label:labels(name)').eq('slug', slug).maybeSingle();
+  if (error || !data) return null;
+  const target = slugifyReleaseIdentity((data as { label?: { name?: string } | null }).label?.name);
+  return target && target !== slug ? target : null;
+}
+
 /** Lee por UUID y resuelve slugs restantes con la misma política atómica. */
 export async function fetchReleasesForCrate(releaseIds: string[], slugs: string[]): Promise<Release[]> {
   const ids = [...new Set(releaseIds.filter(Boolean))];

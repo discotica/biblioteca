@@ -469,6 +469,13 @@ Las decidió el usuario en cinco rondas de preguntas, a partir de su lista de co
 - **Radar vacío:** «Sin radar · Añadir radar»; no hay botón para quitarlo (Claude).
 - **Pendiente sin grupo:** en móvil, la barra de admin con cinco acciones ocupa unas cuatro filas fijas abajo. Funciona; se puede compactar si molesta.
 
+**Añadidas al cerrar G4 (2026-10-16, aceptadas por el usuario):**
+- **Renombrar deja alias** de la grafía vieja, como fusionar, salvo si solo cambian tildes o mayúsculas. Así la hoja y Sugerir no vuelven a crear el valor viejo (decisión del usuario).
+- **Los alias no llegan al buscador público:** los reconocen el servidor, Sugerir, el editor y la importación. Como fusionar mueve los lanzamientos al valor conservado, el buscador ya los encuentra por él. «La búsqueda» de la decisión de U19 se entiende así (decisión del usuario). El pendiente de G1 sobre ocultar los países de legado en los filtros públicos sigue sin grupo: la lista fija de `filterOptions.ts` ya los oculta.
+- **Fusionar no escribe en el historial de cada lanzamiento:** sube su versión y el registro del diccionario guarda la lista. Revertir un cambio anterior a la fusión deja de ser posible, como con cualquier edición posterior (Claude).
+- **Borrar huérfanos es todo o nada** y cuenta los lanzamientos de cualquier estado (Claude).
+- **Diccionarios va con el interruptor del Catálogo** (Claude).
+
 **Sustituye:**
 - en «Sugerir (U13)»: el «Continuar en la consola» de admin y los cuatro «Añadir «…»»;
 - en «Editor del Estudio (U16)»: el alta de géneros desde el Combobox;

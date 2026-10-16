@@ -167,7 +167,7 @@ test.describe('U7 roles: header y acceso al Estudio desde el header y el perfil 
     comunidad: [],
     // U15: una entrada por sección del Estudio que ve el rol.
     colaborador: [['Propuestas', '/estudio/propuestas']],
-    admin: [['Catálogo', '/estudio/catalogo'], ['Propuestas', '/estudio/propuestas'], ['Reportes', '/estudio/reportes']]
+    admin: [['Catálogo', '/estudio/catalogo'], ['Propuestas', '/estudio/propuestas'], ['Reportes', '/estudio/reportes'], ['Diccionarios', '/estudio/diccionarios']]
   };
   for (const role of ['anonimo', 'comunidad', 'colaborador', 'admin'] as Role[]) {
     for (const width of [390, 1440]) {

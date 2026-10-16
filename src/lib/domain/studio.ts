@@ -10,7 +10,7 @@
  */
 
 export type StudioRole = 'admin' | 'colaborador';
-export type StudioSectionId = 'catalogo' | 'propuestas' | 'reportes';
+export type StudioSectionId = 'catalogo' | 'propuestas' | 'reportes' | 'diccionarios';
 
 export const STUDIO_BASE = '/estudio';
 
@@ -20,7 +20,8 @@ export const NEW_RELEASE_HREF = '/sugerir';
 export const STUDIO_SECTIONS: ReadonlyArray<{ id: StudioSectionId; label: string; href: string }> = [
   { id: 'catalogo', label: 'Catálogo', href: `${STUDIO_BASE}/catalogo` },
   { id: 'propuestas', label: 'Propuestas', href: `${STUDIO_BASE}/propuestas` },
-  { id: 'reportes', label: 'Reportes', href: `${STUDIO_BASE}/reportes` }
+  { id: 'reportes', label: 'Reportes', href: `${STUDIO_BASE}/reportes` },
+  { id: 'diccionarios', label: 'Diccionarios', href: `${STUDIO_BASE}/diccionarios` }
 ];
 
 export type StudioFlags = { adminCatalog: boolean; editorial: boolean };
@@ -28,7 +29,8 @@ export type StudioFlags = { adminCatalog: boolean; editorial: boolean };
 /**
  * Secciones que ve cada rol, iguales a las rutas de antes:
  * - admin: Catálogo (consola de E07, con su interruptor) y Propuestas y
- *   Reportes (estación de E10, con el suyo);
+ *   Reportes (estación de E10, con el suyo). Diccionarios (U19) va con el
+ *   interruptor del Catálogo: edita los mismos datos;
  * - colaborador: solo Propuestas, como en /editorial;
  * - comunidad y sin sesión: ninguna.
  */
@@ -36,7 +38,8 @@ export function studioSectionsFor(role: string, flags: StudioFlags): StudioSecti
   if (role === 'admin') {
     return [
       ...(flags.adminCatalog ? (['catalogo'] as const) : []),
-      ...(flags.editorial ? (['propuestas', 'reportes'] as const) : [])
+      ...(flags.editorial ? (['propuestas', 'reportes'] as const) : []),
+      ...(flags.adminCatalog ? (['diccionarios'] as const) : [])
     ];
   }
   if (role === 'colaborador') return flags.editorial ? ['propuestas'] : [];
