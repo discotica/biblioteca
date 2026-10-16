@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { Combobox, Icon, IconButton, type ComboboxOption } from '$lib/ui';
-  import { moveCredits } from '$lib/domain/releaseEditor';
+  import { Button, Combobox, Icon, IconButton, Notice, type ComboboxOption } from '$lib/ui';
+  import { normalizeSearch } from '$lib/ui/combobox';
+  import { isPendingId, mergeById, moveCredits, pendingId, pendingName } from '$lib/domain/releaseEditor';
   import { searchArtists, type Artist, type CatalogSnapshot } from '$lib/services/adminCatalog';
+  import { SimilarEntries } from './similarEntries.svelte';
 
   type CreditKind = 'artist_ids' | 'collaborator_ids';
 
@@ -10,13 +12,16 @@
     release: CatalogSnapshot;
     /** Nombres conocidos de artistas (compartidos con la lista del catálogo). */
     artists: Artist[];
-    /** Alta confirmada de una identidad nueva (E06); null si se cancela. */
-    oncreateartist: (name: string) => Promise<Artist | null>;
+    /**
+     * U19: un artista que no existe entra como nombre nuevo y se crea «al guardar» (catálogo) o
+     * «al aceptar» (propuesta). Sustituye al diálogo de alta de E06.
+     */
+    createdWhen: string;
     /** Un aviso sobre los créditos (p. ej. "ya está en el otro grupo"). */
     onmessage?: (text: string) => void;
   };
 
-  let { release = $bindable(), artists = $bindable(), oncreateartist, onmessage }: Props = $props();
+  let { release = $bindable(), artists = $bindable(), createdWhen, onmessage }: Props = $props();
 
   const GROUPS: Array<{ kind: CreditKind; title: string; other: string; optional: boolean }> = [
     { kind: 'artist_ids', title: 'Artistas principales', other: 'colaboradores', optional: false },
@@ -32,7 +37,8 @@
   let dragging = $state<string[]>([]);
   let dropTarget = $state<{ kind: CreditKind; before: string | null } | null>(null);
 
-  const nameOf = (id: string) => artists.find((artist) => artist.id === id)?.name ?? 'Artista sin resolver';
+  const similar = new SimilarEntries('artists');
+  const nameOf = (id: string) => (isPendingId(id) ? pendingName(id) : artists.find((artist) => artist.id === id)?.name ?? 'Artista sin resolver');
   const otherKind = (kind: CreditKind): CreditKind => (kind === 'artist_ids' ? 'collaborator_ids' : 'artist_ids');
 
   function optionsFor(kind: CreditKind): ComboboxOption[] {
@@ -74,9 +80,7 @@
   }
 
   function remember(entries: Artist[]) {
-    const known = new Set(artists.map((artist) => artist.id));
-    const fresh = entries.filter((artist) => !known.has(artist.id));
-    if (fresh.length) artists = [...artists, ...fresh];
+    artists = mergeById(artists, entries);
   }
 
   function apply(next: { artist_ids: string[]; collaborator_ids: string[] }) {
@@ -97,12 +101,25 @@
     picked = picked.filter((id) => !removed.includes(id));
   }
 
-  async function create(kind: CreditKind, text: string): Promise<ComboboxOption | null> {
-    const artist = await oncreateartist(text);
-    if (!artist) return null;
+  /** «Añadir «…»»: el que se llama igual en los resultados, o un nombre nuevo con aviso de parecidos. */
+  function create(kind: CreditKind, text: string): ComboboxOption {
+    const name = text.replace(/\s+/g, ' ').trim();
+    const same = results[kind].find((artist) => normalizeSearch(artist.name) === normalizeSearch(name));
+    if (same) remember([same]);
+    else similar.check(name);
+    const id = same?.id ?? pendingId(name);
+    if (release[otherKind(kind)].includes(id)) apply(moveCredits(release, [id], kind));
+    return { value: id, label: same?.name ?? name };
+  }
+
+  /** «Usar «…»»: el existente ocupa el lugar del nombre nuevo, en el mismo grupo y posición. */
+  function useExisting(kind: CreditKind, id: string, artist: Artist) {
     remember([artist]);
-    if (release[otherKind(kind)].includes(artist.id)) apply(moveCredits(release, [artist.id], kind));
-    return { value: artist.id, label: artist.name };
+    const swap = (ids: string[]) => ids.map((value) => (value === id ? artist.id : value)).filter((value, index, list) => list.indexOf(value) === index);
+    const credits = { artist_ids: swap(release.artist_ids), collaborator_ids: swap(release.collaborator_ids) };
+    // Si el existente ya estaba en el otro grupo, se queda en el que eligió quien edita.
+    apply(credits.artist_ids.includes(artist.id) && credits.collaborator_ids.includes(artist.id) ? moveCredits(credits, [artist.id], kind) : credits);
+    picked = picked.filter((value) => value !== id);
   }
 
   function remove(kind: CreditKind, id: string) {
@@ -192,9 +209,10 @@
                 type="button"
                 class="credit__name"
                 aria-pressed={picked.includes(id)}
-                aria-label={`Seleccionar ${nameOf(id)}`}
+                aria-label={`Seleccionar ${nameOf(id)}${isPendingId(id) ? `, nuevo, se crea ${createdWhen}` : ''}`}
                 onclick={(event) => select(event, group.kind, id, index)}
               >{nameOf(id)}</button>
+              {#if isPendingId(id)}<span class="credit__new" aria-hidden="true">Nuevo · se crea {createdWhen}</span>{/if}
               <IconButton size="sm" icon="intercambiar" label={`Mover a ${group.other}`} onclick={() => moveToOther(group.kind, id)} />
               <IconButton size="sm" icon="cerrar" label={`Quitar ${nameOf(id)}`} tooltipAlign="end" onclick={() => remove(group.kind, id)} />
             </li>
@@ -215,12 +233,22 @@
         bind:query={queries[group.kind]}
         loading={searching[group.kind]}
         allowCreate={queries[group.kind].trim().length >= 2 && !searching[group.kind]}
-        createLabel={(text) => `Crear identidad «${text}»`}
+        createLabel={(text) => `Añadir «${text}» como artista nuevo`}
         oncreate={(text) => create(group.kind, text)}
         onchange={(next) => change(group.kind, next)}
         placeholder="Buscar artista…"
         emptyText="No encontramos coincidencias."
       />
+      {#each ids.filter((id) => isPendingId(id) && similar.of(pendingName(id)).length) as id (id)}
+        <Notice class="credits__similar" title={`«${pendingName(id)}» no está en el catálogo y se creará como nuevo.`}>
+          Hay nombres parecidos. Si es el mismo, usa el que ya existe.
+          {#snippet actions()}
+            {#each similar.of(pendingName(id)) as other (other.id)}
+              <Button variant="link" size="sm" onclick={() => useExisting(group.kind, id, other)}>Usar «{other.name}»</Button>
+            {/each}
+          {/snippet}
+        </Notice>
+      {/each}
     </section>
   {/each}
 </div>
@@ -287,6 +315,13 @@
     white-space: nowrap;
     text-overflow: ellipsis;
     cursor: pointer;
+  }
+
+  .credit__new {
+    flex: none;
+    color: var(--color-aviso);
+    font-size: var(--text-2xs);
+    white-space: nowrap;
   }
 
   .credits__empty { margin: 0; padding: var(--space-2) var(--space-1); color: var(--color-texto-tenue); font-size: var(--text-xs); }

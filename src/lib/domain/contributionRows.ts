@@ -18,6 +18,8 @@ export interface ContributionRowInput {
   reviewed_at: string | null;
   updated_at: string;
   release_id: string | null;
+  /** U19: desde que el equipo la tomó, el autor ya no la edita. */
+  taken_at?: string | null;
 }
 
 export type ContributionRowTone = 'neutral' | 'accent' | 'warning' | 'danger';
@@ -43,11 +45,21 @@ export function contributionRowDate(row: ContributionRowInput): { label: string;
 export type ContributionRowAction =
   | { kind: 'resume'; label: 'Retomar'; href: string }
   | { kind: 'fix'; label: 'Corregir'; href: string }
+  | { kind: 'edit'; label: 'Editar'; href: string }
   | { kind: 'view'; label: 'Ver lanzamiento'; href: string };
 
 /**
+ * U19: la propuesta enviada que el equipo ya está revisando (la corrigió, la marcó lista o la
+ * está decidiendo). Quien la propuso ya no la edita.
+ */
+export function contributionTaken(row: Pick<ContributionRowInput, 'status' | 'taken_at'>): boolean {
+  return row.status === 'ready_for_admin' || (row.status === 'pending' && !!row.taken_at);
+}
+
+/**
  * Una acción como mucho: retomar un borrador, corregir lo que el equipo pidió
- * cambiar o ver el lanzamiento aceptado (si sigue publicado). El resto, ninguna.
+ * cambiar, editar lo enviado mientras nadie lo haya tomado (U19) o ver el
+ * lanzamiento aceptado (si sigue publicado). El resto, ninguna.
  */
 export function contributionRowAction(
   row: ContributionRowInput,
@@ -55,6 +67,7 @@ export function contributionRowAction(
 ): ContributionRowAction | null {
   if (row.status === 'draft') return { kind: 'resume', label: 'Retomar', href: `/sugerir?draft=${row.id}` };
   if (row.status === 'changes_requested') return { kind: 'fix', label: 'Corregir', href: `/sugerir?draft=${row.id}` };
+  if (row.status === 'pending' && !row.taken_at) return { kind: 'edit', label: 'Editar', href: `/sugerir?draft=${row.id}` };
   if (row.status === 'approved' && releaseSlug) {
     return { kind: 'view', label: 'Ver lanzamiento', href: `/lanzamiento/${encodeURIComponent(releaseSlug)}` };
   }

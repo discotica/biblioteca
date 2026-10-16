@@ -458,6 +458,17 @@ Las decidió el usuario en cinco rondas de preguntas, a partir de su lista de co
 - **La observación de admin en Sugerir** va al historial (`p_reason`), no a la propuesta, porque el servidor la usaría como reseña.
 - **«Nuevo lanzamiento»** sigue oculto en el Estudio en móvil; allí está «Sugerir» en el header.
 
+**Añadidas al cerrar G3 (2026-10-16, aceptadas por el usuario):**
+- **La bandeja conserva el detalle** (lista, resumen y lo editado frente a la fuente) con «Abrir en el editor». Todas las acciones están en el editor (decisión del usuario).
+- **Después de aceptar, admin vuelve a la cola** con el aviso, el enlace «Abrir el lanzamiento en el Catálogo» y la siguiente propuesta abierta (decisión del usuario).
+- **Nombres nuevos en el editor del catálogo:** se crean al guardar, en la misma transacción, con un cambio en `admin_update_catalog_release` (G3). El editor de propuestas pregunta al servidor qué nombres existen (`resolve_catalog_names`) para marcar como «nuevo» solo lo que se creará (Claude).
+- **Las correcciones se guardan sin nota:** el autor puede leer el historial de su propuesta. La nota interna del colaborador va solo a «Marcar lista» (se guarda antes la corrección y se marca lista sin payload). La «Nota para quien propone» de admin acompaña a aceptar, pedir cambios y rechazar, y es la que ve el autor (Claude).
+- **La reseña empieza con la nota de quien propone,** porque aceptar la usa si no hay reseña. Si admin la vacía, el servidor publica igualmente esa nota (comportamiento de G1); el editor lo avisa en el campo (Claude).
+- **Aceptar con cambios sin guardar** guarda primero la corrección y acepta con la versión que devolvió (Claude).
+- **Géneros y países fuera de la lista** en una propuesta vieja no se cargan en el editor; un aviso los nombra (Claude).
+- **Radar vacío:** «Sin radar · Añadir radar»; no hay botón para quitarlo (Claude).
+- **Pendiente sin grupo:** en móvil, la barra de admin con cinco acciones ocupa unas cuatro filas fijas abajo. Funciona; se puede compactar si molesta.
+
 **Sustituye:**
 - en «Sugerir (U13)»: el «Continuar en la consola» de admin y los cuatro «Añadir «…»»;
 - en «Editor del Estudio (U16)»: el alta de géneros desde el Combobox;

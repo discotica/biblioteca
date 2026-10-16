@@ -115,6 +115,15 @@ export async function installNetwork(ctx: BrowserContext, base: string, role: Ro
                 : item.signals.open_report_count > 0);
         return send({ items, total: view ? items.length : 2790, page: 1, page_size: 25, quick_view: view });
       }
+      if (fn === 'resolve_catalog_names') {
+        // U19 (G3): qué nombres de artista o sello ya existen. Sin alias: el snapshot es anterior a G1.
+        const body = request.postDataJSON() as { p_kind: string; p_names: string[] };
+        const pool = (body.p_kind === 'artist' ? tables.artists : tables.labels) as Row[];
+        return send(body.p_names.map((name) => {
+          const row = pool.find((candidate) => String(candidate.name).toLowerCase() === name.toLowerCase());
+          return { name, id: row?.id ?? null, canonical: row?.name ?? null };
+        }));
+      }
       if (fn === 'admin_catalog_quick_view_counts') return send(adminQuickViewCounts);
       if (fn === 'admin_get_catalog_release') return send(adminSelected);
       if (fn === 'admin_get_catalog_history') return send(adminHistory);

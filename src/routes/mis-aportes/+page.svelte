@@ -14,7 +14,8 @@
   import {
     CONTRIBUTION_ROW_TONES,
     contributionRowAction,
-    contributionRowDate
+    contributionRowDate,
+    contributionTaken
   } from '$lib/domain/contributionRows';
 
   let { data }: { data: { userId: string; username: string } } = $props();
@@ -90,6 +91,9 @@
               <span>{date.label} <time datetime={date.value}>{formatter.format(new Date(date.value))}</time></span>
               {#if contribution.source_provider}<span class="aporte__source">{contribution.source_provider}</span>{/if}
             </p>
+            {#if contributionTaken(contribution)}
+              <p class="aporte__note">El equipo ya la está revisando: ya no se puede editar.</p>
+            {/if}
             {#if contribution.reviewer_note}
               <p class="aporte__note"><span class="aporte__note-label">Nota del equipo:</span> {contribution.reviewer_note}</p>
             {/if}

@@ -4,7 +4,7 @@
   import { page as pageStore } from '$app/stores';
   import ReleaseEditor from '$lib/components/estudio/ReleaseEditor.svelte';
   import { getStudioContext } from '$lib/components/estudio/context';
-  import { missingFields } from '$lib/domain/releaseEditor';
+  import { mergeById, missingFields } from '$lib/domain/releaseEditor';
   import {
     NEW_RELEASE_HREF,
     STUDIO_QUICK_VIEWS,
@@ -150,10 +150,13 @@
     if (snapshot.signals) return snapshot.signals.missing_fields.map((field) => CATALOG_MISSING_FIELD_LABELS[field] ?? field);
     return missingFields(snapshot);
   }
+  /** RC2-P1-01: la lista se lee después del await y se fusiona por id; la carga del editor no se pierde. */
   async function ensureArtists(ids: string[]) {
     const known = new Set(artists.map((artist) => artist.id));
     const missing = [...new Set(ids)].filter((id) => id && !known.has(id));
-    if (missing.length) artists = [...artists, ...(await getArtistsByIds(missing))];
+    if (!missing.length) return;
+    const found = await getArtistsByIds(missing);
+    artists = mergeById(artists, found);
   }
 
   // ---------------------------------------------------------------------------
@@ -369,7 +372,7 @@
     <ReleaseEditor
       releaseId={editorId}
       bind:labels
-      bind:genres
+      {genres}
       bind:artists
       {countries}
       {types}

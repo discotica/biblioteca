@@ -1,15 +1,17 @@
 <script lang="ts">
   // Propuestas del Estudio (U17): bandeja con la lista a la izquierda y el
   // detalle a la derecha. Muestra solo lo propuesto y marca lo que difiere de lo
-  // detectado. Acciones, estados y RPC son los de la estación de E10 (contrato
-  // E09). El layout ya comprobó sesión y rol.
-  import { tick } from 'svelte';
+  // detectado. Desde U19 (G3) la propuesta se corrige y se decide en el editor
+  // del Estudio (?editar=<id>), el mismo para admin y colaborador. El layout ya
+  // comprobó sesión y rol.
+  import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { Button, Chip, Cover, Dialog, EmptyState, ErrorState, Icon, LoadingIndicator, Notice, Textarea } from '$lib/ui';
+  import { Button, Chip, Cover, EmptyState, ErrorState, Icon, LoadingIndicator, Notice } from '$lib/ui';
   import { InboxDetail, InboxField, InboxItem, InboxLayout, ToolHeader } from '$lib/layouts';
+  import ProposalEditor, { type ProposalOutcome } from '$lib/components/estudio/ProposalEditor.svelte';
   import { getStudioContext } from '$lib/components/estudio/context';
   import { InboxSelection } from '$lib/components/estudio/inboxSelection.svelte';
-  import { studioProposalsHref, studioReleaseHref } from '$lib/domain/studio';
+  import { studioProposalEditorHref, studioProposalsHref, studioReleaseHref, withParams } from '$lib/domain/studio';
   import {
     inboxNeighbor,
     proposalAction,
@@ -24,12 +26,8 @@
     RELEASE_TYPE_OPTIONS,
     loadEditorialQueue,
     loadReleaseContributions,
-    prepareContributionForAdmin,
-    reviewContribution,
     type Contribution
   } from '$lib/stores/contributionsStore';
-
-  type Decision = 'approved' | 'rejected' | 'changes_requested';
 
   const studio = getStudioContext();
   const role = studio.role;
@@ -41,19 +39,16 @@
   let loaded = $state(false);
   let queue = $state<Contribution[]>([]);
   let loadError = $state('');
-  /** Error de la última acción, en el detalle. */
-  let actionError = $state('');
-  let noteError = $state('');
   let flash = $state('');
-  /** Lanzamiento creado por la última aprobación, para abrirlo en el Catálogo. */
+  /** Lanzamiento creado por la última aceptación, para abrirlo en el Catálogo. */
   let approvedReleaseId = $state<string | null>(null);
-  let busy = $state('');
-  let notes = $state<Record<string, string>>({});
-  let approvalOpen = $state(false);
-  let noteField = $state<HTMLTextAreaElement>();
+  /** El editor se abrió desde la bandeja en esta pestaña: "Volver" es atrás. */
+  let openedFromInbox = false;
 
   /** ?lanzamiento=<uuid>: las propuestas que crearon ese lanzamiento (solo consulta). */
   const releaseFilter = $derived(page.url.searchParams.get('lanzamiento'));
+  /** ?editar=<uuid>: la propuesta abierta en el editor (U19). */
+  const editingId = $derived(page.url.searchParams.get('editar'));
   const groups = $derived(proposalGroups(queue, role, !!releaseFilter));
   const ordered = $derived(groups.flatMap((group) => group.items));
   const ids = $derived(ordered.map((item) => item.id));
@@ -78,13 +73,6 @@
     void load(releaseFilter);
   });
 
-  // Cada propuesta empieza sin errores de la anterior.
-  $effect(() => {
-    void selectedId;
-    actionError = '';
-    noteError = '';
-  });
-
   const title = (item: Contribution) => item.payload.title?.trim() || 'Propuesta sin título';
   const date = (value: string | null | undefined) => (value ? dateFormat.format(new Date(value)) : '');
   const editedCount = (item: Contribution) => proposalFields(item, RELEASE_TYPE_OPTIONS).filter((field) => field.edited).length;
@@ -93,69 +81,53 @@
     return name ? name.charAt(0).toLocaleUpperCase('es') + name.slice(1) : 'Fuente';
   };
 
-  function resolved(item: Contribution, updated: Contribution) {
-    const next = inboxNeighbor(ids, item.id);
-    queue = releaseFilter ? queue.map((entry) => (entry.id === item.id ? updated : entry)) : queue.filter((entry) => entry.id !== item.id);
-    delete notes[item.id];
-    studio.refreshCounts();
-    if (!releaseFilter) selection.advance(next);
-  }
-
-  async function prepare(item: Contribution) {
-    busy = item.id;
-    actionError = '';
+  function openEditor(event: MouseEvent, id: string) {
+    event.preventDefault();
+    openedFromInbox = true;
     flash = '';
     approvedReleaseId = null;
-    try {
-      const updated = await prepareContributionForAdmin(item.id, item.payload, notes[item.id] ?? '');
-      flash = `${title(item)} quedó lista para administración.`;
-      // El colaborador ya no la ve en su cola; un admin la vería en la prioritaria.
-      if (role === 'colaborador') resolved(item, updated);
-      else queue = queue.map((entry) => (entry.id === item.id ? updated : entry));
-    } catch (cause: any) {
-      actionError = cause?.message || 'No se pudo preparar la propuesta.';
-    } finally {
-      busy = '';
-    }
+    void goto(studioProposalEditorHref(id));
   }
 
-  async function decide(item: Contribution, action: Decision) {
-    actionError = '';
-    noteError = '';
-    flash = '';
-    approvedReleaseId = null;
-    const note = notes[item.id]?.trim() ?? '';
-    if (action !== 'approved' && !note) {
-      noteError = action === 'rejected' ? 'Escribe una nota antes de rechazar.' : 'Escribe una nota para solicitar cambios.';
-      await tick();
-      noteField?.focus();
+  function closeEditor() {
+    const id = editingId;
+    if (openedFromInbox) {
+      openedFromInbox = false;
+      history.back();
       return;
     }
-    busy = item.id;
-    try {
-      const updated = await reviewContribution(item.id, action, note);
-      approvalOpen = false;
-      flash = `${title(item)}: ${CONTRIBUTION_STATUS_LABELS[updated.status]}.`;
-      approvedReleaseId = action === 'approved' ? updated.release_id : null;
-      resolved(item, updated);
-    } catch (cause: any) {
-      actionError = cause?.message || 'No se pudo registrar la decisión.';
-      if (action === 'approved') approvalOpen = false;
-    } finally {
-      busy = '';
-    }
+    void goto(withParams(page.url, { editar: null, propuesta: id }), { replaceState: true });
+  }
+
+  /** Se decidió en el editor: sale de la cola (o se actualiza, con el filtro de un lanzamiento) y se abre la siguiente. */
+  function decided(id: string, outcome: ProposalOutcome) {
+    const next = inboxNeighbor(ids, id);
+    queue = releaseFilter
+      ? queue.map((entry) => (entry.id === id && outcome.contribution ? outcome.contribution : entry))
+      : queue.filter((entry) => entry.id !== id);
+    flash = outcome.flash;
+    approvedReleaseId = outcome.releaseId;
+    openedFromInbox = false;
+    studio.refreshCounts();
+    if (releaseFilter) void load(releaseFilter);
+    selection.advance(releaseFilter ? id : next, { editar: null });
   }
 </script>
 
-<svelte:head><title>Propuestas · Estudio — Discótica</title></svelte:head>
+<svelte:head>{#if !editingId}<title>Propuestas · Estudio — Discótica</title>{/if}</svelte:head>
+
+{#if editingId}
+  {@const id = editingId}
+  <ProposalEditor contributionId={id} {role} {userId} onclose={closeEditor} ondone={(outcome) => decided(id, outcome)} />
+{:else}
 
 <ToolHeader
   title="Propuestas"
   description={releaseFilter
     ? 'Propuestas que crearon este lanzamiento.'
     : role === 'admin'
-      ? 'Revisa cada propuesta y apruébala, pide cambios o recházala.'
-      : 'Prepara propuestas de la comunidad para la revisión final de administración.'}
+      ? 'Revisa cada propuesta y ábrela en el editor para corregirla, aceptarla, pedir cambios o rechazarla.'
+      : 'Corrige propuestas de la comunidad en el editor y márcalas listas para administración.'}
 >
   {#snippet actions()}
     {#if releaseFilter}
@@ -211,6 +183,7 @@
       {/if}
     {/snippet}
   </InboxLayout>
+{/if}
 {/if}
 
 {#snippet Detail(item: Contribution)}
@@ -270,52 +243,21 @@
     {/if}
 
     {#snippet actions()}
-      {#if action === 'review'}
-        <Textarea
-          label="Nota para la persona autora"
-          hint="Obligatoria al pedir cambios o rechazar."
-          rows={3}
-          bind:value={() => notes[item.id] ?? '', (value) => (notes[item.id] = value)}
-          bind:element={noteField}
-          error={noteError}
-        />
+      {#if action === 'review' || action === 'prepare'}
         <div class="l-inbox-buttons">
-          <Button onclick={() => (approvalOpen = true)} disabled={busy === item.id}>Revisar publicación</Button>
-          <Button variant="secondary" onclick={() => decide(item, 'changes_requested')} disabled={busy === item.id}>Solicitar cambios</Button>
-          <Button variant="destructive" onclick={() => decide(item, 'rejected')} disabled={busy === item.id}>Rechazar</Button>
+          <Button href={studioProposalEditorHref(item.id)} onclick={(event: MouseEvent) => openEditor(event, item.id)}>Abrir en el editor</Button>
         </div>
-      {:else if action === 'prepare'}
-        <Textarea label="Nota interna" optional hint="Evidencia o contexto para administración." rows={3} bind:value={() => notes[item.id] ?? '', (value) => (notes[item.id] = value)} />
-        <div class="l-inbox-buttons">
-          <Button onclick={() => prepare(item)} loading={busy === item.id} disabled={busy === item.id}>Marcar lista para administración</Button>
-        </div>
+        <p class="propuestas__waiting">
+          {action === 'review'
+            ? 'En el editor la corriges y decides: aceptar como borrador o publicando, pedir cambios o rechazar.'
+            : 'En el editor la corriges y la marcas lista para administración.'}
+        </p>
       {:else if action === 'waiting'}
         <p class="propuestas__waiting">Pendiente de revisión administrativa.</p>
       {/if}
-      {#if actionError}<Notice tone="error">{actionError}</Notice>{/if}
     {/snippet}
   </InboxDetail>
 {/snippet}
-
-{#if selected}
-  {@const item = selected}
-  <Dialog
-    bind:open={approvalOpen}
-    title={title(item)}
-    description="Confirma el lanzamiento que se publicará con estos datos."
-    initialFocus="[data-approval-back]"
-  >
-    <dl class="propuestas__summary">
-      {#each proposalFields(item, RELEASE_TYPE_OPTIONS).filter((field) => field.key !== 'title') as field (field.key)}
-        <InboxField label={field.label} value={field.value} />
-      {/each}
-    </dl>
-    {#snippet footer()}
-      <Button variant="secondary" data-approval-back onclick={() => (approvalOpen = false)}>Volver</Button>
-      <Button onclick={() => decide(item, 'approved')} loading={busy === item.id} disabled={busy === item.id}>Aprobar y publicar</Button>
-    {/snippet}
-  </Dialog>
-{/if}
 
 <style>
   :global(.propuestas__notice) { margin-bottom: var(--density-pad); }
@@ -347,16 +289,8 @@
 
   .propuestas__waiting { margin: 0; color: var(--color-texto-medio); font-size: var(--density-text); }
 
-  .propuestas__summary {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-4);
-    margin: 0;
-  }
-
   @media (max-width: 679px) {
     .propuestas__data--cover { grid-template-columns: minmax(0, 1fr); }
     .propuestas__cover { width: var(--tool-cover); }
-    .propuestas__summary { grid-template-columns: minmax(0, 1fr); }
   }
 </style>

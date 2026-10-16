@@ -2,7 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   EDITOR_SECTIONS,
+  PROPOSAL_EDITOR_SECTIONS,
   changedFields,
+  isPendingId,
+  mergeById,
+  pendingId,
+  pendingName,
+  withPendingNames,
   inferProvider,
   missingBySection,
   missingFields,
@@ -89,4 +95,45 @@ test('historial: operaciones y campos en palabras, sin la versión ni la fecha d
   };
   assert.deepEqual(changedFields(entry), ['Título', 'Portada']);
   assert.deepEqual(changedFields({ before_state: null, after_state: { title: 'A' } }), ['Título']);
+});
+
+test('U19: con una propuesta abierta, la última sección es la propuesta', () => {
+  assert.deepEqual(PROPOSAL_EDITOR_SECTIONS.map((section) => section.label), ['Datos', 'Créditos', 'Clasificación', 'Medios', 'Propuesta']);
+  assert.deepEqual(missingBySection(complete()).propuesta, []);
+});
+
+test('U19: un nombre nuevo ocupa el lugar de un UUID y cuenta como presente', () => {
+  const id = pendingId('  Sello   Raro ');
+  assert.equal(id, 'nuevo:Sello Raro');
+  assert.ok(isPendingId(id));
+  assert.equal(isPendingId('3f0e…'), false);
+  assert.equal(isPendingId(null), false);
+  assert.equal(pendingName(id), 'Sello Raro');
+  // Sello y artista nuevos no faltan para publicar: se crean al guardar.
+  assert.deepEqual(missingFields({ ...complete(), label_id: id, artist_ids: [pendingId('Nueva')] }), []);
+});
+
+test('U19: al guardar, los nombres nuevos viajan como { name } y label_name', () => {
+  const value = { title: 'X', artist_ids: ['a', pendingId('Nueva Uno')], collaborator_ids: [pendingId('Nueva Dos')], label_id: pendingId('Sello Nuevo') };
+  assert.deepEqual(withPendingNames(value), {
+    title: 'X',
+    artist_ids: ['a', { name: 'Nueva Uno' }],
+    collaborator_ids: [{ name: 'Nueva Dos' }],
+    label_id: null,
+    label_name: 'Sello Nuevo'
+  });
+  // Sin nombres nuevos, el payload no cambia (ni aparece label_name).
+  assert.deepEqual(withPendingNames({ artist_ids: ['a'], collaborator_ids: [], label_id: 'l' }), { artist_ids: ['a'], collaborator_ids: [], label_id: 'l' });
+});
+
+test('RC2-P1-01: dos cargas de artistas que se cruzan no se pisan', () => {
+  // Las dos leen la lista vacía antes del await; antes, la última en llegar borraba a la otra.
+  let shared = [];
+  const fromList = [{ id: 'a1', name: 'De la lista' }];
+  const fromEditor = [{ id: 'a2', name: 'Del editor' }, { id: 'a1', name: 'De la lista' }];
+  shared = mergeById(shared, fromEditor);
+  shared = mergeById(shared, fromList);
+  assert.deepEqual(shared.map((artist) => artist.id), ['a2', 'a1']);
+  // Sin nada nuevo devuelve la misma lista (no provoca un cambio de estado).
+  assert.equal(mergeById(shared, fromList), shared);
 });

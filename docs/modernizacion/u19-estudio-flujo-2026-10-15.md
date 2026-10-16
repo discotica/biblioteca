@@ -10,7 +10,7 @@ Lo origina la lista de correcciones del Estudio que el usuario anotó al usarlo 
 | --- | --- | --- |
 | G1 — Servidor | Listas cerradas, alias, validación, aceptar sin altas implícitas, radar en la propuesta, duplicados por enlace | Aceptado el 2026-10-15, sin commit (ver [contrato](#contrato-del-servidor-g1)) |
 | G2 — Sugerir | Un solo flujo para crear, para todos los roles; sello obligatorio; textos; radar opcional | Aceptado el 2026-10-15 |
-| G3 — Cola en el editor | Admin y colaborador corrigen en el editor; el autor edita hasta que alguien la toma; artistas nuevos en los créditos; RC2-P1-01 | Abierto |
+| G3 — Cola en el editor | Admin y colaborador corrigen en el editor; el autor edita hasta que alguien la toma; artistas nuevos en los créditos; RC2-P1-01 | Aceptado el 2026-10-16 (ver [cierre](#g3--la-cola-en-el-editor--opus-55-xhigh)) |
 | G4 — Diccionarios | Pantalla de admin: crear, renombrar, fusionar con alias y borrar huérfanos | Abierto |
 | G5 — Staging | Migraciones de G1 a G4 aplicadas en staging y recorrido corto | Abierto |
 
@@ -250,6 +250,19 @@ Todos son `security definer`, se llaman con `supabase.rpc` y solo los ejecuta `a
 - Se retiró el trigger `audit_legacy_contribution_publication` de E06: aceptar escribe su propia entrada `create`, que el trigger duplicaba.
 - `admin_create_catalog_genre` sigue, y el género que crea nace seleccionable (el valor por defecto de `status` es `selectable`). G3 retira su diálogo; G4 lo sustituye.
 
+### Añadido en G3
+
+Migración [`20261016120000_u19_g3_editor_pending_names.sql`](../../supabase/migrations/20261016120000_u19_g3_editor_pending_names.sql). Verificación: `tests/sql/u19-g3-verify.sql` (59 comprobaciones).
+
+- **Nombres nuevos al guardar en el catálogo.** `admin_update_catalog_release` acepta en `artist_ids` y `collaborator_ids`, además de UUID, objetos `{"name": "…"}` en su posición, y `label_name` cuando `label_id` viene vacío.
+  - Se resuelven por nombre o alias igual que al aceptar; si no existen, se crean en la misma transacción que guarda, con su evento de alta (el del sello lleva la observación del cambio).
+  - Si el guardado falla (versión, validación), no queda nada creado. La versión se comprueba antes de crear.
+  - Un nombre nuevo que resulta ser un crédito que ya está: `23505 credit_duplicate` (`details`: el nombre). Un objeto sin `name`: `22023`.
+  - Con `label_id`, `label_name` se ignora. El historial guarda UUID, nunca nombres.
+  - En la interfaz, un nombre nuevo ocupa el lugar del UUID con el prefijo `nuevo:` y `withPendingNames` (`releaseEditor.ts`) lo traduce al guardar.
+- **`resolve_catalog_names(p_kind, p_names)`** → `jsonb`. `p_kind`: `artist` o `label`; `p_names`: hasta 200 textos. Devuelve, en el mismo orden, `[{name, id, canonical}]`, con `id` y `canonical` en null si el nombre se crearía nuevo. Solo `authenticated` (anon recibe `42501`); `22023` con otro tipo, más de 200 nombres o valores que no son texto. El editor de propuestas lo usa para marcar como «nuevo» solo lo que de verdad se creará al aceptar.
+- **El colaborador no toca el catálogo administrativo:** listar, leer, historial, conteos, guardar, publicar, publicar en lote y el alta directa dan `42501` para colaborador, comunidad y anon, y los intentos no crean artistas (u19-g3-verify, sección 4).
+
 ### Importación de la hoja
 
 - `scripts/import-catalog.mjs` lee los diccionarios y los alias de la base de destino, también con `--dry-run` si hay `DATABASE_URL`. Sin base, el informe dice `dictionaries: 'not_checked'`.
@@ -347,6 +360,20 @@ Un chat por grupo, en este orden y nunca dos a la vez. Los prompts están en [`p
 3. El autor edita su propuesta pendiente desde Mis aportes y Sugerir mientras no esté tomada. Si ya está tomada, lo ve y no puede editar.
 4. RC2-P1-01: la lista compartida de artistas se fusiona por id, sin la carrera.
 5. Pruebas de navegador: el compilado con artistas nuevos, la corrección del colaborador, aceptar como borrador y publicar, y el autor bloqueado.
+
+**Cierre de G3 (2026-10-16).** Lo aceptó el usuario. Antes de construir eligió dos cosas: la bandeja conserva el detalle con «Abrir en el editor» (todas las acciones viven en el editor) y, al aceptar, admin vuelve a la cola.
+- **Qué quedó:**
+  - `/estudio/propuestas?editar=<id>` abre la propuesta en el editor del Estudio ([`ProposalEditor.svelte`](../../src/lib/components/estudio/ProposalEditor.svelte)). El formulario se separó en [`ReleaseForm.svelte`](../../src/lib/components/estudio/ReleaseForm.svelte), que comparten el editor del catálogo y el de propuestas; la traducción propuesta ↔ formulario y las acciones por rol están en [`proposalEditor.ts`](../../src/lib/domain/proposalEditor.ts).
+  - Admin: Guardar, Aceptar como borrador, Aceptar y publicar (con confirmación), Pedir cambios y Rechazar. Colaborador: Guardar corrección y Marcar lista para admin, con reseña y portada en solo lectura y sin Catálogo. Al decidir vuelve a la cola con el aviso y la siguiente propuesta abierta.
+  - Créditos y sello aceptan nombres nuevos («Nuevo · se crea al guardar» o «al aceptar») con aviso de parecidos y «Usar «…»». El sello es el Combobox de un valor con «Independiente» fijo arriba. Se retiraron los diálogos de alta de artista, sello y género, y `createArtist`, `createLabel` y `createGenre` de `adminCatalog.ts` (los RPC siguen en la base).
+  - El autor edita su propuesta pendiente desde Mis aportes («Editar») y Sugerir («Guardar y reenviar», `update_submitted_contribution`) mientras nadie la haya tomado. Tomada, la ve guardada y no la edita; si el equipo la toma mientras la edita, el guardado falla con «El equipo ya está revisando esta propuesta y ya no se puede editar.» y Sugerir recarga lo guardado.
+  - RC2-P1-01: `mergeById` después de cada `await` en `ReleaseEditor.svelte`, `EditorCredits.svelte` y `estudio/catalogo/+page.svelte`.
+- **Pruebas:**
+  - `u19-g3-verify.sql` (59), `u19-g1-verify.sql` (129) y la regresión SQL en el stack local aislado;
+  - `npm test` 186/186, `build`, `lint:tokens` y `test:browser` ×2 (353 pasan, 5 omitidas);
+  - [`u19-editor.spec.ts`](../../tests/browser/u19-editor.spec.ts): el compilado con artistas nuevos, la corrección del colaborador (sin Catálogo y sin ninguna llamada `admin_*`), aceptar como borrador y publicando con la versión exacta de cada guardado, el autor bloqueado con dos sesiones y RC2-P1-01 con dos cargas cruzadas. Esta última falla en el árbol de G2 con «Artista sin resolver» (comprobado en un worktree aparte).
+  - U15, U17, E07 y E10 se adaptaron: las decisiones ya no están en la bandeja.
+- **Capturas** en [`capturas-u19/`](./capturas-u19/) (`editor-propuesta-admin-*`, `editor-propuesta-colaborador-*` y `autor-bloqueado-1440`). En la suite visual cambiaron 20 por el sello en Combobox, la bandeja con «Abrir en el editor» y el «Editar» de Mis aportes; `editorial-approve-D` y `estudio-propuesta-nota-D` conservan su ID y ahora son del editor. Hay 4 suplementarias nuevas: `estudio-propuesta-editor(-colab)-D/M`.
 
 ### G4 — Pantalla de diccionarios · Opus 5.5 `high`
 

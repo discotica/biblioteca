@@ -113,6 +113,11 @@ export function studioProposalsHref(releaseId?: string | null): string {
   return `${STUDIO_BASE}/propuestas${releaseId ? `?lanzamiento=${encodeURIComponent(releaseId)}` : ''}`;
 }
 
+/** U19: una propuesta abierta en el editor del Estudio (la corrige admin o colaborador). */
+export function studioProposalEditorHref(contributionId: string): string {
+  return `${STUDIO_BASE}/propuestas?editar=${encodeURIComponent(contributionId)}`;
+}
+
 /** Copia de `url` con estos parámetros puestos (string) o quitados (null). */
 export function withParams(url: URL, params: Record<string, string | null>): string {
   const next = new URL(url);

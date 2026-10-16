@@ -100,6 +100,9 @@ async function mockStudio(page: Page, role: Role, options: Options = {}) {
     if (path === '/rest/v1/genres' || path === '/rest/v1/countries') return json(route, []);
     if (path === '/rest/v1/artists') return json(route, [{ id: artistId, name: 'Artista de prueba', slug: 'artista' }]);
     if (path === '/rest/v1/contributions') {
+      // U19: el editor de propuestas la lee por id (con la RLS de E09: el colaborador, solo comunidad ajena).
+      const byId = url.searchParams.get('id');
+      if (byId) return json(route, contributions.find((item) => `eq.${item.id}` === byId) ?? null);
       const releaseFilter = url.searchParams.get('release_id');
       if (releaseFilter) return json(route, contributions.filter((item) => `eq.${item.release_id}` === releaseFilter));
       return json(route, role === 'admin' || role === 'colaborador' ? contributions.filter((item) => item.status === 'pending' || item.status === 'ready_for_admin') : []);
@@ -130,6 +133,7 @@ async function mockStudio(page: Page, role: Role, options: Options = {}) {
         return json(route, reply);
       }
       if (fn === 'review_contribution') return json(route, contributionFor({ status: body.p_action, release_id: body.p_action === 'approved' ? idFor(7) : null }));
+      if (fn === 'resolve_catalog_names') return json(route, body.p_names.map((name: string) => ({ name, id: null, canonical: null })));
       return json(route, {});
     }
     return json(route, []);
@@ -225,8 +229,13 @@ test.describe('U15 permisos por rol', () => {
     await page.goto('/estudio/propuestas');
     await expect(studioNav(page).getByRole('link')).toHaveText([/^\s*Propuestas\s*1$/]);
     await expect(page.getByRole('heading', { name: 'Cola comunitaria' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Marcar lista para administración' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Revisar publicación|Rechazar|Solicitar cambios/ })).toHaveCount(0);
+    // U19 (G3): corrige en el editor, sin Catálogo en la barra lateral y sin leer nada administrativo.
+    await page.getByRole('link', { name: 'Abrir en el editor' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Propuesta comunitaria' })).toBeVisible();
+    await expect(studioNav(page).getByRole('link')).toHaveText([/^\s*Propuestas\s*1$/]);
+    await expect(page.getByRole('button', { name: 'Marcar lista para admin' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Aceptar|Rechazar|Pedir cambios/ })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Catálogo/ })).toHaveCount(0);
     for (const path of ['/estudio/catalogo', '/estudio/reportes', '/estudio/catalogo?lanzamiento=x']) {
       await page.goto(path);
       await expect(page.getByText('Esta sección es solo para administración')).toBeVisible();
@@ -410,13 +419,10 @@ test.describe('U15 catálogo', () => {
     await expect(page.getByRole('article').getByRole('button')).toHaveCount(0);
     expect(calls.some((call) => call.path.includes(`release_id=eq.${idFor(4)}`))).toBe(true);
 
-    // Al aprobar, el aviso lleva al lanzamiento creado sin escribir URLs.
+    // U19 (G3): la propuesta en cola se abre en el editor; aceptar y su aviso están en U17.
     await page.getByRole('link', { name: 'Ver todas' }).click();
     const card = page.getByRole('article', { name: 'Propuesta comunitaria' });
-    await card.getByRole('button', { name: 'Revisar publicación' }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Aprobar y publicar' }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Aceptado' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Abrir el lanzamiento en el Catálogo' })).toHaveAttribute('href', `/estudio/catalogo?lanzamiento=${idFor(7)}`);
+    await expect(card.getByRole('link', { name: 'Abrir en el editor' })).toHaveAttribute('href', /\/estudio\/propuestas\?editar=/);
   });
 
   test('el editor se abre por URL y "Volver" regresa a la vista de la lista', async ({ page }) => {

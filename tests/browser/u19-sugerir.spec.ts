@@ -279,7 +279,8 @@ for (const width of [390, 1440]) {
     await expect(page).toHaveURL(new RegExp(`/estudio/catalogo\\?lanzamiento=${ids.release}$`));
     await expect(page.getByRole('group', { name: 'Artistas principales' }).locator('.credit__name')).toHaveText(['Artista detectado', 'Artista nueva']);
     await expect(page.getByRole('group', { name: 'Colaboradores' }).locator('.credit__name')).toHaveText(['Invitado nuevo']);
-    await expect(page.getByLabel('Sello')).toHaveValue('Sello nuevo');
+    // G3: el sello del editor es el mismo Combobox de un valor que Sugerir.
+    await expect(page.getByRole('button', { name: 'Quitar sello Sello nuevo' })).toBeVisible();
     await expect(page.getByText('Datos traídos de Sugerir')).toHaveCount(0);
   });
 }

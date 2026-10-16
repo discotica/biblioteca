@@ -35,17 +35,17 @@ Variables opcionales:
 
 ## Estado de la línea base
 
-- **Estado que representa:** el árbol tras G2 de U19 (paso 11b del lanzamiento, aceptado el 2026-10-15): Sugerir como único flujo para crear. Incluye G1: botón «Estudio» en el header para admin y colaborador. Antes representaba la corrección de H1 y H15 de U18 (paso 5, aceptada el 2026-10-14) sobre el cierre de U17 (commit `02223ea`), que incluye R1, R2, U2 y U3 además de U4–U17.
-- **Último cambio:** 8 capturas de G2 (`sugerir-D/M`, `sugerir-anon-D/M`, `sugerir-detected-D/M`, `sugerir-admin-D` y `admin-new-D`, que ahora muestra Sugerir), listadas en el [expediente de U19](../../docs/modernizacion/u19-estudio-flujo-2026-10-15.md#g2--sugerir-un-solo-flujo-para-crear--opus-55-high). Antes, 3 de G1. `lab-u6-D/M`, `lab-u8-D` y `estudio-propuesta-nota-D` fallan a veces con 4 workers y pasan al repetirlas. Desde G2, `support/data.ts` da `status: 'selectable'` a géneros y países, porque el snapshot es anterior a G1. Se quita al volver a grabar después de G5.
+- **Estado que representa:** el árbol tras G3 de U19 (paso 11b del lanzamiento, aceptado el 2026-10-16): la cola se corrige en el editor del Estudio. Incluye G2 (Sugerir como único flujo para crear) y G1: botón «Estudio» en el header para admin y colaborador. Antes representaba la corrección de H1 y H15 de U18 (paso 5, aceptada el 2026-10-14) sobre el cierre de U17 (commit `02223ea`), que incluye R1, R2, U2 y U3 además de U4–U17.
+- **Último cambio:** 20 capturas de G3 (el sello del editor en Combobox, la bandeja con «Abrir en el editor», `editorial-approve-D` y `estudio-propuesta-nota-D` ahora en el editor, y el «Editar» de Mis aportes) y 4 nuevas (`estudio-propuesta-editor(-colab)-D/M`), listadas en el [expediente de U19](../../docs/modernizacion/u19-estudio-flujo-2026-10-15.md#g3--la-cola-en-el-editor--opus-55-xhigh). Antes, 8 capturas de G2 (`sugerir-D/M`, `sugerir-anon-D/M`, `sugerir-detected-D/M`, `sugerir-admin-D` y `admin-new-D`, que ahora muestra Sugerir), listadas en el [expediente de U19](../../docs/modernizacion/u19-estudio-flujo-2026-10-15.md#g2--sugerir-un-solo-flujo-para-crear--opus-55-high). Antes, 3 de G1. `lab-u6-D/M`, `lab-u8-D` y `estudio-propuesta-nota-D` fallan a veces con 4 workers y pasan al repetirlas. Desde G2, `support/data.ts` da `status: 'selectable'` a géneros y países, porque el snapshot es anterior a G1. Se quita al volver a grabar después de G5.
 - **Cómo se llegó:** la línea base de U1 se perdió durante U2 y la de R1+R2 (2026-10-05) nunca se versionó. Las diferencias de R1, R2, U2 y U3 se aceptaron al recapturar sobre U17 y quedan descritas solo en sus expedientes de `docs/modernizacion/`. S2 (2026-10-11) confirmó 0 diferencias en 182 capturas y que las referencias temporales `.ref-pre-u3/` y `playwright.ref.config.ts` ya no existen.
-- **Verificada:** `npm run visual:compare` → 182 iguales, 0 diferentes, 0 inestables. La corrección de H2 de U18 (límite de intentos de `login-with-username`, 2026-10-14) dio 0 diferencias contra `.ref-pre-u18fix`, así que no se recapturó; la referencia temporal se borró.
+- **Verificada:** `npm run visual:compare` → 186 iguales, 0 diferentes, 0 inestables (2026-10-16, tras G3). La corrección de H2 de U18 (límite de intentos de `login-with-username`, 2026-10-14) dio 0 diferencias contra `.ref-pre-u18fix`, así que no se recapturó; la referencia temporal se borró.
 
 ## Dónde vive cada cosa
 
 | Ruta | Contenido | ¿Versionado? |
 | --- | --- | --- |
 | `censo.spec.ts` | Lista de capturas (mismos IDs del censo) y runner | Sí |
-| `baseline/<plataforma>/` | Línea base PNG (`darwin` hoy). 182 archivos | Sí |
+| `baseline/<plataforma>/` | Línea base PNG (`darwin` hoy). 186 archivos | Sí |
 | `data/staging.json.gz` | Snapshot de staging: catálogo (2.790), sellos, géneros, países, tipos y artistas. ~880 KB | Sí |
 | `support/` | Mocks, evaluador PostgREST, respaldos locales, estabilización, CSS de las capturas de documento e informe | Sí |
 | `record-staging.mjs` | Grabador del snapshot | Sí |
@@ -91,7 +91,7 @@ La línea base está fuera de `static/` y de `build/`, así que nunca entra en e
 
 ## Capturas
 
-- 182 en total: 127 IDs del censo (126 estados más 1 diagnóstico) y 55 suplementarias (`supplementary: true` en `censo.spec.ts`).
+- 186 en total: 127 IDs del censo (126 estados más 1 diagnóstico) y 59 suplementarias (`supplementary: true` en `censo.spec.ts`).
 - Las suplementarias no están en el censo. Son las del anexo (`home-scrolled-M`, `miscrates-anon-D`, `reportar-anon-D`, `reset-signup-D`) y las que añadió cada etapa desde U5:
   - `lab-D`, `lab-M` (U5): el catálogo de primitivas en `/lab`, página completa. Cada primitiva nueva o extendida aparece ahí.
   - `lab-u6-*`, `lab-u7-*`, `lab-u8-*`, `lab-u17-*` (D y M): solo la sección de cada etapa (captura de elemento), para no depender del largo de las anteriores ni del tope de 10 000 px de `lab-M`.

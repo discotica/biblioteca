@@ -8,8 +8,6 @@ const labelId = '44444444-4444-4444-8444-444444444444';
 const typeId = '55555555-5555-4555-8555-555555555555';
 const genreId = '66666666-6666-4666-8666-666666666666';
 const countryId = '77777777-7777-4777-8777-777777777777';
-const createdLabelId = '88888888-8888-4888-8888-888888888880';
-const createdGenreId = '99999999-9999-4999-8999-999999999990';
 
 const snapshot = {
   id: releaseId,
@@ -225,7 +223,9 @@ test('E07 edita un borrador, lo publica y lo archiva sin cambiar UUID ni slug', 
   await page.getByPlaceholder('https://bandcamp.com/…').fill('https://bandcamp.com/borrador');
   await page.getByLabel('Tipo').selectOption(typeId);
   await page.getByLabel('Fecha de lanzamiento').fill('2026-09-17');
-  await page.getByPlaceholder('Busca un sello existente').fill('Sello de prueba');
+  // U19: el sello es un Combobox de un valor.
+  await page.getByRole('combobox', { name: 'Sello' }).fill('Sello de');
+  await page.getByRole('option', { name: 'Sello de prueba' }).click();
   // U16: géneros y países con el combobox, en lugar de la nube.
   await page.getByRole('combobox', { name: 'Géneros' }).fill('Electr');
   await page.getByRole('option', { name: 'Electrónica' }).click();
@@ -247,40 +247,42 @@ test('E07 edita un borrador, lo publica y lo archiva sin cambiar UUID ni slug', 
   expect(writes[1]).toMatchObject({ p_release_id: releaseId, p_expected_version: 2, p_operation: 'archive', p_payload: { slug: canonicalSlug } });
 });
 
-test('E07 crea sellos y géneros solo mediante las RPC auditadas confirmadas', async ({ page }) => {
-  const calls: Record<string, Record<string, unknown>> = {};
-  await page.route('https://hgocyrzhgohetfpzbmfs.supabase.co/rest/v1/rpc/admin_create_catalog_label', async (route) => {
-    calls.label = route.request().postDataJSON();
-    await json(route, { label_id: createdLabelId, name: 'Sello confirmado', created: true, duplicate: false, audit_event_id: 71, catalog_version: 1 });
-  });
-  await page.route('https://hgocyrzhgohetfpzbmfs.supabase.co/rest/v1/rpc/admin_create_catalog_genre', async (route) => {
-    calls.genre = route.request().postDataJSON();
-    await json(route, { genre_id: createdGenreId, name: 'Género confirmado', created: true, duplicate: false, audit_event_id: 72, catalog_version: 1 });
-  });
+test('U19: sello y artista nuevos se crean al guardar, sin diálogos; los géneros no se crean', async ({ page }) => {
+  const calls: { rpc: string; body: Record<string, any> }[] = [];
+  for (const rpc of ['admin_create_catalog_label', 'admin_create_catalog_genre', 'admin_create_catalog_artist', 'admin_update_catalog_release']) {
+    await page.route(`https://hgocyrzhgohetfpzbmfs.supabase.co/rest/v1/rpc/${rpc}`, async (route) => {
+      calls.push({ rpc, body: route.request().postDataJSON() });
+      await json(route, { release_id: releaseId, catalog_version: snapshot.catalog_version + 1, change_set_id: 'u19-change' });
+    });
+  }
   await openFixtureRelease(page);
 
-  await page.getByPlaceholder('Busca un sello existente').fill('Sello confirmado');
-  await page.getByRole('button', { name: 'Crear sello «Sello confirmado»' }).click();
-  const labelDialog = page.getByRole('dialog', { name: 'Crear sello confirmado' });
-  await expect(labelDialog.getByPlaceholder('Nombre del sello')).toBeFocused();
-  await labelDialog.getByPlaceholder('Nombre del sello').fill('Sello confirmado');
-  await labelDialog.getByPlaceholder('¿Por qué se crea este valor?').fill('Alta editorial confirmada');
-  await labelDialog.getByRole('button', { name: 'Confirmar y auditar' }).click();
-  await expect(page.locator('.editor__feedback')).toContainText('Sello creado y auditado.');
-  expect(calls.label).toMatchObject({ p_name: 'Sello confirmado', p_confirm: true, p_reason: 'Alta editorial confirmada' });
-  await expect(page.getByPlaceholder('Busca un sello existente')).toHaveValue('Sello confirmado');
+  // Sello nuevo: se escribe y queda pendiente, con aviso de parecidos.
+  await page.getByRole('combobox', { name: 'Sello' }).fill('Sello confirmado');
+  await page.getByRole('option', { name: 'Añadir «Sello confirmado» como sello nuevo' }).click();
+  await expect(page.getByText('«Sello confirmado» es nuevo: se crea al guardar.')).toBeVisible();
+  await expect(page.getByText('«Sello confirmado» no está en el catálogo y se creará como nuevo.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Usar «Sello de prueba»' })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 
-  // U16: el alta de género sale del combobox ("Crear género «…»").
+  // Géneros: lista cerrada, sin alta.
   await page.getByRole('combobox', { name: 'Géneros' }).fill('Género confirmado');
-  await page.getByRole('option', { name: 'Crear género «Género confirmado»' }).click();
-  const genreDialog = page.getByRole('dialog', { name: 'Crear género confirmado' });
-  await expect(genreDialog.getByPlaceholder('Nombre del género')).toBeFocused();
-  await expect(genreDialog.getByPlaceholder('Nombre del género')).toHaveValue('Género confirmado');
-  await genreDialog.getByPlaceholder('¿Por qué se crea este valor?').fill('Taxonomía editorial confirmada');
-  await genreDialog.getByRole('button', { name: 'Confirmar y auditar' }).click();
-  await expect(page.locator('.editor__feedback')).toContainText('Género creado y auditado.');
-  expect(calls.genre).toMatchObject({ p_name: 'Género confirmado', p_confirm: true, p_reason: 'Taxonomía editorial confirmada' });
-  await expect(page.getByRole('button', { name: 'Quitar género Género confirmado' })).toBeVisible();
+  await expect(page.getByRole('option', { name: /Añadir|Crear/ })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  // Artista nuevo: entra en los créditos marcado como nuevo.
+  const principal = page.getByRole('group', { name: 'Artistas principales' });
+  await principal.getByRole('combobox').fill('Artista nueva');
+  await page.getByRole('option', { name: 'Añadir «Artista nueva» como artista nuevo' }).click();
+  await expect(principal.locator('.credit')).toHaveCount(2);
+  await expect(principal.locator('.credit').last()).toContainText('Nuevo · se crea al guardar');
+
+  await page.getByPlaceholder('¿Qué cambió?').fill('Créditos y sello nuevos');
+  await page.getByRole('button', { name: 'Guardar cambios' }).click();
+  await expect(page.locator('.editor__feedback')).toContainText('Cambios guardados.');
+  // Una sola escritura: el servidor crea artista y sello en la misma transacción que guarda.
+  expect(calls.map((call) => call.rpc)).toEqual(['admin_update_catalog_release']);
+  expect(calls[0].body.p_payload).toMatchObject({ label_id: null, label_name: 'Sello confirmado', artist_ids: [artistA, { name: 'Artista nueva' }] });
 });
 
 test('E07 recupera el snapshot ante un conflicto de versión', async ({ page }) => {

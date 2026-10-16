@@ -4,8 +4,8 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 // petición sale a la red. Lo que se prueba:
 // - lista y detalle a la vez en ancho; en móvil, lista y después detalle, con retorno;
 // - el detalle muestra solo lo propuesto y marca lo editado respecto de lo detectado;
-// - acciones por rol iguales a E10, con los mismos cuerpos de RPC (E09, E18);
-// - un admin aprueba y corrige el lanzamiento sin salir del Estudio ni escribir URLs.
+// - acciones por rol con los cuerpos de RPC de E09, E18 y U19 (G3: se deciden en el editor);
+// - un admin acepta y corrige el lanzamiento sin salir del Estudio ni escribir URLs.
 // Con U17_CAPTURAS=1 guarda capturas del flujo en docs/modernizacion/capturas-u17/.
 
 const project = 'hgocyrzhgohetfpzbmfs';
@@ -25,6 +25,9 @@ const ids = {
 const createdRelease = '11111111-1111-4111-8111-000000000077';
 const linkedRelease = '11111111-1111-4111-8111-000000000004';
 const typeId = '55555555-5555-4555-8555-555555555555';
+const epTypeId = '55555555-5555-4555-8555-555555555556';
+const genreId = '66666666-6666-4666-8666-666666666661';
+const countryId = '66666666-6666-4666-8666-666666666662';
 const labelId = '44444444-4444-4444-8444-444444444444';
 const artistId = '22222222-2222-4222-8222-222222222222';
 const capturas = process.env.U17_CAPTURAS === '1';
@@ -116,10 +119,14 @@ async function mockStudio(page: Page, role: Role) {
     if (path.startsWith('/auth/v1/')) return json(route, session.user);
     if (path === '/rest/v1/profiles') return json(route, [{ role }]);
     if (path === '/rest/v1/labels') return json(route, [{ id: labelId, name: 'Sello ejemplo', slug: 'sello-ejemplo' }]);
-    if (path === '/rest/v1/release_types') return json(route, [{ id: typeId, name: 'Álbum', slug: 'album' }]);
-    if (path === '/rest/v1/genres' || path === '/rest/v1/countries') return json(route, []);
+    if (path === '/rest/v1/release_types') return json(route, [{ id: typeId, name: 'Álbum', slug: 'album' }, { id: epTypeId, name: 'EP', slug: 'ep' }]);
+    if (path === '/rest/v1/genres') return json(route, [{ id: genreId, name: 'Ambient', slug: 'ambient', status: 'selectable' }]);
+    if (path === '/rest/v1/countries') return json(route, [{ id: countryId, name: 'Colombia', slug: 'colombia', status: 'selectable' }]);
     if (path === '/rest/v1/artists') return json(route, [{ id: artistId, name: 'Artista principal', slug: 'artista-principal' }]);
     if (path === '/rest/v1/contributions') {
+      // U19: el editor lee la propuesta por id.
+      const byId = url.searchParams.get('id');
+      if (byId) return json(route, visible().find((item) => `eq.${item.id}` === byId) ?? null);
       const release = url.searchParams.get('release_id');
       if (release) return json(route, visible().filter((item) => `eq.${item.release_id}` === release));
       return json(route, visible().filter((item) => item.status === 'pending' || item.status === 'ready_for_admin'));
@@ -134,6 +141,21 @@ async function mockStudio(page: Page, role: Role) {
         if (body.p_action === 'approved') releases[createdRelease] = editorRelease(createdRelease, item.payload.title);
         contributions = contributions.map((entry) => (entry.id === item.id ? updated : entry));
         return json(route, updated);
+      }
+      if (rpc === 'resolve_catalog_names') {
+        const known: Record<string, string> = { 'artista principal': artistId, 'sello ejemplo': labelId };
+        return json(route, (body.p_names as string[]).map((name) => {
+          const id = known[name.toLowerCase()] ?? null;
+          return { name, id, canonical: id ? (id === labelId ? 'Sello ejemplo' : 'Artista principal') : null };
+        }));
+      }
+      if (rpc === 'accept_contribution') {
+        if (role !== 'admin') return json(route, { code: '42501', message: 'Administrative role required' }, 403);
+        writes.push({ rpc, body });
+        const item = contributions.find((entry) => entry.id === body.p_contribution_id)!;
+        contributions = contributions.map((entry) => (entry.id === item.id ? { ...item, status: 'approved', release_id: createdRelease } : entry));
+        releases[createdRelease] = editorRelease(createdRelease, item.payload.title);
+        return json(route, { release_id: createdRelease, release_slug: 'propuesta', status: body.p_publish ? 'published' : 'draft', catalog_version: 1, change_set_id: 'cs-a', contribution_id: item.id });
       }
       if (rpc === 'prepare_contribution_for_admin') {
         writes.push({ rpc, body });
@@ -233,7 +255,7 @@ test.describe('U17 propuestas', () => {
     await expect(detail(page, 'Aporte de colaboración')).toBeVisible();
   });
 
-  test('un admin aprueba una propuesta y corrige el lanzamiento sin salir del Estudio ni escribir URLs', async ({ page }) => {
+  test('un admin acepta una propuesta en el editor y corrige el lanzamiento sin salir del Estudio ni escribir URLs', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const writes = await mockStudio(page, 'admin');
     const visited: string[] = [];
@@ -243,16 +265,20 @@ test.describe('U17 propuestas', () => {
     await page.goto('/estudio');
     await page.getByRole('navigation', { name: 'Estudio' }).getByRole('link', { name: /^Propuestas/ }).click();
     await row(page, 'Propuesta comunitaria').click();
-    const proposal = detail(page, 'Propuesta comunitaria');
-    await proposal.getByRole('button', { name: 'Revisar publicación' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Propuesta comunitaria' });
-    await expect(dialog.getByText('Confirma el lanzamiento que se publicará con estos datos.')).toBeVisible();
+    // U19 (G3): la propuesta se decide en el editor.
+    await detail(page, 'Propuesta comunitaria').getByRole('link', { name: 'Abrir en el editor' }).click();
+    await expect(page).toHaveURL(new RegExp(`/estudio/propuestas\\?editar=${ids.community}$`));
+    await expect(page.getByRole('heading', { level: 1, name: 'Propuesta comunitaria' })).toBeVisible();
+    await page.getByRole('button', { name: 'Aceptar y publicar' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Aceptar y publicar' });
+    await expect(dialog.getByText('se crea en el catálogo y queda visible', { exact: false })).toBeVisible();
     await capture(page, '3-aprobar-1440');
-    await dialog.getByRole('button', { name: 'Aprobar y publicar' }).click();
+    await dialog.getByRole('button', { name: 'Confirmar y publicar' }).click();
 
-    const notice = page.getByRole('status').filter({ hasText: 'Propuesta comunitaria: Aceptado.' });
+    const notice = page.getByRole('status').filter({ hasText: 'Propuesta comunitaria: aceptada y publicada.' });
     await expect(notice).toBeVisible();
-    // La aprobada sale de la cola y se abre la siguiente, con el foco en su título.
+    // La aceptada sale de la cola y se abre la siguiente, con el foco en su título.
+    await expect(page).toHaveURL(new RegExp(`/estudio/propuestas\\?propuesta=${ids.second}$`));
     await expect(row(page, 'Propuesta comunitaria')).toHaveCount(0);
     await expect(page.getByRole('heading', { level: 2, name: 'Segunda propuesta' })).toBeFocused();
     // La vista sube al aviso: su enlace queda a la vista, no bajo el header.
@@ -270,8 +296,9 @@ test.describe('U17 propuestas', () => {
     await expect(page.locator('.editor__feedback')).toHaveText('Cambios guardados.');
     await capture(page, '5-corregido-1440');
 
-    expect(writes.map((write) => write.rpc)).toEqual(['review_contribution', 'admin_update_catalog_release']);
-    expect(writes[0].body).toEqual({ p_contribution_id: ids.community, p_action: 'approved', p_note: null });
+    // Sin cambios en el editor no hay corrección: se acepta lo que está guardado, con su versión.
+    expect(writes.map((write) => write.rpc)).toEqual(['accept_contribution', 'admin_update_catalog_release']);
+    expect(writes[0].body).toEqual({ p_contribution_id: ids.community, p_publish: true, p_expected_updated_at: '2026-09-20T14:00:00Z', p_note: null });
     expect(writes[1].body).toMatchObject({
       p_release_id: createdRelease, p_expected_version: 1, p_operation: 'update',
       p_reason: 'Corrección tras aprobar la propuesta', p_payload: { title: 'Propuesta comunitaria (edición corregida)' }
@@ -283,30 +310,31 @@ test.describe('U17 propuestas', () => {
   test('pedir cambios y rechazar exigen nota; con nota, la propuesta sale y se abre la siguiente', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const writes = await mockStudio(page, 'admin');
-    await page.goto(`/estudio/propuestas?propuesta=${ids.community}`);
-    const proposal = detail(page, 'Propuesta comunitaria');
+    await page.goto(`/estudio/propuestas?editar=${ids.community}`);
+    const note = page.getByRole('textbox', { name: 'Nota para quien propone' });
 
-    await proposal.getByRole('button', { name: 'Rechazar' }).click();
-    await expect(proposal.getByText('Escribe una nota antes de rechazar.')).toBeVisible();
-    await expect(proposal.getByLabel('Nota para la persona autora')).toBeFocused();
-    await expect(proposal.getByLabel('Nota para la persona autora')).toHaveAttribute('aria-invalid', 'true');
-    await proposal.getByRole('button', { name: 'Solicitar cambios' }).click();
-    await expect(proposal.getByText('Escribe una nota para solicitar cambios.')).toBeVisible();
+    await page.getByRole('button', { name: 'Rechazar' }).click();
+    await expect(page.locator('.editor__feedback')).toHaveText('Escribe una nota antes de rechazar.');
+    await expect(note).toBeFocused();
+    await page.getByRole('button', { name: 'Pedir cambios' }).click();
+    await expect(page.locator('.editor__feedback')).toHaveText('Escribe una nota para pedir cambios.');
     expect(writes).toEqual([]);
     await capture(page, '6-nota-obligatoria-1440');
 
-    await proposal.getByLabel('Nota para la persona autora').fill('Confirma el sello, por favor.');
-    await proposal.getByRole('button', { name: 'Solicitar cambios' }).click();
+    await note.fill('Confirma el sello, por favor.');
+    await page.getByRole('button', { name: 'Pedir cambios' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Propuesta comunitaria: Cambios solicitados.' })).toBeVisible();
     await expect(row(page, 'Propuesta comunitaria')).toHaveCount(0);
-    // La siguiente de la lista ocupa su lugar, sin la nota ni el error de la anterior.
+    // La siguiente de la lista ocupa su lugar.
     await expect(page.getByRole('heading', { level: 2, name: 'Segunda propuesta' })).toBeFocused();
-    await expect(detail(page, 'Segunda propuesta').getByLabel('Nota para la persona autora')).toHaveValue('');
 
-    await detail(page).getByLabel('Nota para la persona autora').fill('Ya existe en el catálogo.');
-    await detail(page).getByRole('button', { name: 'Rechazar' }).click();
+    await detail(page, 'Segunda propuesta').getByRole('link', { name: 'Abrir en el editor' }).click();
+    // El editor de la siguiente empieza sin la nota ni el error de la anterior.
+    await expect(note).toHaveValue('');
+    await note.fill('Ya existe en el catálogo.');
+    await page.getByRole('button', { name: 'Rechazar' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Segunda propuesta: Rechazado.' })).toBeVisible();
-    // Era la última: se abre la anterior.
+    // Era la última de su grupo: se abre la anterior.
     await expect(page.getByRole('heading', { level: 2, name: 'Propuesta preparada' })).toBeFocused();
 
     expect(writes.map((write) => write.body)).toEqual([
@@ -315,30 +343,32 @@ test.describe('U17 propuestas', () => {
     ]);
   });
 
-  test('colaborador: prepara la propuesta tal como llegó y no decide', async ({ page }) => {
+  test('colaborador: abre la propuesta en el editor, la marca lista y no decide', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const writes = await mockStudio(page, 'colaborador');
     await page.goto('/estudio/propuestas');
     const list = page.getByRole('region', { name: 'Propuestas en cola' });
     await expect(list.getByRole('heading', { level: 2 })).toHaveText(['Cola comunitaria', 'Mis aportes prioritarios']);
-    await expect(page.getByRole('button', { name: /Revisar publicación|Solicitar cambios|Rechazar/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Aceptar|Pedir cambios|Rechazar/ })).toHaveCount(0);
 
     await row(page, 'Aporte de colaboración').click();
     await expect(detail(page, 'Aporte de colaboración').getByText('Pendiente de revisión administrativa.')).toBeVisible();
     await expect(detail(page).getByRole('button')).toHaveCount(0);
+    await expect(detail(page).getByRole('link', { name: 'Abrir en el editor' })).toHaveCount(0);
 
     await row(page, 'Propuesta comunitaria').click();
-    const proposal = detail(page, 'Propuesta comunitaria');
-    await proposal.getByLabel(/^Nota interna/).fill('Fuente verificada en Bandcamp.');
+    await detail(page, 'Propuesta comunitaria').getByRole('link', { name: 'Abrir en el editor' }).click();
+    await expect(page.getByRole('button', { name: /Aceptar|Pedir cambios|Rechazar/ })).toHaveCount(0);
+    await page.getByRole('textbox', { name: 'Nota interna para admin' }).fill('Fuente verificada en Bandcamp.');
     await capture(page, '7-colaborador-1440');
-    await proposal.getByRole('button', { name: 'Marcar lista para administración' }).click();
+    await page.getByRole('button', { name: 'Marcar lista para admin' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Propuesta comunitaria quedó lista para administración.' })).toBeVisible();
     await expect(row(page, 'Propuesta comunitaria')).toHaveCount(0);
 
-    const original = defaultContributions()[0];
+    // Sin cambios no hay corrección; la nota interna va solo a la preparación (no al historial del autor).
     expect(writes).toEqual([{
       rpc: 'prepare_contribution_for_admin',
-      body: { p_contribution_id: ids.community, p_working_payload: original.payload, p_internal_note: 'Fuente verificada en Bandcamp.' }
+      body: { p_contribution_id: ids.community, p_working_payload: {}, p_internal_note: 'Fuente verificada en Bandcamp.' }
     }]);
   });
 });
@@ -382,14 +412,15 @@ test.describe('U17 móvil', () => {
     await expect(row(page, 'Segunda propuesta')).toBeFocused();
   });
 
-  test('a 390: decidir vuelve a la lista con el aviso', async ({ page }) => {
+  test('a 390: decidir en el editor vuelve a la lista con el aviso', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const writes = await mockStudio(page, 'admin');
     await page.goto('/estudio/propuestas');
     await row(page, 'Propuesta comunitaria').click();
-    await detail(page).getByRole('button', { name: 'Revisar publicación' }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Aprobar y publicar' }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Aceptado' })).toBeVisible();
+    await detail(page).getByRole('link', { name: 'Abrir en el editor' }).click();
+    await page.getByRole('button', { name: 'Aceptar y publicar' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Confirmar y publicar' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'aceptada y publicada' })).toBeVisible();
     await expect(page).toHaveURL(/\/estudio\/propuestas$/);
     await expect(detail(page)).toHaveCount(0);
     await expect(row(page, 'Propuesta comunitaria')).toHaveCount(0);

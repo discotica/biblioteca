@@ -355,12 +355,13 @@ add('crate-editar-D', 'D', CRATE_URL, {
 // del censo se conservan; cada uno apunta a la sección equivalente.
 add('editorial-anon-D', 'D', '/estudio/propuestas');
 each(['D', 'M'], 'editorial-admin', '/estudio/propuestas', { role: 'admin', full: true, maxH: 4200 });
-// "Aprobar" abre el diálogo de resumen desde "Revisar publicación".
-add('editorial-approve-D', 'D', '/estudio/propuestas', {
+// "Aprobar": desde U19 (G3) se decide en el editor; «Aceptar y publicar» abre la confirmación.
+const EDITAR = '/estudio/propuestas?editar=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb03';
+add('editorial-approve-D', 'D', EDITAR, {
   role: 'admin',
   setup: async (page) => {
-    await page.getByRole('button', { name: /Revisar publicación/ }).first().click();
-    await page.getByRole('button', { name: /Aprobar y publicar/ }).waitFor();
+    await page.getByRole('button', { name: 'Aceptar y publicar' }).click();
+    await page.getByRole('button', { name: 'Confirmar y publicar' }).waitFor();
     await settle(page);
   }
 });
@@ -514,10 +515,14 @@ each(['D', 'M'], 'estudio-reportes', '/estudio/reportes', { role: 'admin', full:
 const PROPUESTA = '/estudio/propuestas?propuesta=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb03';
 add('estudio-propuesta-M', 'M', PROPUESTA, { role: 'admin', full: true, maxH: 3600, supplementary: true });
 add('estudio-propuestas-T', 'T', '/estudio/propuestas', { role: 'admin', full: true, maxH: 2400, supplementary: true });
-add('estudio-propuesta-nota-D', 'D', PROPUESTA, {
+// U19 (G3): la nota obligatoria se pide en el editor, al rechazar.
+add('estudio-propuesta-nota-D', 'D', EDITAR, {
   role: 'admin', supplementary: true,
   setup: async (page) => { await page.getByRole('button', { name: 'Rechazar' }).click(); await page.getByText('Escribe una nota antes de rechazar.').waitFor(); await settle(page); }
 });
+// U19 (G3): la propuesta abierta en el editor, como admin (decide) y como colaborador (corrige y la marca lista).
+each(['D', 'M'], 'estudio-propuesta-editor', EDITAR, { role: 'admin', full: true, maxH: 4200, supplementary: true });
+each(['D', 'M'], 'estudio-propuesta-editor-colab', EDITAR, { role: 'colaborador', full: true, maxH: 4200, supplementary: true });
 add('estudio-reporte-M', 'M', '/estudio/reportes?reporte=r1', { role: 'admin', full: true, maxH: 2400, supplementary: true });
 add('estudio-colab-catalogo-D', 'D', STUDIO, { role: 'colaborador', supplementary: true });
 

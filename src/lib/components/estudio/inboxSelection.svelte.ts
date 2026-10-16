@@ -90,10 +90,11 @@ export class InboxSelection {
    * (con el foco en su título); en móvil se vuelve a la lista. En los dos, la
    * vista sube al principio, donde está el aviso con el resultado.
    */
-  advance(next: string | null) {
+  advance(next: string | null, params: Record<string, string | null> = {}) {
     this.#pushed = false;
     this.#focus = this.wide && next ? { kind: 'heading' } : null;
-    void goto(this.href(this.wide ? next : null), { replaceState: true, keepFocus: true });
+    // `params`: lo que cambia además del elemento (U19: el editor se cierra con editar=null).
+    void goto(withParams(page.url, { [this.#param]: this.wide ? next : null, ...params }), { replaceState: true, keepFocus: true });
   }
 
   async #applyFocus(target: { kind: 'heading' } | { kind: 'item'; id: string }) {

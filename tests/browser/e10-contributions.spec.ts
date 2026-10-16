@@ -101,6 +101,7 @@ async function mockBase(page: Page, role: Role, options: { contributions?: Retur
     if (url.pathname === '/rest/v1/genres') return json(route, entries(['Ambient', 'Electrónica']));
     if (url.pathname === '/rest/v1/countries') return json(route, entries(['Chile', 'Colombia']));
     if (url.pathname === '/rest/v1/labels' || url.pathname === '/rest/v1/artists' || url.pathname.endsWith('_aliases')) return json(route, []);
+    if (url.pathname === '/rest/v1/release_types') return json(route, [{ id: 'type-album', name: 'Álbum', slug: 'album' }]);
     if (url.pathname === '/rest/v1/contributions') {
       const idFilter = url.searchParams.get('id');
       if (idFilter?.startsWith('eq.')) return json(route, rows.find((item) => item.id === idFilter.slice(3)) ?? null);
@@ -121,6 +122,15 @@ async function mockBase(page: Page, role: Role, options: { contributions?: Retur
     if (url.pathname.endsWith('/rpc/submit_contribution')) {
       const body = request.postDataJSON();
       return json(route, contribution({ id: body.p_contribution_id, author_id: userId, status: 'pending', source_url: body.p_source_url, source_provider: body.p_source_provider, payload: body.p_payload, detected_metadata: body.p_detected_metadata, queue_kind: role === 'colaborador' ? 'collaborator' : 'community' }));
+    }
+    // U19 (G3): el editor resuelve nombres y admin acepta desde él.
+    if (url.pathname.endsWith('/rpc/resolve_catalog_names')) {
+      return json(route, request.postDataJSON().p_names.map((name: string) => ({ name, id: null, canonical: null })));
+    }
+    if (url.pathname.endsWith('/rpc/accept_contribution')) {
+      const body = request.postDataJSON();
+      rows = rows.filter((item) => item.id !== body.p_contribution_id);
+      return json(route, { release_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', release_slug: 'propuesta', status: body.p_publish ? 'published' : 'draft', catalog_version: 1, change_set_id: 'cs', contribution_id: body.p_contribution_id });
     }
     if (url.pathname.endsWith('/rpc/prepare_contribution_for_admin')) {
       const body = request.postDataJSON();
@@ -288,10 +298,12 @@ test('E10 matriz de acceso: comunidad denegada y colaborador prepara solo comuni
   await expect(own.getByRole('button')).toHaveCount(0);
   await page.getByRole('link', { name: /^Propuesta comunitaria/ }).click();
   const community = page.getByRole('article', { name: 'Propuesta comunitaria' });
-  await expect(community.getByRole('button', { name: 'Marcar lista para administración' })).toBeVisible();
-  await expect(community.getByRole('button', { name: /publicar|rechazar|solicitar/i })).toHaveCount(0);
-  await community.getByLabel(/^Nota interna/).fill('Fuente verificada');
-  await community.getByRole('button', { name: 'Marcar lista para administración' }).click();
+  // U19 (G3): se corrige y se marca lista en el editor; el colaborador no decide.
+  await community.getByRole('link', { name: 'Abrir en el editor' }).click();
+  await expect(page.getByRole('button', { name: 'Marcar lista para admin' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /publicar|rechazar|pedir cambios/i })).toHaveCount(0);
+  await page.getByRole('textbox', { name: 'Nota interna para admin' }).fill('Fuente verificada');
+  await page.getByRole('button', { name: 'Marcar lista para admin' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'lista para administración' })).toBeVisible();
 });
 
@@ -312,20 +324,23 @@ test('E10 admin separa colas, exige notas y confirma publicación con teclado', 
   await expect(community.locator('.l-inbox-field').filter({ hasText: 'Título' }).first()).toContainText('Editado');
   await expect(community.getByText('Título detectado')).toHaveCount(0);
   await expect(community.getByText('Contexto de la persona autora')).toBeVisible();
-  await community.getByRole('button', { name: 'Solicitar cambios' }).click();
-  await expect(community.getByText('Escribe una nota para solicitar cambios')).toBeVisible();
-  await expect(community.getByLabel('Nota para la persona autora')).toBeFocused();
+  // U19 (G3): las decisiones están en el editor.
+  await community.getByRole('link', { name: 'Abrir en el editor' }).click();
+  await page.getByRole('button', { name: 'Pedir cambios' }).click();
+  await expect(page.getByText('Escribe una nota para pedir cambios.')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Nota para quien propone' })).toBeFocused();
 
-  const trigger = community.getByRole('button', { name: 'Revisar publicación' });
+  const trigger = page.getByRole('button', { name: 'Aceptar y publicar' });
   await trigger.click();
-  const dialog = page.getByRole('dialog', { name: 'Propuesta comunitaria' });
+  const dialog = page.getByRole('dialog', { name: 'Aceptar y publicar' });
   await expect(dialog.getByText('Artista principal')).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Volver' })).toBeFocused();
+  await expect(dialog.getByRole('button', { name: 'Confirmar y publicar' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(trigger).toBeFocused();
   await trigger.click();
-  await dialog.getByRole('button', { name: 'Aprobar y publicar' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Aceptado' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Confirmar y publicar' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('status').filter({ hasText: 'aceptada y publicada' })).toBeVisible();
   await expect(page.getByRole('link', { name: /^Propuesta comunitaria/ })).toHaveCount(0);
 });
 

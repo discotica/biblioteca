@@ -345,7 +345,12 @@ export async function loadReleaseContributions(releaseId: string): Promise<Contr
   return (data ?? []) as Contribution[];
 }
 
-export async function prepareContributionForAdmin(id: string, workingPayload: ContributionPayload, internalNote: string) {
+/**
+ * Marca lista para admin. El editor (U19) guarda antes la corrección con
+ * saveContributionCorrection y manda aquí `{}`: así la nota interna no queda en el historial de la
+ * propuesta, que el autor puede leer.
+ */
+export async function prepareContributionForAdmin(id: string, workingPayload: ContributionPayload | Record<string, never>, internalNote: string) {
   const { data, error } = await supabase.rpc('prepare_contribution_for_admin', {
     p_contribution_id: id,
     p_working_payload: workingPayload,

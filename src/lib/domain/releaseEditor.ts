@@ -8,15 +8,21 @@
  */
 import type { CatalogHistory, CatalogSnapshot } from '../services/adminCatalog';
 
-export type EditorSectionId = 'datos' | 'creditos' | 'clasificacion' | 'medios' | 'historial';
+export type EditorSectionId = 'datos' | 'creditos' | 'clasificacion' | 'medios' | 'historial' | 'propuesta';
+export type EditorSection = { id: EditorSectionId; label: string };
 
-export const EDITOR_SECTIONS: ReadonlyArray<{ id: EditorSectionId; label: string }> = [
+const FORM_SECTIONS: ReadonlyArray<EditorSection> = [
   { id: 'datos', label: 'Datos' },
   { id: 'creditos', label: 'Créditos' },
   { id: 'clasificacion', label: 'Clasificación' },
-  { id: 'medios', label: 'Medios' },
-  { id: 'historial', label: 'Historial' }
+  { id: 'medios', label: 'Medios' }
 ];
+
+/** Editor del catálogo: el formulario y el historial auditado. */
+export const EDITOR_SECTIONS: ReadonlyArray<EditorSection> = [...FORM_SECTIONS, { id: 'historial', label: 'Historial' }];
+
+/** U19: el mismo editor con una propuesta abierta. En lugar del historial, la propuesta. */
+export const PROPOSAL_EDITOR_SECTIONS: ReadonlyArray<EditorSection> = [...FORM_SECTIONS, { id: 'propuesta', label: 'Propuesta' }];
 
 /** Id del elemento de cada sección en la página (ancla del índice). */
 export const editorSectionAnchor = (id: EditorSectionId) => `editor-${id}`;
@@ -66,7 +72,7 @@ export function missingFields(snapshot: CatalogSnapshot): string[] {
 
 /** Los mismos pendientes, repartidos por la sección del índice que los resuelve. */
 export function missingBySection(snapshot: CatalogSnapshot): Record<EditorSectionId, string[]> {
-  const result: Record<EditorSectionId, string[]> = { datos: [], creditos: [], clasificacion: [], medios: [], historial: [] };
+  const result: Record<EditorSectionId, string[]> = { datos: [], creditos: [], clasificacion: [], medios: [], historial: [], propuesta: [] };
   for (const field of missingFields(snapshot)) result[MISSING_SECTION[field] ?? 'datos'].push(field);
   return result;
 }
@@ -138,6 +144,45 @@ export function moveCredits(
   const at = before && !moving.includes(before) ? list.indexOf(before) : -1;
   rest[target] = at < 0 ? [...list, ...moving] : [...list.slice(0, at), ...moving, ...list.slice(at)];
   return rest;
+}
+
+// ---------------------------------------------------------------------------
+// Nombres nuevos (U19): un artista o un sello que no existe se escribe como nombre y se crea al
+// guardar (catálogo) o al aceptar (propuesta). En el formulario ocupa el lugar de un UUID con el
+// prefijo «nuevo:», así el orden de los créditos, lo que falta para publicar y los cambios sin
+// guardar funcionan igual. Nunca llega así al servidor: `withPendingNames` lo traduce.
+
+const PENDING_PREFIX = 'nuevo:';
+
+export const pendingId = (name: string) => `${PENDING_PREFIX}${name.replace(/\s+/g, ' ').trim()}`;
+export const isPendingId = (id: string | null | undefined): id is string => typeof id === 'string' && id.startsWith(PENDING_PREFIX);
+export const pendingName = (id: string) => id.slice(PENDING_PREFIX.length);
+
+/**
+ * El payload del catálogo con los nombres nuevos en la forma de admin_update_catalog_release (G3):
+ * los créditos nuevos como `{ name }` en su posición y el sello nuevo como `label_name`.
+ */
+export function withPendingNames<T extends { artist_ids: string[]; collaborator_ids: string[]; label_id: string | null }>(value: T) {
+  const credit = (id: string) => (isPendingId(id) ? { name: pendingName(id) } : id);
+  const { label_id, ...rest } = value;
+  return {
+    ...rest,
+    artist_ids: value.artist_ids.map(credit),
+    collaborator_ids: value.collaborator_ids.map(credit),
+    label_id: isPendingId(label_id) ? null : label_id,
+    ...(isPendingId(label_id) ? { label_name: pendingName(label_id) } : {})
+  };
+}
+
+/**
+ * RC2-P1-01: une la lista compartida de artistas con lo que acaba de llegar, por id y sin
+ * repetir. Quien la llama tiene que leer la lista después del `await`: dos cargas que se cruzan
+ * ya no se pisan.
+ */
+export function mergeById<T extends { id: string }>(current: readonly T[], incoming: readonly T[]): T[] {
+  const known = new Set(current.map((entry) => entry.id));
+  const fresh = incoming.filter((entry) => !known.has(entry.id) && known.add(entry.id));
+  return fresh.length ? [...current, ...fresh] : (current as T[]);
 }
 
 // ---------------------------------------------------------------------------

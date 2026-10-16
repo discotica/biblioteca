@@ -4,9 +4,11 @@ import {
   type CreditQuality,
   type ReleaseType,
 } from "$lib/domain/releases";
+import { withPendingNames } from "$lib/domain/releaseEditor";
 
 export type CatalogStatus = "draft" | "published" | "archived";
-export type DictionaryEntry = { id: string; name: string; slug?: string };
+/** `status` solo en géneros y países (U19): `selectable`, `legacy` o `retired`. */
+export type DictionaryEntry = { id: string; name: string; slug?: string; status?: string };
 export type Artist = DictionaryEntry & { normalized_name?: string };
 
 /** Requisitos de publicación de E06 que el lanzamiento guardado no cumple (D2). */
@@ -102,10 +104,12 @@ export type CatalogHistory = {
   after_state: Record<string, unknown>;
 };
 
-function rpcError(error: { message: string; code?: string } | null) {
+function rpcError(error: { message: string; code?: string; details?: string | null } | null) {
   if (!error) return;
-  const next = new Error(error.message) as Error & { code?: string };
+  // details lleva el valor rechazado (U19: credit_duplicate, genre_not_selectable…).
+  const next = new Error(error.message) as Error & { code?: string; details?: string | null };
   next.code = error.code;
+  next.details = error.details ?? null;
   throw next;
 }
 
@@ -264,7 +268,8 @@ export async function saveCatalog(
   const { data, error } = await supabase.rpc("admin_update_catalog_release", {
     p_release_id: snapshot.id,
     p_expected_version: snapshot.catalog_version,
-    p_payload: payload(snapshot),
+    // U19: artistas y sello nuevos viajan por nombre y se crean al guardar.
+    p_payload: withPendingNames(payload(snapshot)),
     p_reason: reason,
     p_operation: operation,
   });
@@ -294,57 +299,6 @@ export async function revertCatalog(
   };
 }
 
-export async function createArtist(name: string) {
-  const { data, error } = await supabase.rpc("admin_create_catalog_artist", {
-    p_name: name,
-    p_confirm: true,
-  });
-  rpcError(error);
-  return data as {
-    artist_id: string;
-    name: string;
-    created: boolean;
-    duplicate: boolean;
-  };
-}
-
-export type DictionaryCreateResult = DictionaryEntry & {
-  created: boolean;
-  duplicate: boolean;
-  audit_event_id?: number;
-  catalog_version?: number;
-};
-
-async function createDictionary(
-  entity: "label" | "genre",
-  name: string,
-  reason: string,
-): Promise<DictionaryCreateResult> {
-  const { data, error } = await supabase.rpc(`admin_create_catalog_${entity}`, {
-    p_name: name,
-    p_confirm: true,
-    p_reason: reason,
-  });
-  rpcError(error);
-  const result = data as Record<string, unknown>;
-  return {
-    id: String(result[`${entity}_id`]),
-    name: String(result.name),
-    created: Boolean(result.created),
-    duplicate: Boolean(result.duplicate),
-    ...(typeof result.audit_event_id === "number" ? { audit_event_id: result.audit_event_id } : {}),
-    ...(typeof result.catalog_version === "number" ? { catalog_version: result.catalog_version } : {}),
-  };
-}
-
-/** Admin RPCs only: components never insert dictionary rows directly. */
-export const createLabel = (name: string, reason: string) =>
-  createDictionary("label", name, reason);
-
-/** Admin RPCs only: components never insert dictionary rows directly. */
-export const createGenre = (name: string, reason: string) =>
-  createDictionary("genre", name, reason);
-
 export async function getArtistsByIds(ids: string[]) {
   const uniqueIds = [...new Set(ids.filter(Boolean))];
   if (!uniqueIds.length) return [] as Artist[];
@@ -370,12 +324,60 @@ export async function searchArtists(query: string) {
   return (data ?? []) as Artist[];
 }
 
+/**
+ * U19 (G3): qué nombres de artista o de sello ya existen, por nombre o alias, con la misma
+ * normalización que aceptar una propuesta. Mismo orden que `names`.
+ */
+export async function resolveCatalogNames(kind: "artist" | "label", names: string[]) {
+  if (!names.length) return [] as { name: string; id: string | null; canonical: string | null }[];
+  const { data, error } = await supabase.rpc("resolve_catalog_names", {
+    p_kind: kind,
+    p_names: names,
+  });
+  rpcError(error);
+  return data as { name: string; id: string | null; canonical: string | null }[];
+}
+
+const likePattern = (value: string) =>
+  `%${value.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
+
+/**
+ * Candidatos para el aviso de nombres parecidos del editor (U19), con su id para «Usar «…»»: los
+ * artistas o sellos cuyo nombre contiene alguno de los `terms` y los valores conservados de los
+ * alias que lo contienen. Quien llama decide cuáles se parecen.
+ */
+export async function similarCatalogEntries(
+  kind: "artists" | "labels",
+  terms: string[],
+): Promise<DictionaryEntry[]> {
+  const aliasTable = kind === "artists" ? "artist_aliases" : "label_aliases";
+  const found = await Promise.all(
+    terms
+      .filter((term) => term.trim().length >= 2)
+      .map(async (term) => {
+        const [catalog, aliases] = await Promise.all([
+          supabase.from(kind).select("id,name").ilike("name", likePattern(term.trim())).order("name").limit(20),
+          supabase.from(aliasTable).select(`kept:${kind}(id,name)`).ilike("name", likePattern(term.trim())).limit(20),
+        ]);
+        rpcError(catalog.error);
+        // Sin alias (tabla vacía o aún sin migrar) el aviso sigue con los nombres del catálogo.
+        const kept = aliases.error || !Array.isArray(aliases.data)
+          ? []
+          : aliases.data.map((row: { kept?: unknown }) => row.kept as DictionaryEntry | null).filter(Boolean);
+        return [...((catalog.data ?? []) as DictionaryEntry[]), ...(kept as DictionaryEntry[])];
+      }),
+  );
+  const seen = new Set<string>();
+  return found.flat().filter((entry) => !seen.has(entry.id) && seen.add(entry.id));
+}
+
 /** Read-only public dictionaries are intentionally kept outside component code. */
 export async function dictionaries() {
   const [labels, genres, countries, types] = await Promise.all([
     supabase.from("labels").select("id,name,slug").order("name").limit(1000),
-    supabase.from("genres").select("id,name,slug").order("name").limit(1000),
-    supabase.from("countries").select("id,name,slug").order("name").limit(1000),
+    // U19: con su estado; solo los seleccionables se ofrecen al elegir.
+    supabase.from("genres").select("id,name,slug,status").order("name").limit(1000),
+    supabase.from("countries").select("id,name,slug,status").order("name").limit(1000),
     supabase.from("release_types").select("id,name,slug").order("name"),
   ]);
   for (const response of [labels, genres, countries, types])

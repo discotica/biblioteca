@@ -50,6 +50,7 @@
     similarCatalogNames,
     sourceProviderFor,
     submitContribution,
+    updateSubmittedContribution,
     type ContributionFieldErrors,
     type ContributionPayload,
     type ContributionStatus,
@@ -110,6 +111,13 @@
   let duplicate = $state<ReturnType<typeof duplicateNotice>>(null);
   let draftId = $state('');
   let resumedStatus = $state<ContributionStatus | null>(null);
+  /**
+   * U19 (G3): la propuesta ya la tomó el equipo (corrigió, marcó lista o decidió). Quien la
+   * propuso la ve, pero ya no la edita; el servidor rechaza el guardado con contribution_taken.
+   */
+  let lockedReason = $state('');
+  /** El último envío fue una edición de lo ya enviado (pantalla final «Cambios guardados»). */
+  let savedEdit = $state(false);
   let reviewerNote = $state('');
   let loadingDraft = $state(false);
   let busy = $state<'save' | 'submit' | ''>('');
@@ -135,12 +143,22 @@
   const draftParam = $derived(page.url.searchParams.get('draft'));
   // Admin no guarda borradores de propuesta: su envío crea directamente el borrador del catálogo.
   const isAdmin = $derived(role === 'admin');
-  const canSaveDraft = $derived(resumedStatus !== 'changes_requested' && roleLoaded && !isAdmin);
+  /** U19: el autor edita su propuesta enviada mientras nadie del equipo la haya tomado. */
+  const editingSubmitted = $derived(resumedStatus === 'pending');
+  const canSaveDraft = $derived(resumedStatus !== 'changes_requested' && !editingSubmitted && roleLoaded && !isAdmin);
   const loginHref = $derived(`/auth/login?redirect=${encodeURIComponent(page.url.pathname + page.url.search)}`);
   const sourceUnchanged = $derived(hasData && sourceUrl.trim() === detectedUrl);
   const typeLabel = $derived(RELEASE_TYPE_OPTIONS.find((option) => option.value === releaseType)?.label ?? '');
   const label = $derived(labelValue[0]?.trim() ?? '');
-  const done = $derived(doneScreen(role, created ? studioReleaseHref(created.release_id) : null));
+  const done = $derived(
+    savedEdit
+      ? {
+          title: 'Cambios guardados',
+          text: 'Tu propuesta sigue pendiente de revisión, con los cambios. Puedes editarla hasta que el equipo la tome.',
+          actions: [{ label: 'Ver mis aportes', href: '/mis-aportes', variant: 'secondary' as const }]
+        }
+      : doneScreen(role, created ? studioReleaseHref(created.release_id) : null)
+  );
 
   /** Búsqueda de nombres del catálogo para un Combobox (con "Añadir" si no existe). */
   class NameSearch {
@@ -309,10 +327,14 @@
     if (!requestedId) return;
     try {
       const contribution = await loadContribution(requestedId);
-      if (!contribution || !['draft', 'changes_requested'].includes(contribution.status)) {
+      // Propias: borrador, cambios pedidos o enviada (U19). Enviada y ya tomada, solo para mirar.
+      if (!contribution || contribution.author_id !== $user.id || !['draft', 'changes_requested', 'pending', 'ready_for_admin'].includes(contribution.status)) {
         throw new Error('Este borrador no está disponible para edición.');
       }
       populate(contribution);
+      if (contribution.status === 'ready_for_admin' || (contribution.status === 'pending' && contribution.taken_at)) {
+        lockedReason = describeContributionError({ message: 'contribution_taken' })!.message;
+      }
     } catch (cause: any) {
       error = cause?.message || 'No se pudo cargar el borrador.';
     } finally {
@@ -478,6 +500,9 @@
     try {
       if (isAdmin) {
         created = await adminCreateDraftFromSuggestion({ ...requestInput(), reason: teamNote.trim() || undefined });
+      } else if (editingSubmitted) {
+        await updateSubmittedContribution(draftId, requestInput());
+        savedEdit = true;
       } else {
         if (!draftId) {
           const contribution = await createContributionDraft(requestInput());
@@ -488,7 +513,14 @@
       }
       success = true;
     } catch (cause: any) {
-      await showServerError(cause, isAdmin ? 'No se pudo crear el borrador. Intenta de nuevo.' : 'No se pudo enviar la propuesta. Intenta de nuevo.');
+      // Alguien del equipo la tomó mientras el autor la editaba: queda para mirar, con el motivo.
+      if (cause?.message === 'contribution_taken') {
+        // Lo que se muestra es lo guardado (con la corrección del equipo), no el cambio que no entró.
+        const stored = await loadContribution(draftId).catch(() => null);
+        if (stored) populate(stored);
+        lockedReason = describeContributionError(cause)!.message;
+      }
+      else await showServerError(cause, isAdmin ? 'No se pudo crear el borrador. Intenta de nuevo.' : 'No se pudo enviar la propuesta. Intenta de nuevo.');
     } finally {
       busy = '';
     }
@@ -513,6 +545,8 @@
     duplicate = null;
     draftId = '';
     resumedStatus = null;
+    lockedReason = '';
+    savedEdit = false;
     reviewerNote = '';
     fieldErrors = {};
     error = '';
@@ -579,6 +613,28 @@
     </section>
   {:else if loadingDraft}
     <LoadingIndicator label="Cargando borrador" />
+  {:else if lockedReason}
+    <section class="sugerir__locked" aria-labelledby="locked-title">
+      <Notice tone="warning" title={lockedReason}>Esto es lo que está guardado, con las correcciones del equipo. La decisión aparecerá en Mis aportes.</Notice>
+      <section class="sugerir__summary" aria-labelledby="locked-title">
+        <header><h2 id="locked-title" class="sugerir__locked-title">{title.trim() || 'Propuesta sin título'}</h2></header>
+        <dl>
+          {@render summaryRow('Fuente', sourceUrl)}
+          {@render summaryRow('Artistas principales', list(primaryArtists))}
+          {@render summaryRow('Colaboradores', list(collaborators))}
+          {@render summaryRow('Tipo', typeLabel)}
+          {@render summaryRow('Fecha', releaseDate)}
+          {@render summaryRow('Géneros', list(genres))}
+          {@render summaryRow('Países', list(countries))}
+          {@render summaryRow('Sello', label)}
+          {@render summaryRow('Radar', radarSummary, 'Sin radar')}
+          {@render summaryRow('Nota', teamNote.trim(), 'Sin nota')}
+        </dl>
+      </section>
+      <div class="sugerir__gate-actions">
+        <Button variant="secondary" href="/mis-aportes">Ver mis aportes</Button>
+      </div>
+    </section>
   {:else if success}
     <section class="sugerir__done" role="status">
       <span class="sugerir__done-icon"><Icon name="check" size="md" /></span>
@@ -621,6 +677,8 @@
         <Notice title="Cambios solicitados">
           {reviewerNote || 'Actualiza la propuesta y vuelve a enviarla.'}
         </Notice>
+      {:else if editingSubmitted}
+        <Notice title="Propuesta enviada">Puedes editarla mientras nadie del equipo la haya tomado.</Notice>
       {/if}
 
       {#if step === 1}
@@ -762,7 +820,7 @@
           optional
         />
       {:else}
-        <p class="sugerir__lead">{submitLead(role)}</p>
+        <p class="sugerir__lead">{editingSubmitted ? 'Revisa los cambios. La propuesta sigue en la cola con los datos nuevos.' : submitLead(role)}</p>
         <section class="sugerir__summary" aria-labelledby="summary-source">
           <header>
             <h3 id="summary-source">Fuente</h3>
@@ -822,7 +880,7 @@
           <Button type="submit" class="sugerir__primary" iconEnd="chevron-derecha" disabled={!!busy}>Continuar</Button>
         {:else}
           <Button type="submit" class="sugerir__primary" loading={busy === 'submit'} disabled={busy === 'save' || !roleLoaded}>
-            {busy === 'submit' ? (isAdmin ? 'Creando…' : 'Enviando…') : submitLabel(role)}
+            {busy === 'submit' ? (isAdmin ? 'Creando…' : 'Enviando…') : editingSubmitted ? 'Guardar y reenviar' : submitLabel(role)}
           </Button>
         {/if}
       </div>
@@ -949,6 +1007,10 @@
   .sugerir__gate p,
   .sugerir__done p { margin: 0; color: var(--color-texto-medio); line-height: 1.5; }
   .sugerir__gate-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-2); }
+
+  /* Propuesta ya tomada por el equipo (U19): solo para mirar. */
+  .sugerir__locked { display: grid; gap: var(--space-4); margin-top: var(--space-5); }
+  .sugerir__locked-title { margin: 0; color: var(--color-texto); font-size: var(--text-md); font-weight: 700; overflow-wrap: anywhere; }
   .sugerir__done-icon {
     display: inline-flex;
     align-items: center;
