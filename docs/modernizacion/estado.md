@@ -4,13 +4,24 @@ Actualizado: 2026-10-15.
 
 > **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:**
 >
-> 1. Paso 11b — U19: flujo del Estudio y diccionarios ([expediente](./u19-estudio-flujo-2026-10-15.md)), grupos G1 a G5 en orden. G1 aceptado y cerrado el 2026-10-15. Sigue G2. RC2-P1-01 entra en G3.
+> 1. Paso 11b — U19: flujo del Estudio y diccionarios ([expediente](./u19-estudio-flujo-2026-10-15.md)), grupos G1 a G5 en orden. G1 y G2 aceptados y cerrados el 2026-10-15. Sigue G3 (cola en el editor). RC2-P1-01 entra en G3.
 > 2. El usuario normaliza la hoja contra las listas cerradas y corrige los textos dañados (RC2-P1-02). Después se repite el paso 8.
 > 3. Se repite el paso 11 como E21-rc3.
 >
 > RC2-P0-01 (enlaces de Auth) quedó corregido y verificado en staging con un correo real el 2026-10-15, con las plantillas nuevas ya en el dashboard ([expediente](./e21-rc2-2026-10-15.md#rc2-p0-01--los-enlaces-de-auth-terminan-en-el-enlace-venció)).
 >
 > El paso 11 (E21-rc2) dio **NO-GO** el 2026-10-15 ([expediente](./e21-rc2-2026-10-15.md)). Los pasos 1 a 10 están cerrados: el 8 se aceptó con la hoja tal como está y el 10 se decidió por delegación ([decisiones](./decisiones.md#pasos-8-y-10-del-lanzamiento-2026-10-15)). La QA manual en dispositivos conviene hacerla después de la corrección.
+
+## Paso 11b — U19, G2: Sugerir (2026-10-15)
+
+Un solo flujo para crear: «Nuevo lanzamiento» lleva a `/sugerir`. Comunidad y colaborador envían a su cola; admin crea un borrador del catálogo, sin cola. Los detalles están en el [cierre de G2](./u19-estudio-flujo-2026-10-15.md#g2--sugerir-un-solo-flujo-para-crear--opus-55-high).
+
+- **Sugerir:** propuesta v3, géneros y países solo de la lista, sello obligatorio con «Independiente» arriba, aviso de nombres parecidos, radar opcional y aviso de duplicado.
+- **Verificación:**
+  - `npm test` 173/173, `build`, `lint:tokens` y `test:browser` ×2 (346/346);
+  - 8 capturas recapturadas;
+  - recorrido con los RPC reales en el stack local: créditos del borrador (U19-01), colas, duplicados y parecidos.
+- **Sin aplicar en staging** (eso es G5).
 
 ## Paso 11b — U19, G1: servidor (2026-10-15)
 

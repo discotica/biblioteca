@@ -201,17 +201,16 @@ test('E07 valida en cliente y muestra el rechazo del servidor', async ({ page })
   expect(updateRequests).toBe(1);
 });
 
-test('E07 crea borrador, edita, publica y archiva sin cambiar UUID ni slug', async ({ page }) => {
-  let current = { ...snapshot, status: 'draft' as const, catalog_version: 1 };
+test('E07 edita un borrador, lo publica y lo archiva sin cambiar UUID ni slug', async ({ page }) => {
+  // Desde U19 el borrador nace en Sugerir (admin_create_draft_from_suggestion); aquí se abre ya creado.
+  const canonicalSlug = 'borrador-de-prueba';
+  let current: Record<string, any> = {
+    ...snapshot, title: 'Borrador de prueba', slug: canonicalSlug, status: 'draft', catalog_version: 1,
+    release_date: null, release_type_id: null, label_id: null, collaborator_ids: [], genre_ids: [], country_ids: [], links: [], cover_url: null
+  };
   const writes: Record<string, unknown>[] = [];
   await page.route('https://hgocyrzhgohetfpzbmfs.supabase.co/rest/v1/rpc/admin_list_catalog_releases', (route) => json(route, { items: [current], total: 1, page: 1, page_size: 25, order_key: 'release_date', order_direction: 'desc' }));
   await page.route('https://hgocyrzhgohetfpzbmfs.supabase.co/rest/v1/rpc/admin_get_catalog_release', (route) => json(route, current));
-  await page.route('https://hgocyrzhgohetfpzbmfs.supabase.co/rest/v1/rpc/admin_create_catalog_release', async (route) => {
-    const body = route.request().postDataJSON();
-    writes.push(body);
-    current = { ...current, ...body.p_payload, id: releaseId, catalog_version: 1, updated_at: snapshot.updated_at };
-    await json(route, { release_id: releaseId, catalog_version: 1, change_set_id: 'create-change' });
-  });
   await page.route('https://hgocyrzhgohetfpzbmfs.supabase.co/rest/v1/rpc/admin_update_catalog_release', async (route) => {
     const body = route.request().postDataJSON();
     writes.push(body);
@@ -220,17 +219,8 @@ test('E07 crea borrador, edita, publica y archiva sin cambiar UUID ni slug', asy
     await json(route, { release_id: releaseId, catalog_version: current.catalog_version, change_set_id: `${operation}-change` });
   });
 
-  await page.goto('/estudio/catalogo');
-  await page.getByRole('button', { name: /Nuevo lanzamiento/ }).click();
-  await page.getByPlaceholder('Título del lanzamiento').fill('Borrador de prueba');
-  const group = page.getByRole('group', { name: 'Artistas principales' });
-  await group.getByRole('combobox').fill('Artista');
-  await page.getByRole('option', { name: /Artista principal/ }).click();
-  await page.getByPlaceholder('¿Qué cambió?').fill('Crear borrador auditado');
-  await page.getByRole('button', { name: 'Crear borrador' }).click();
-  await expect(page.locator('.editor__feedback')).toContainText('Borrador creado.');
-  const canonicalSlug = 'borrador-de-prueba';
-  expect(writes[0]).toMatchObject({ p_reason: 'Crear borrador auditado', p_payload: { slug: canonicalSlug, artist_ids: [artistA] } });
+  await page.goto(`/estudio/catalogo?lanzamiento=${releaseId}`);
+  await expect(page.getByPlaceholder('Título del lanzamiento')).toHaveValue('Borrador de prueba');
 
   await page.getByPlaceholder('https://bandcamp.com/…').fill('https://bandcamp.com/borrador');
   await page.getByLabel('Tipo').selectOption(typeId);
@@ -246,7 +236,7 @@ test('E07 crea borrador, edita, publica y archiva sin cambiar UUID ni slug', asy
   await page.getByRole('button', { name: 'Publicar' }).click();
   await page.getByRole('dialog', { name: 'Publicar lanzamiento' }).getByRole('button', { name: 'Confirmar publicación' }).click();
   await expect(page.locator('.editor__feedback')).toContainText('Lanzamiento publicado.');
-  expect(writes[1]).toMatchObject({ p_release_id: releaseId, p_expected_version: 1, p_operation: 'publish', p_payload: { slug: canonicalSlug, title: 'Borrador de prueba' } });
+  expect(writes[0]).toMatchObject({ p_release_id: releaseId, p_expected_version: 1, p_operation: 'publish', p_payload: { slug: canonicalSlug, title: 'Borrador de prueba' } });
 
   await page.getByPlaceholder('¿Qué cambió?').fill('Archivo editorial');
   // U16: Archivar se separa de Guardar, en "Más acciones".
@@ -254,7 +244,7 @@ test('E07 crea borrador, edita, publica y archiva sin cambiar UUID ni slug', asy
   await page.getByRole('menuitem', { name: 'Archivar lanzamiento' }).click();
   await page.getByRole('dialog', { name: 'Archivar lanzamiento' }).getByRole('button', { name: 'Archivar' }).click();
   await expect(page.locator('.editor__feedback')).toContainText('Lanzamiento archivado.');
-  expect(writes[2]).toMatchObject({ p_release_id: releaseId, p_expected_version: 2, p_operation: 'archive', p_payload: { slug: canonicalSlug } });
+  expect(writes[1]).toMatchObject({ p_release_id: releaseId, p_expected_version: 2, p_operation: 'archive', p_payload: { slug: canonicalSlug } });
 });
 
 test('E07 crea sellos y géneros solo mediante las RPC auditadas confirmadas', async ({ page }) => {

@@ -3,22 +3,42 @@
   import { goto, pushState } from '$app/navigation';
   import { page } from '$app/state';
   import PageLayout from '$lib/layouts/PageLayout.svelte';
-  import { Button, Combobox, Cover, Field, Icon, LoadingIndicator, Notice, Select, Textarea, type ComboboxOption } from '$lib/ui';
+  import RadarControls from '$lib/components/RadarControls.svelte';
+  import { Button, Checkbox, Combobox, Cover, Field, Icon, LoadingIndicator, Notice, Select, Textarea, type ComboboxOption } from '$lib/ui';
+  import { normalizeSearch } from '$lib/ui/combobox';
   import { user } from '$lib/stores/authStore';
   import { knownProfileRole, loadProfileRole } from '$lib/stores/profileRole';
-  import { writeAdminHandoff } from '$lib/domain/adminHandoff';
   import {
     CONTRIBUTION_STEPS,
     errorsForStep,
     firstInvalidField,
     firstStepWithError,
+    stepOfField,
     visibleStep,
     type ContributionField,
     type ContributionStep
   } from '$lib/domain/contributionSteps';
   import {
-    ADMIN_NEW_RELEASE_HREF,
+    RADAR_AXES,
+    completeRadar,
+    describeContributionError,
+    type CatalogCreation,
+    type ContributionRadar
+  } from '$lib/domain/contributionContract';
+  import {
+    compareNames,
+    doneScreen,
+    duplicateNotice,
+    pinIndependent,
+    similarSearchTerms,
+    submitLabel,
+    submitLead
+  } from '$lib/domain/suggestFlow';
+  import { studioReleaseHref } from '$lib/domain/studio';
+  import {
     RELEASE_TYPE_OPTIONS,
+    adminCreateDraftFromSuggestion,
+    checkSourceDuplicate,
     contributionFieldErrors,
     createContributionDraft,
     inspectSource,
@@ -26,6 +46,8 @@
     loadContributionDictionaries,
     saveContributionDraft,
     searchArtistNames,
+    searchLabelNames,
+    similarCatalogNames,
     sourceProviderFor,
     submitContribution,
     type ContributionFieldErrors,
@@ -36,10 +58,10 @@
     type ReleaseTypeSlug
   } from '$lib/stores/contributionsStore';
 
-  // Sugerir por pasos (U13): fuente → revisar datos → nota → enviar. Todo vive en
-  // este componente mientras se avanza o se vuelve; entre visitas, en el borrador
-  // de E09 (Guardar borrador y /sugerir?draft=<uuid>), como en E10. El payload,
-  // los estados y las RPC no cambian.
+  // Sugerir por pasos (U13): fuente → revisar datos → nota → enviar. Desde U19 es la única
+  // entrada para crear, también para admin y desde «Nuevo lanzamiento» del Estudio. Lo que cambia
+  // por rol es el envío: comunidad y colaborador mandan a su cola; admin crea un borrador del
+  // catálogo. Entre visitas, el borrador de la propuesta (Guardar borrador y /sugerir?draft=<uuid>).
 
   type StepState = { sugerirPaso?: ContributionStep };
 
@@ -52,9 +74,18 @@
     release_type: 'release-type',
     release_date: 'release-date',
     genres: 'genres',
-    countries: 'countries'
+    countries: 'countries',
+    label: 'label'
+  };
+  const RADAR_LABELS: Record<(typeof RADAR_AXES)[number], string> = {
+    experimental: 'Experimental',
+    denso: 'Denso',
+    sintetico: 'Sintético',
+    bailable: 'Bailable',
+    rapido: 'Rápido'
   };
   const typeOptions = [{ value: '', label: 'Selecciona y confirma' }, ...RELEASE_TYPE_OPTIONS];
+  const emptyRadar = (): ContributionRadar => ({ experimental: 0, denso: 0, sintetico: 0, bailable: 0, rapido: 0 });
 
   let sourceUrl = $state('');
   let title = $state('');
@@ -64,7 +95,10 @@
   let releaseDate = $state('');
   let genres = $state<string[]>([]);
   let countries = $state<string[]>([]);
-  let label = $state('');
+  /** El sello es un Combobox de un solo valor: lista de cero o un nombre. */
+  let labelValue = $state<string[]>([]);
+  let radarOn = $state(false);
+  let radar = $state<ContributionRadar>(emptyRadar());
   let teamNote = $state('');
   let detectedMetadata = $state<DetectedMetadata>({});
   /** URL de la última detección: si no cambia, el paso 1 solo continúa. */
@@ -72,6 +106,8 @@
   /** Ya hay datos que revisar (detectados, escritos o de un borrador). */
   let hasData = $state(false);
   let detectionState = $state<'idle' | 'loading' | 'available' | 'unavailable'>('idle');
+  /** Aviso de duplicado de la última detección (U19). */
+  let duplicate = $state<ReturnType<typeof duplicateNotice>>(null);
   let draftId = $state('');
   let resumedStatus = $state<ContributionStatus | null>(null);
   let reviewerNote = $state('');
@@ -79,10 +115,12 @@
   let busy = $state<'save' | 'submit' | ''>('');
   let error = $state('');
   let success = $state(false);
+  /** Borrador del catálogo que creó admin. */
+  let created = $state<CatalogCreation | null>(null);
   let saved = $state('');
   let fieldErrors = $state<ContributionFieldErrors>({});
-  // Todos los roles con sesión ven el formulario al instante (también admin,
-  // pedido del equipo en U13); el rol se lee en paralelo y solo decide el envío.
+  // Todos los roles con sesión ven el formulario al instante; el rol se lee en paralelo y solo
+  // decide el envío.
   const initialRole = knownProfileRole($user?.id);
   let role = $state<ProfileRole | ''>(initialRole ?? '');
   let roleLoaded = $state(initialRole !== null);
@@ -95,49 +133,104 @@
 
   const step = $derived(visibleStep((page.state as StepState).sugerirPaso, hasData, fallbackStep));
   const draftParam = $derived(page.url.searchParams.get('draft'));
-  // Admin usa el mismo flujo, pero E09 no acepta sus envíos: el último paso lo
-  // lleva al Catálogo del Estudio (U15) con lo rellenado, y no guarda borradores que no podría enviar.
+  // Admin no guarda borradores de propuesta: su envío crea directamente el borrador del catálogo.
   const isAdmin = $derived(role === 'admin');
   const canSaveDraft = $derived(resumedStatus !== 'changes_requested' && roleLoaded && !isAdmin);
   const loginHref = $derived(`/auth/login?redirect=${encodeURIComponent(page.url.pathname + page.url.search)}`);
   const sourceUnchanged = $derived(hasData && sourceUrl.trim() === detectedUrl);
   const typeLabel = $derived(RELEASE_TYPE_OPTIONS.find((option) => option.value === releaseType)?.label ?? '');
+  const label = $derived(labelValue[0]?.trim() ?? '');
+  const done = $derived(doneScreen(role, created ? studioReleaseHref(created.release_id) : null));
 
-  /** Búsqueda de artistas en el catálogo para un Combobox (con "Añadir" si no existe). */
-  class ArtistSearch {
+  /** Búsqueda de nombres del catálogo para un Combobox (con "Añadir" si no existe). */
+  class NameSearch {
     query = $state('');
-    options = $state<ComboboxOption[]>([]);
+    found = $state<string[]>([]);
     loading = $state(false);
     #timer: ReturnType<typeof setTimeout> | undefined;
     #sequence = 0;
+    #search: (query: string) => Promise<string[]>;
+
+    constructor(search: (query: string) => Promise<string[]>) {
+      this.#search = search;
+    }
 
     run(query: string) {
       clearTimeout(this.#timer);
       const sequence = ++this.#sequence;
       if (query.trim().length < 2) {
-        this.options = [];
+        this.found = [];
         this.loading = false;
         return;
       }
       this.loading = true;
       this.#timer = setTimeout(async () => {
-        const found = await searchArtistNames(query).catch(() => [] as string[]);
+        const found = await this.#search(query).catch(() => [] as string[]);
         if (sequence !== this.#sequence) return;
-        this.options = found.map((name) => ({ value: name, label: name }));
+        this.found = found;
         this.loading = false;
       }, 200);
     }
   }
-  const primarySearch = new ArtistSearch();
-  const collaboratorSearch = new ArtistSearch();
+  const asOptions = (names: string[]) => names.map((name) => ({ value: name, label: name }));
+  const primarySearch = new NameSearch(searchArtistNames);
+  const collaboratorSearch = new NameSearch(searchArtistNames);
+  const labelSearch = new NameSearch(searchLabelNames);
   $effect(() => primarySearch.run(primarySearch.query));
   $effect(() => collaboratorSearch.run(collaboratorSearch.query));
+  $effect(() => labelSearch.run(labelSearch.query));
+  // «Independiente» siempre arriba (U19), también antes de escribir.
+  const labelOptions = $derived(asOptions(pinIndependent(labelSearch.found)));
+
+  /**
+   * Aviso de nombres parecidos (U19): un artista o sello que no está en el catálogo se crea al
+   * aceptar (o al crear el borrador, si es admin). Al escribir uno nuevo («Añadir «…»»), Sugerir
+   * enseña los que se escriben casi igual para elegir el existente. Los detectados en la fuente no
+   * avisan: un compilado traería decenas de avisos.
+   */
+  class SimilarNames {
+    similar = $state<Record<string, string[]>>({});
+    #asked = new Set<string>();
+    #kind: 'artists' | 'labels';
+
+    constructor(kind: 'artists' | 'labels') {
+      this.#kind = kind;
+    }
+
+    /** Para el `oncreate` del Combobox: devuelve el texto tal cual y busca parecidos. */
+    check = (text: string) => {
+      const name = text.trim();
+      if (name && !this.#asked.has(name)) {
+        this.#asked.add(name);
+        similarCatalogNames(this.#kind, similarSearchTerms(name))
+          .then((candidates) => compareNames(name, candidates).similar)
+          .catch(() => [] as string[])
+          .then((similar) => (this.similar = { ...this.similar, [name]: similar }));
+      }
+      return text;
+    };
+
+    of(value: string): string[] {
+      return this.similar[value.trim()] ?? [];
+    }
+  }
+  const artistNames = new SimilarNames('artists');
+  const labelNames = new SimilarNames('labels');
 
   const clean = (values: string[]) => values.map((value) => value.trim()).filter(Boolean);
+  const replaceName = (values: string[], from: string, to: string) =>
+    values.map((value) => (value === from ? to : value)).filter((value, index, list) => list.findIndex((other) => normalizeSearch(other) === normalizeSearch(value)) === index);
+
+  function useExisting(field: 'primary' | 'collaborators' | 'label', from: string, to: string) {
+    if (field === 'primary') primaryArtists = replaceName(primaryArtists, from, to);
+    else if (field === 'collaborators') collaborators = replaceName(collaborators, from, to);
+    else labelValue = [to];
+  }
 
   function payload(): ContributionPayload {
+    const proposedRadar = radarOn ? completeRadar($state.snapshot(radar)) : null;
     return {
-      version: 2,
+      version: 3,
       title: title.trim(),
       primary_artists: clean(primaryArtists),
       collaborators: clean(collaborators),
@@ -145,8 +238,10 @@
       release_date: releaseDate,
       genres: clean(genres),
       countries: clean(countries),
-      ...(label.trim() ? { label: label.trim() } : {}),
-      ...(teamNote.trim() ? { team_note: teamNote.trim() } : {})
+      label,
+      ...(proposedRadar ? { radar: proposedRadar } : {}),
+      // La observación de admin va al historial (p_reason); en la propuesta sería la reseña.
+      ...(teamNote.trim() && !isAdmin ? { team_note: teamNote.trim() } : {})
     };
   }
 
@@ -169,7 +264,10 @@
     releaseDate = contribution.payload.release_date ?? '';
     genres = [...(contribution.payload.genres ?? [])];
     countries = [...(contribution.payload.countries ?? [])];
-    label = contribution.payload.label ?? '';
+    labelValue = contribution.payload.label ? [contribution.payload.label] : [];
+    const savedRadar = completeRadar(contribution.payload.radar);
+    radarOn = !!savedRadar;
+    radar = savedRadar ?? emptyRadar();
     teamNote = contribution.payload.team_note ?? '';
     detectedMetadata = contribution.detected_metadata ?? {};
     detectionState = contribution.detected_metadata?.source_available === false ? 'unavailable' : 'available';
@@ -183,10 +281,10 @@
   onMount(async () => {
     loadContributionDictionaries()
       .then((values) => {
-        genreOptions = values.genres.map((name) => ({ value: name, label: name }));
-        countryOptions = values.countries.map((name) => ({ value: name, label: name }));
+        genreOptions = asOptions(values.genres);
+        countryOptions = asOptions(values.countries);
       })
-      // Sin sugerencias se sigue pudiendo escribir cualquier valor (Añadir «…»).
+      // Sin la lista no se puede elegir; el servidor rechaza cualquier valor de fuera.
       .catch(() => {});
 
     if (!$user) return;
@@ -223,12 +321,17 @@
   });
 
   // Al cambiar de paso (botones o atrás/adelante del navegador), el foco va al
-  // título del paso y la vista vuelve al inicio del formulario.
+  // título del paso y la vista vuelve al inicio del formulario. Si el cambio lo
+  // causó un error, el foco va al campo que lo tiene.
   let shownStep: ContributionStep | null = null;
+  let focusAfterStep: ContributionField | null = null;
   $effect(() => {
     const current = step;
     if (shownStep !== null && shownStep !== current) {
+      const field = focusAfterStep;
+      focusAfterStep = null;
       tick().then(() => {
+        if (field) return void document.getElementById(FIELD_IDS[field])?.focus();
         stepHeading?.focus({ preventScroll: true });
         const top = stepHeading?.closest('form')?.getBoundingClientRect().top ?? 0;
         if (top < 0) window.scrollBy({ top: top - 96 });
@@ -249,11 +352,35 @@
     document.getElementById(FIELD_IDS[field])?.focus();
   }
 
+  /** Lleva al paso del campo con error y lo enfoca. */
+  async function showFieldError(field: ContributionField | null, message: string) {
+    error = message;
+    const target = field ? stepOfField(field) : step;
+    if (target !== step) {
+      focusAfterStep = field;
+      goToStep(target);
+      error = message;
+    } else await focusField(field);
+  }
+
+  /** Error de un RPC v3: si es de un campo, se marca en su paso; si no, arriba. */
+  async function showServerError(cause: any, fallback: string) {
+    const described = describeContributionError(cause);
+    const field = described?.field && described.field in FIELD_IDS ? (described.field as ContributionField) : null;
+    if (described && field) {
+      fieldErrors = { [field]: described.message };
+      await showFieldError(field, 'Revisa los campos indicados.');
+      return;
+    }
+    error = described?.message || cause?.message || fallback;
+  }
+
   async function detectar() {
     if (detectionState === 'loading' || busy) return;
     error = '';
     saved = '';
     fieldErrors = {};
+    duplicate = null;
     const provider = sourceProviderFor(sourceUrl);
     if (!provider) {
       fieldErrors = { source: SOURCE_ERROR };
@@ -261,8 +388,11 @@
       return;
     }
     detectionState = 'loading';
+    const url = sourceUrl.trim();
+    // El aviso de duplicado se pide a la vez; si falla, se sigue sin él (el servidor no lo exige).
+    const found = checkSourceDuplicate(url).catch(() => null);
     try {
-      const detected = await inspectSource(sourceUrl.trim());
+      const detected = await inspectSource(url);
       detectedMetadata = { ...detected, provider };
       title ||= detected.title ?? '';
       if (!primaryArtists.length) primaryArtists = clean(detected.artists ?? []);
@@ -272,9 +402,11 @@
       detectedMetadata = { provider, source_available: false };
       detectionState = 'unavailable';
     }
-    detectedUrl = sourceUrl.trim();
+    duplicate = duplicateNotice(await found, { role, draftId });
+    detectedUrl = url;
     hasData = true;
-    goToStep(2);
+    // Con un duplicado, el aviso se lee en el paso 1 antes de seguir.
+    if (!duplicate) goToStep(2);
   }
 
   async function continuar() {
@@ -298,25 +430,7 @@
       goToStep(4);
       return;
     }
-    if (isAdmin) await continuarEnConsola();
-    else await enviar();
-  }
-
-  async function continuarEnConsola() {
-    writeAdminHandoff({
-      sourceUrl: sourceUrl.trim(),
-      title: title.trim(),
-      primaryArtists: clean(primaryArtists),
-      collaborators: clean(collaborators),
-      releaseType: typeLabel,
-      releaseDate,
-      genres: clean(genres),
-      countries: clean(countries),
-      label: label.trim(),
-      note: teamNote.trim(),
-      coverUrl: typeof detectedMetadata.cover_url === 'string' ? detectedMetadata.cover_url : ''
-    });
-    await goto(ADMIN_NEW_RELEASE_HREF);
+    await enviar();
   }
 
   function atras() {
@@ -343,36 +457,38 @@
       resumedStatus = 'draft';
       saved = 'Borrador guardado. Puedes retomarlo desde tu perfil.';
     } catch (cause: any) {
-      error = cause?.message || 'No se pudo guardar el borrador.';
+      await showServerError(cause, 'No se pudo guardar el borrador.');
     } finally {
       busy = '';
     }
   }
 
+  /** Comunidad y colaborador: a su cola. Admin: borrador del catálogo, sin cola (U19). */
   async function enviar() {
     if (busy) return;
     error = '';
     saved = '';
     const errors = contributionFieldErrors(sourceUrl, payload());
     fieldErrors = errors;
-    const target = firstStepWithError(errors);
-    if (target) {
-      error = 'Revisa los campos obligatorios indicados.';
-      if (target !== step) goToStep(target);
-      await focusField(firstInvalidField(errors));
+    if (firstStepWithError(errors)) {
+      await showFieldError(firstInvalidField(errors), 'Revisa los campos obligatorios indicados.');
       return;
     }
     busy = 'submit';
     try {
-      if (!draftId) {
-        const contribution = await createContributionDraft(requestInput());
-        draftId = contribution.id;
+      if (isAdmin) {
+        created = await adminCreateDraftFromSuggestion({ ...requestInput(), reason: teamNote.trim() || undefined });
+      } else {
+        if (!draftId) {
+          const contribution = await createContributionDraft(requestInput());
+          draftId = contribution.id;
+        }
+        await submitContribution(draftId, requestInput());
+        resumedStatus = 'pending';
       }
-      await submitContribution(draftId, requestInput());
-      resumedStatus = 'pending';
       success = true;
     } catch (cause: any) {
-      error = cause?.message || 'No se pudo enviar la propuesta. Intenta de nuevo.';
+      await showServerError(cause, isAdmin ? 'No se pudo crear el borrador. Intenta de nuevo.' : 'No se pudo enviar la propuesta. Intenta de nuevo.');
     } finally {
       busy = '';
     }
@@ -387,11 +503,14 @@
     releaseDate = '';
     genres = [];
     countries = [];
-    label = '';
+    labelValue = [];
+    radarOn = false;
+    radar = emptyRadar();
     teamNote = '';
     detectedMetadata = {};
     detectedUrl = '';
     detectionState = 'idle';
+    duplicate = null;
     draftId = '';
     resumedStatus = null;
     reviewerNote = '';
@@ -401,28 +520,43 @@
     fallbackStep = 1;
     hasData = false;
     success = false;
+    created = null;
     await goto('/sugerir', { replaceState: true, state: {} });
     await tick();
     sourceInput?.focus();
   }
 
   const list = (values: string[]) => clean(values).join(', ');
+  const radarSummary = $derived(radarOn ? RADAR_AXES.map((axis) => `${RADAR_LABELS[axis]} ${radar[axis]}`).join(' · ') : '');
 </script>
 
 <svelte:head><title>Sugerir un lanzamiento — Discótica</title></svelte:head>
 
-{#snippet summaryRow(term: string, value: string)}
+{#snippet summaryRow(term: string, value: string, empty = 'Sin indicar')}
   <div class="sugerir__row">
     <dt>{term}</dt>
-    <dd class:sugerir__empty={!value}>{value || 'Sin indicar'}</dd>
+    <dd class:sugerir__empty={!value}>{value || empty}</dd>
   </div>
+{/snippet}
+
+<!-- Nombres nuevos con parecidos en el catálogo (U19): elegir el existente evita el duplicado. -->
+{#snippet similarWarning(field: 'primary' | 'collaborators' | 'label', values: string[], checker: SimilarNames)}
+  {#each clean(values).filter((name) => checker.of(name).length) as name (name)}
+    <Notice class="sugerir__similar" title={`«${name}» no está en el catálogo y se creará como nuevo.`}>
+      Hay nombres parecidos. Si es el mismo, usa el que ya existe.
+      {#snippet actions()}
+        {#each checker.of(name) as other (other)}
+          <Button variant="link" size="sm" onclick={() => useExisting(field, name, other)}>Usar «{other}»</Button>
+        {/each}
+      {/snippet}
+    </Notice>
+  {/each}
 {/snippet}
 
 <PageLayout
   container="narrow"
-  eyebrow="Catálogo abierto"
   title="Sugerir un lanzamiento"
-  description="Pega el enlace del lanzamiento, revisa los datos y envíalo. El equipo lo revisa antes de publicarlo."
+  description={!success && step === 1 ? 'Pega el enlace del lanzamiento y revisa los datos que detectamos.' : undefined}
 >
   {#if !editorialEnabled}
     <section class="sugerir__gate">
@@ -448,11 +582,16 @@
   {:else if success}
     <section class="sugerir__done" role="status">
       <span class="sugerir__done-icon"><Icon name="check" size="md" /></span>
-      <h2>Propuesta enviada</h2>
-      <p>Tu propuesta quedó pendiente de revisión. Puedes consultar su estado en tu perfil.</p>
+      <h2>{done.title}</h2>
+      <p>{done.text}</p>
       <div class="sugerir__gate-actions">
-        <Button variant="secondary" href="/mis-aportes">Ver mis aportes</Button>
-        <Button variant="ghost" icon="agregar" onclick={sugerirOtro}>Sugerir otro</Button>
+        {#each done.actions as action (action.label)}
+          {#if action.restart}
+            <Button variant={action.variant} icon="agregar" onclick={sugerirOtro}>{action.label}</Button>
+          {:else}
+            <Button variant={action.variant} href={action.href}>{action.label}</Button>
+          {/if}
+        {/each}
       </div>
     </section>
   {:else}
@@ -499,6 +638,14 @@
             required
           />
         </div>
+        {#if duplicate && sourceUnchanged}
+          <Notice class="sugerir__duplicate" title={duplicate.text}>
+            Revisa lo que ya existe antes de seguir.
+            {#snippet actions()}
+              {#if duplicate?.link}<Button variant="link" size="sm" href={duplicate.link.href}>{duplicate.link.label}</Button>{/if}
+            {/snippet}
+          </Notice>
+        {/if}
       {:else if step === 2}
         <p class="sugerir__lead">Comprueba lo que detectamos y completa lo que falte.</p>
         {#if detectionState === 'unavailable'}
@@ -516,30 +663,38 @@
         {/if}
 
         <Field label="Título" id={FIELD_IDS.title} bind:value={title} maxlength={200} error={fieldErrors.title} required />
-        <Combobox
-          label="Artistas principales"
-          id={FIELD_IDS.primary_artists}
-          options={primarySearch.options}
-          bind:value={primaryArtists}
-          bind:query={primarySearch.query}
-          filter={false}
-          loading={primarySearch.loading}
-          allowCreate
-          placeholder="Busca o escribe un nombre"
-          error={fieldErrors.primary_artists}
-          required
-        />
-        <Combobox
-          label="Colaboradores"
-          options={collaboratorSearch.options}
-          bind:value={collaborators}
-          bind:query={collaboratorSearch.query}
-          filter={false}
-          loading={collaboratorSearch.loading}
-          allowCreate
-          placeholder="Busca o escribe un nombre"
-          optional
-        />
+        <div class="sugerir__group">
+          <Combobox
+            label="Artistas principales"
+            id={FIELD_IDS.primary_artists}
+            options={asOptions(primarySearch.found)}
+            bind:value={primaryArtists}
+            bind:query={primarySearch.query}
+            filter={false}
+            loading={primarySearch.loading}
+            allowCreate
+            oncreate={artistNames.check}
+            placeholder="Busca o escribe un nombre"
+            error={fieldErrors.primary_artists}
+            required
+          />
+          {@render similarWarning('primary', primaryArtists, artistNames)}
+        </div>
+        <div class="sugerir__group">
+          <Combobox
+            label="Colaboradores"
+            options={asOptions(collaboratorSearch.found)}
+            bind:value={collaborators}
+            bind:query={collaboratorSearch.query}
+            filter={false}
+            loading={collaboratorSearch.loading}
+            allowCreate
+            oncreate={artistNames.check}
+            placeholder="Busca o escribe un nombre"
+            optional
+          />
+          {@render similarWarning('collaborators', collaborators, artistNames)}
+        </div>
         <div class="sugerir__pair">
           <Select
             label="Tipo"
@@ -557,8 +712,7 @@
             id={FIELD_IDS.genres}
             options={genreOptions}
             bind:value={genres}
-            allowCreate
-            placeholder="Ej. Ambient"
+            placeholder="Selecciona uno o más valores"
             error={fieldErrors.genres}
             required
           />
@@ -567,13 +721,34 @@
             id={FIELD_IDS.countries}
             options={countryOptions}
             bind:value={countries}
-            allowCreate
-            placeholder="Ej. Colombia"
+            placeholder="Selecciona uno o más valores"
             error={fieldErrors.countries}
             required
           />
         </div>
-        <Field label="Sello" id="label" bind:value={label} maxlength={160} optional />
+        <div class="sugerir__group">
+          <Combobox
+            label="Sello"
+            id={FIELD_IDS.label}
+            options={labelOptions}
+            bind:value={labelValue}
+            bind:query={labelSearch.query}
+            filter={false}
+            loading={labelSearch.loading}
+            single
+            allowCreate
+            oncreate={labelNames.check}
+            placeholder="Selecciona o escribe un sello"
+            hint="Si es autoeditado, elige «Independiente»."
+            error={fieldErrors.label}
+            required
+          />
+          {@render similarWarning('label', labelValue, labelNames)}
+        </div>
+        <div class="sugerir__radar">
+          <Checkbox bind:checked={radarOn} hint="Opcional. El equipo lo ajusta al revisar.">Proponer un radar</Checkbox>
+          {#if radarOn}<RadarControls bind:value={radar} compact />{/if}
+        </div>
       {:else if step === 3}
         <Textarea
           label={isAdmin ? 'Observación del cambio' : 'Nota para el equipo'}
@@ -587,11 +762,7 @@
           optional
         />
       {:else}
-        <p class="sugerir__lead">
-          {isAdmin
-            ? 'Revisa los datos. En el Estudio eliges o creas lo que falte y lo publicas.'
-            : 'Revisa la propuesta antes de enviarla. Ninguna propuesta se publica automáticamente.'}
-        </p>
+        <p class="sugerir__lead">{submitLead(role)}</p>
         <section class="sugerir__summary" aria-labelledby="summary-source">
           <header>
             <h3 id="summary-source">Fuente</h3>
@@ -618,16 +789,17 @@
               {@render summaryRow('Fecha', releaseDate)}
               {@render summaryRow('Géneros', list(genres))}
               {@render summaryRow('Países', list(countries))}
-              {@render summaryRow('Sello', label.trim())}
+              {@render summaryRow('Sello', label)}
+              {@render summaryRow('Radar', radarSummary, 'Sin radar')}
             </dl>
           </div>
         </section>
         <section class="sugerir__summary" aria-labelledby="summary-note">
           <header>
-            <h3 id="summary-note">Nota</h3>
-            <Button variant="link" size="sm" onclick={() => goToStep(3)}>Editar<span class="sr-only"> la nota</span></Button>
+            <h3 id="summary-note">{isAdmin ? 'Observación' : 'Nota'}</h3>
+            <Button variant="link" size="sm" onclick={() => goToStep(3)}>Editar<span class="sr-only"> la {isAdmin ? 'observación' : 'nota'}</span></Button>
           </header>
-          <p class="sugerir__note" class:sugerir__empty={!teamNote.trim()}>{teamNote.trim() || 'Sin nota'}</p>
+          <p class="sugerir__note" class:sugerir__empty={!teamNote.trim()}>{teamNote.trim() || (isAdmin ? 'Alta desde Sugerir' : 'Sin nota')}</p>
         </section>
       {/if}
 
@@ -644,15 +816,13 @@
         {/if}
         {#if step === 1}
           <Button type="submit" class="sugerir__primary" loading={detectionState === 'loading'} disabled={!!busy} iconEnd={sourceUnchanged ? 'chevron-derecha' : undefined}>
-            {#if detectionState === 'loading'}Leyendo…{:else if sourceUnchanged}Continuar{:else}Detectar{/if}
+            {#if detectionState === 'loading'}Leyendo…{:else if sourceUnchanged && duplicate}Continuar igualmente{:else if sourceUnchanged}Continuar{:else}Detectar{/if}
           </Button>
         {:else if step < 4}
           <Button type="submit" class="sugerir__primary" iconEnd="chevron-derecha" disabled={!!busy}>Continuar</Button>
-        {:else if isAdmin}
-          <Button type="submit" class="sugerir__primary" iconEnd="flecha-derecha">Continuar en el Estudio</Button>
         {:else}
           <Button type="submit" class="sugerir__primary" loading={busy === 'submit'} disabled={busy === 'save' || !roleLoaded}>
-            {busy === 'submit' ? 'Enviando…' : 'Enviar a revisión'}
+            {busy === 'submit' ? (isAdmin ? 'Creando…' : 'Enviando…') : submitLabel(role)}
           </Button>
         {/if}
       </div>
@@ -730,6 +900,11 @@
     background: var(--color-superficie-1);
     --sugerir-evidence: calc(var(--space-8) + var(--space-7));
   }
+  /* Un campo y sus avisos de nombres parecidos. */
+  .sugerir__group { display: grid; gap: var(--space-3); }
+  .sugerir__radar { display: grid; gap: var(--space-2); }
+  .sugerir__radar :global(.radar-field) { margin-top: 0; }
+
   .sugerir__evidence figcaption { color: var(--color-texto-tenue); font-size: var(--text-2xs); line-height: 1.45; }
 
   .sugerir__summary {

@@ -6,6 +6,7 @@
   import { getStudioContext } from '$lib/components/estudio/context';
   import { missingFields } from '$lib/domain/releaseEditor';
   import {
+    NEW_RELEASE_HREF,
     STUDIO_QUICK_VIEWS,
     batchItemText,
     batchSummary,
@@ -92,9 +93,8 @@
   let genres: DictionaryEntry[] = [];
   let countries: DictionaryEntry[] = [];
   let types: DictionaryEntry[] = [];
-  /** Editor (U16): lo abre la URL, ?lanzamiento=<uuid> o ?nuevo=1. */
+  /** Editor (U16): lo abre la URL, ?lanzamiento=<uuid>. */
   let editorId: string | null = null;
-  let editorNew = false;
   /** El editor se abrió desde la lista en esta pestaña: "Volver" es atrás. */
   let openedFromList = false;
   /** La lista ya se pidió al menos una vez. */
@@ -114,7 +114,7 @@
   // Nombres de artistas de la lista. Llegan después de las filas: leer `artists`
   // aquí lo vuelve estado y la tabla se actualiza al recibirlos.
   $: artistNames = new Map(artists.map((artist) => [artist.id, artist.name]));
-  $: editing = Boolean(editorId || editorNew);
+  $: editing = Boolean(editorId);
   $: pickedList = Object.values(picked);
   $: pickedCount = pickedList.length;
   $: overLimit = pickedCount > CATALOG_BATCH_MAX;
@@ -296,26 +296,20 @@
   let batchTitles: Record<string, string> = {};
   $: if (batchOpen && !batchResult) batchTitles = Object.fromEntries(pickedList.map((item) => [item.id, item.title]));
   // ---------------------------------------------------------------------------
-  // Editor (U16, en ReleaseEditor). Se abre por la URL: ?lanzamiento=<uuid> o
-  // ?nuevo=1, así se puede enlazar desde Propuestas y Reportes.
+  // Editor (U16, en ReleaseEditor). Se abre por la URL, ?lanzamiento=<uuid>, así se puede
+  // enlazar desde Propuestas y Reportes. Los lanzamientos nuevos entran por Sugerir (U19):
+  // el ?nuevo=1 de antes redirige allí.
 
   function closeEditor() {
     if (openedFromList) window.history.back();
-    else void goto(withParams($pageStore.url, { lanzamiento: null, nuevo: null }));
-  }
-  function startNew() {
-    void goto(withParams($pageStore.url, { lanzamiento: null, nuevo: '1' }));
-  }
-  /** El borrador nuevo ya tiene identidad: su URL pasa a ser la del lanzamiento. */
-  async function editorCreated(id: string) {
-    await goto(withParams($pageStore.url, { nuevo: null, lanzamiento: id }), { replaceState: true, noScroll: true, keepFocus: true });
+    else void goto(withParams($pageStore.url, { lanzamiento: null }));
   }
   function editorSaved() {
     void loadList();
     studio.refreshCounts();
   }
 
-  /** La URL manda: vista rápida, lanzamiento abierto o alta nueva. */
+  /** La URL manda: vista rápida o lanzamiento abierto. */
   function syncFromUrl(url: URL) {
     const view = quickViewFromSlug(url.searchParams.get('vista'));
     if (view !== quickView || !listLoaded) {
@@ -324,12 +318,15 @@
       void loadList();
     }
     const id = url.searchParams.get('lanzamiento');
-    if (id || url.searchParams.has('nuevo')) notice = '';
+    if (id) notice = '';
     editorId = id;
-    editorNew = !id && url.searchParams.has('nuevo');
   }
 
   onMount(() => {
+    if ($pageStore.url.searchParams.has('nuevo')) {
+      void goto(NEW_RELEASE_HREF, { replaceState: true });
+      return;
+    }
     const media = window.matchMedia(BELOW_MOBILE_QUERY);
     const updateMobile = () => mobile = media.matches;
     updateMobile();
@@ -352,11 +349,12 @@
   afterNavigate((navigation) => {
     const to = navigation.to?.url;
     if (!ready || !to || to.pathname !== $pageStore.url.pathname) return;
+    if (to.searchParams.has('nuevo')) return void goto(NEW_RELEASE_HREF, { replaceState: true });
     const from = navigation.from?.url;
-    const toEditor = to.searchParams.has('lanzamiento') || to.searchParams.has('nuevo');
-    const fromList = !!from && from.pathname === to.pathname && !from.searchParams.has('lanzamiento') && !from.searchParams.has('nuevo');
+    const toEditor = to.searchParams.has('lanzamiento');
+    const fromList = !!from && from.pathname === to.pathname && !from.searchParams.has('lanzamiento');
     if (!toEditor) openedFromList = false;
-    else if (navigation.type !== 'popstate' && !editorId && !editorNew) openedFromList = fromList;
+    else if (navigation.type !== 'popstate' && !editorId) openedFromList = fromList;
     if (toEditor) closeBatch();
     syncFromUrl(to);
   });
@@ -370,20 +368,18 @@
   {:else if editing}
     <ReleaseEditor
       releaseId={editorId}
-      isNew={editorNew}
       bind:labels
       bind:genres
       bind:artists
       {countries}
       {types}
       onclose={closeEditor}
-      oncreated={editorCreated}
       onsaved={editorSaved}
     />
   {:else}
     <ToolHeader title="Catálogo" description={viewDescription}>
       {#snippet actions()}
-        {#if !mobile}<Button icon="agregar" onclick={startNew}>Nuevo lanzamiento</Button>{/if}
+        {#if !mobile}<Button icon="agregar" href={NEW_RELEASE_HREF}>Nuevo lanzamiento</Button>{/if}
       {/snippet}
     </ToolHeader>
 

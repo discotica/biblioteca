@@ -276,19 +276,6 @@ export async function saveCatalog(
   };
 }
 
-export async function createCatalog(snapshot: CatalogSnapshot, reason: string) {
-  const { data, error } = await supabase.rpc("admin_create_catalog_release", {
-    p_payload: payload(snapshot),
-    p_reason: reason,
-  });
-  rpcError(error);
-  return data as {
-    release_id: string;
-    catalog_version: number;
-    change_set_id: string;
-  };
-}
-
 export async function revertCatalog(
   changeSetId: string,
   version: number,
@@ -381,23 +368,6 @@ export async function searchArtists(query: string) {
     .limit(30);
   rpcError(error);
   return (data ?? []) as Artist[];
-}
-
-/**
- * Artistas existentes con exactamente estos nombres (sin distinguir mayúsculas).
- * Para el traspaso de Sugerir a la consola (U13): no crea nada.
- */
-export async function findArtistsByNames(names: string[]) {
-  const unique = [...new Set(names.map((name) => name.trim()).filter(Boolean))];
-  const found = await Promise.all(
-    unique.map(async (name) => {
-      const pattern = name.replace(/[\\%_]/g, (character) => `\\${character}`);
-      const { data, error } = await supabase.from("artists").select("id,name,slug").ilike("name", pattern).limit(5);
-      rpcError(error);
-      return (data ?? []) as Artist[];
-    }),
-  );
-  return found.flat();
 }
 
 /** Read-only public dictionaries are intentionally kept outside component code. */

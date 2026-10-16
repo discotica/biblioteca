@@ -1,10 +1,10 @@
 <script lang="ts">
   import { tick, untrack } from 'svelte';
-  import RadarMini from '$lib/components/RadarMini.svelte';
+  import RadarControls from '$lib/components/RadarControls.svelte';
+  import { normalizeSearch } from '$lib/ui/combobox';
   import EditorCredits from './EditorCredits.svelte';
   import EditorHistory from './EditorHistory.svelte';
   import { slugifyReleaseIdentity } from '$lib/domain/releases';
-  import { matchByName, normalizeName, takeAdminHandoff, type AdminHandoff } from '$lib/domain/adminHandoff';
   import { studioProposalsHref, studioReportsHref } from '$lib/domain/studio';
   import {
     EDITOR_SECTIONS,
@@ -35,12 +35,9 @@
     type MenuItem
   } from '$lib/ui';
   import {
-    blankCatalog,
     createArtist,
-    createCatalog,
     createGenre,
     createLabel,
-    findArtistsByNames,
     getArtistsByIds,
     getCatalogHistory,
     getCatalogRelease,
@@ -57,8 +54,6 @@
   type Props = {
     /** Lanzamiento abierto (?lanzamiento=). */
     releaseId: string | null;
-    /** Alta nueva (?nuevo=1), con el traspaso de Sugerir si lo hay (U13). */
-    isNew: boolean;
     labels: DictionaryEntry[];
     genres: DictionaryEntry[];
     countries: DictionaryEntry[];
@@ -66,22 +61,18 @@
     /** Nombres de artistas conocidos, compartidos con la lista. */
     artists: Artist[];
     onclose: () => void;
-    /** El borrador nuevo ya tiene identidad: su URL pasa a ser la del lanzamiento. */
-    oncreated: (id: string) => void | Promise<void>;
     /** Algo cambió en el servidor: la lista y los conteos se vuelven a leer. */
     onsaved: () => void;
   };
 
   let {
     releaseId,
-    isNew,
     labels = $bindable(),
     genres = $bindable(),
     countries,
     types,
     artists = $bindable(),
     onclose,
-    oncreated,
     onsaved
   }: Props = $props();
 
@@ -90,13 +81,6 @@
 
   const STATUS_LABELS: Record<CatalogStatus, string> = { draft: 'Borrador', published: 'Publicado', archived: 'Archivado' };
   const STATUS_TONES: Record<CatalogStatus, 'neutral' | 'accent' | 'danger'> = { draft: 'neutral', published: 'accent', archived: 'danger' };
-  const RADAR = [
-    { key: 'experimental', label: 'Experimental' },
-    { key: 'denso', label: 'Denso' },
-    { key: 'sintetico', label: 'Sintético' },
-    { key: 'bailable', label: 'Bailable' },
-    { key: 'rapido', label: 'Rápido' }
-  ] as const;
 
   let selected = $state<CatalogSnapshot | null>(null);
   let history = $state<CatalogHistory[]>([]);
@@ -108,7 +92,6 @@
   let observation = $state('');
   let busy = $state(false);
   let feedback = $state<Feedback>(null);
-  let handoffNotice = $state('');
   let titleError = $state('');
   let activeSection = $state<EditorSectionId>('datos');
 
@@ -180,23 +163,13 @@
   });
 
   // ---------------------------------------------------------------------------
-  // Carga: la URL manda (la página pasa releaseId / isNew).
+  // Carga: la URL manda (la página pasa releaseId). Desde U19 no hay alta en blanco: los
+  // lanzamientos nuevos entran por Sugerir.
 
   $effect(() => {
     const id = releaseId;
-    const fresh = isNew;
-    untrack(() => void sync(id, fresh));
+    untrack(() => void (id && selected?.id !== id && load(id)));
   });
-
-  async function sync(id: string | null, fresh: boolean) {
-    if (id) {
-      // Tras crear el borrador, la URL pasa a su id: ya está cargado.
-      if (selected?.id !== id) await load(id);
-    } else if (fresh && (!selected || selected.id)) {
-      startBlank();
-      await applyHandoff(takeAdminHandoff());
-    }
-  }
 
   function assign(snapshot: CatalogSnapshot) {
     selected = snapshot;
@@ -215,7 +188,6 @@
     loading = true;
     loadError = '';
     feedback = null;
-    handoffNotice = '';
     try {
       const snapshot = await getCatalogRelease(id);
       history = await getCatalogHistory(id);
@@ -231,16 +203,6 @@
     }
   }
 
-  function startBlank() {
-    assign(blankCatalog());
-    history = [];
-    observation = '';
-    feedback = null;
-    handoffNotice = '';
-    loadError = '';
-    activeSection = 'datos';
-  }
-
   /** Vuelve a leer el lanzamiento y su historial después de escribir. */
   async function refresh(id = selected?.id) {
     if (!id) return;
@@ -249,43 +211,6 @@
     await ensureArtists([...snapshot.artist_ids, ...snapshot.collaborator_ids]);
     assign(snapshot);
     onsaved();
-  }
-
-  /**
-   * Rellena el alta con lo escrito en Sugerir (U13). Solo elige lo que ya
-   * existe; lo demás se nombra en el aviso para crearlo aquí.
-   */
-  async function applyHandoff(handoff: AdminHandoff | null) {
-    if (!handoff || !selected) return;
-    const found = await findArtistsByNames([...handoff.primaryArtists, ...handoff.collaborators]).catch(() => [] as Artist[]);
-    artists = [...artists, ...found.filter((artist) => !artists.some((known) => known.id === artist.id))];
-    const primary = matchByName(found, handoff.primaryArtists);
-    const guests = matchByName(found, handoff.collaborators);
-    const genreMatch = matchByName(genres, handoff.genres);
-    const countryMatch = matchByName(countries, handoff.countries);
-    const typeMatch = matchByName(types, handoff.releaseType ? [handoff.releaseType] : []);
-    if (!selected) return;
-    updateTitle(handoff.title);
-    selected.release_date = handoff.releaseDate || null;
-    selected.release_type_id = typeMatch.ids[0] ?? null;
-    selected.artist_ids = primary.ids;
-    selected.collaborator_ids = guests.ids.filter((id) => !primary.ids.includes(id));
-    selected.genre_ids = genreMatch.ids;
-    selected.country_ids = countryMatch.ids;
-    if (/^https:\/\//i.test(handoff.coverUrl)) selected.cover_url = handoff.coverUrl;
-    if (handoff.label) updateLabel(handoff.label);
-    if (handoff.sourceUrl) updateBuyLink(handoff.sourceUrl);
-    observation = handoff.note.trim() || 'Alta desde Sugerir.';
-    const pending = [
-      ...primary.missing.map((name) => `${name} (artista)`),
-      ...guests.missing.map((name) => `${name} (colaborador)`),
-      ...genreMatch.missing.map((name) => `${name} (género)`),
-      ...countryMatch.missing.map((name) => `${name} (país)`),
-      ...(handoff.label && !selected.label_id ? [`${handoff.label} (sello)`] : [])
-    ];
-    handoffNotice = pending.length
-      ? `Datos traídos de Sugerir. Aún no existen en el catálogo, créalos aquí: ${pending.join(', ')}.`
-      : 'Datos traídos de Sugerir. Revisa y crea el borrador.';
   }
 
   // ---------------------------------------------------------------------------
@@ -300,7 +225,7 @@
   function updateLabel(value: string) {
     if (!selected) return;
     labelText = value;
-    selected.label_id = labels.find((label) => normalizeName(label.name) === normalizeName(value))?.id ?? null;
+    selected.label_id = labels.find((label) => normalizeSearch(label.name) === normalizeSearch(value))?.id ?? null;
   }
   function updateBuyLink(value: string) {
     if (!selected) return;
@@ -347,16 +272,13 @@
     feedback = null;
     try {
       const snapshot = $state.snapshot(selected) as CatalogSnapshot;
-      const wasNew = !snapshot.id;
-      const outcome = snapshot.id ? await saveCatalog(snapshot, observation, operation) : await createCatalog(snapshot, observation);
+      const outcome = await saveCatalog(snapshot, observation, operation);
       await refresh(outcome.release_id);
       feedback = {
         tone: 'success',
-        text: operation === 'archive' ? 'Lanzamiento archivado.' : operation === 'publish' ? 'Lanzamiento publicado.' : wasNew ? 'Borrador creado.' : 'Cambios guardados.'
+        text: operation === 'archive' ? 'Lanzamiento archivado.' : operation === 'publish' ? 'Lanzamiento publicado.' : 'Cambios guardados.'
       };
       observation = '';
-      handoffNotice = '';
-      if (wasNew) await oncreated(outcome.release_id);
     } catch (cause: any) {
       if (cause?.code === '40001') {
         await refresh().catch(() => {});
@@ -553,7 +475,6 @@
       </div>
     </header>
 
-    {#if handoffNotice}<Notice class="editor__handoff">{handoffNotice}</Notice>{/if}
 
     <div class="editor__layout">
       <aside class="editor__aside">
@@ -685,21 +606,7 @@
               removeLabel={(text) => `Quitar país ${text}`}
             />
           </div>
-          <fieldset class="editor__radar">
-            <legend>Radar</legend>
-            <div class="editor__radar-row">
-            <div class="editor__radar-chart" aria-hidden="true"><RadarMini valores={release.radar} /></div>
-            <div class="editor__radar-controls">
-              {#each RADAR as axis (axis.key)}
-                <label class="editor__slider">
-                  <span>{axis.label}</span>
-                  <input type="range" min="0" max="5" step="1" bind:value={release.radar[axis.key]} />
-                  <output aria-hidden="true">{release.radar[axis.key]}</output>
-                </label>
-              {/each}
-            </div>
-            </div>
-          </fieldset>
+          <RadarControls bind:value={release.radar} />
         </section>
 
         <section class="editor__section" id={editorSectionAnchor('medios')} data-section="medios" aria-labelledby="editor-h-medios">
@@ -857,7 +764,6 @@
   .editor__reports { color: var(--color-danger-texto); font-size: var(--text-2xs); }
   .editor__reports:hover { color: var(--color-texto); }
 
-  .editor > :global(.editor__handoff) { margin-bottom: var(--density-gap); }
 
   /* ---- Índice y cuerpo ------------------------------------------------- */
   .editor__layout {
@@ -989,44 +895,6 @@
     gap: var(--space-3) var(--density-gap);
     align-items: start;
   }
-  .editor__radar {
-    margin: var(--space-4) 0 0;
-    padding: var(--space-3) 0 0;
-    border: 0;
-    border-top: 1px solid var(--color-borde);
-  }
-  .editor__radar legend {
-    margin-bottom: var(--space-2);
-    padding: 0;
-    color: var(--color-texto-alto);
-    font-size: var(--text-sm);
-    font-weight: 600;
-  }
-  .editor__radar-row {
-    display: grid;
-    grid-template-columns: var(--tool-radar) minmax(0, 1fr);
-    align-items: center;
-    gap: var(--space-6);
-  }
-  /* Las etiquetas del radar salen del dibujo: margen para que no se corten. */
-  .editor__radar-chart { width: var(--tool-radar); padding-inline: var(--space-4); box-sizing: content-box; }
-  .editor__radar-chart :global(svg) { display: block; width: 100%; height: auto; overflow: visible; }
-  .editor__radar-controls {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0 var(--space-5);
-  }
-  .editor__slider {
-    display: grid;
-    grid-template-columns: 5.5rem minmax(0, 1fr) 1.5ch;
-    align-items: center;
-    gap: var(--space-2);
-    min-height: var(--target-touch);
-    color: var(--color-texto-medio);
-    font-size: var(--text-xs);
-  }
-  .editor__slider input { width: 100%; min-height: var(--target-touch); margin: 0; accent-color: var(--color-acento); }
-  .editor__slider output { color: var(--color-acento); font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
 
   /* ---- Medios ----------------------------------------------------------- */
   .editor__media {
@@ -1082,7 +950,6 @@
     .editor__grid :global(.editor__span-4) { grid-column: 1 / -1; }
     .editor__grid :global(.editor__span-2) { grid-column: span 1; }
     .editor__pair { grid-template-columns: minmax(0, 1fr); }
-    .editor__radar-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
 
   /* ---- Móvil: una columna, el índice es un selector y la barra va abajo - */
@@ -1110,8 +977,6 @@
     .editor__grid :global(.editor__span-4),
     .editor__grid :global(.editor__span-2) { grid-column: 1 / -1; }
     .editor__media { grid-template-columns: minmax(0, 1fr); }
-    .editor__radar-row { grid-template-columns: minmax(0, 1fr); justify-items: center; }
-    .editor__radar-controls { width: 100%; grid-template-columns: minmax(0, 1fr); }
     .editor__bar {
       margin-inline: calc(-1 * var(--container-gutter));
       padding-inline: var(--container-gutter);

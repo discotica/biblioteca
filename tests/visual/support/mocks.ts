@@ -128,6 +128,9 @@ export async function installNetwork(ctx: BrowserContext, base: string, role: Ro
       return send(method === 'DELETE' ? undefined : [], method === 'DELETE' ? 204 : 201);
     }
 
+    // Alias de U19: el snapshot es anterior a G1 y no tiene ninguno.
+    if (resource === 'artist_aliases' || resource === 'label_aliases') return send([]);
+
     if (SNAPSHOT_TABLES.has(resource)) {
       const result = evaluateRead(tables[resource], url, headers);
       if (result) return send(result.body, result.status, result.headers);

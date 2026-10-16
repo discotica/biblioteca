@@ -19,7 +19,8 @@ export type ContributionField =
   | 'release_type'
   | 'release_date'
   | 'genres'
-  | 'countries';
+  | 'countries'
+  | 'label';
 
 const FIELD_STEP: Record<ContributionField, ContributionStep> = {
   source: 1,
@@ -28,7 +29,8 @@ const FIELD_STEP: Record<ContributionField, ContributionStep> = {
   release_type: 2,
   release_date: 2,
   genres: 2,
-  countries: 2
+  countries: 2,
+  label: 2
 };
 
 /** Orden de foco dentro de cada paso: el del formulario. */
@@ -39,7 +41,8 @@ export const FIELD_ORDER: ContributionField[] = [
   'release_type',
   'release_date',
   'genres',
-  'countries'
+  'countries',
+  'label'
 ];
 
 export function stepOfField(field: ContributionField): ContributionStep {

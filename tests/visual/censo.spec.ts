@@ -420,7 +420,8 @@ add('admin-publish-D', 'D', STUDIO, {
     await settle(page);
   }
 });
-add('admin-new-D', 'D', STUDIO, { role: 'admin', full: true, maxH: 4000, setup: async (page) => { await page.getByRole('button', { name: /Nuevo/ }).first().click(); await page.waitForSelector('.editor__head'); await settle(page); } });
+// U19: «Nuevo lanzamiento» lleva a Sugerir (un solo flujo para crear); ya no hay editor en blanco.
+add('admin-new-D', 'D', STUDIO, { role: 'admin', full: true, maxH: 4000, setup: async (page) => { await page.getByRole('link', { name: 'Nuevo lanzamiento' }).click(); await page.waitForURL(/\/sugerir$/); await page.getByLabel('Enlace de la fuente').waitFor(); await settle(page); } });
 // U16: móvil edita (antes solo consulta): selector de sección arriba y guardar abajo, fijos.
 add('estudio-editor-top-M', 'M', STUDIO, { role: 'admin', supplementary: true, setup: openEditor });
 add('estudio-editor-medios-M', 'M', STUDIO, {

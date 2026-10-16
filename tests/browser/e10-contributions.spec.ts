@@ -52,6 +52,11 @@ function contribution(input: Partial<Record<string, unknown>> = {}) {
 }
 
 /** U13: artistas, géneros y países se eligen con el Combobox de U6 (chips). */
+async function chooseIndependent(page: Page) {
+  await page.getByRole('combobox', { name: 'Sello' }).click();
+  await page.getByRole('option', { name: 'Independiente', exact: true }).click();
+}
+
 async function addChip(page: Page, label: string, value: string) {
   const field = page.getByRole('combobox', { name: label });
   await field.fill(value);
@@ -91,6 +96,11 @@ async function mockBase(page: Page, role: Role, options: { contributions?: Retur
       return json(route, { id: userId, username: session.user.user_metadata.username, display_name: role, bio: null, created_at: '2026-01-01T00:00:00Z' });
     }
     if (url.pathname === '/rest/v1/crates') return json(route, []);
+    // U19: géneros y países solo de la lista seleccionable; el sello es obligatorio.
+    const entries = (names: string[]) => names.map((name, index) => ({ id: `${name}-${index}`, name, slug: `${name}-${index}` }));
+    if (url.pathname === '/rest/v1/genres') return json(route, entries(['Ambient', 'Electrónica']));
+    if (url.pathname === '/rest/v1/countries') return json(route, entries(['Chile', 'Colombia']));
+    if (url.pathname === '/rest/v1/labels' || url.pathname === '/rest/v1/artists' || url.pathname.endsWith('_aliases')) return json(route, []);
     if (url.pathname === '/rest/v1/contributions') {
       const idFilter = url.searchParams.get('id');
       if (idFilter?.startsWith('eq.')) return json(route, rows.find((item) => item.id === idFilter.slice(3)) ?? null);
@@ -166,6 +176,8 @@ test('E10 detección explícita/lenta, borrador y envío idempotente visible a 3
   await page.getByLabel(/^Tipo/).selectOption('album');
   await addChip(page, 'Géneros', 'Ambient');
   await addChip(page, 'Países', 'Colombia');
+  await page.keyboard.press('Escape');
+  await chooseIndependent(page);
   await page.getByRole('button', { name: 'Guardar borrador' }).click();
   await expect(page.getByText('Borrador guardado. Puedes retomarlo desde tu perfil.')).toBeVisible();
   // U13: revisar datos → nota (opcional) → enviar.
@@ -176,7 +188,7 @@ test('E10 detección explícita/lenta, borrador y envío idempotente visible a 3
   await submit.dblclick();
   await expect(page.getByRole('heading', { name: 'Propuesta enviada' })).toBeVisible();
   expect(submissions).toBe(1);
-  await expect(page.getByText('Tu propuesta quedó pendiente de revisión. Puedes consultar su estado en tu perfil.')).toBeVisible();
+  await expect(page.getByText('Tu propuesta quedó pendiente de revisión. Puedes consultar su estado en Mis aportes.')).toBeVisible();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
@@ -203,6 +215,8 @@ test('E10 conserva edición manual tras fallo, enfoca obligatorios y muestra err
   await page.getByLabel(/^Fecha/).fill('2026-09-18');
   await addChip(page, 'Géneros', 'Electrónica');
   await addChip(page, 'Países', 'Chile');
+  await page.keyboard.press('Escape');
+  await chooseIndependent(page);
   await page.getByRole('button', { name: 'Continuar' }).click();
   await page.getByRole('button', { name: 'Continuar' }).click();
   await page.route(`https://${project}.supabase.co/rest/v1/rpc/submit_contribution`, (route) => json(route, { code: '503', message: 'Fallo remoto reproducible' }, 503));

@@ -450,6 +450,14 @@ Las decidió el usuario en cinco rondas de preguntas, a partir de su lista de co
 - **El editor conserva los valores de legado que ya tiene un lanzamiento, pero no deja añadir otros.** La reversión del historial restaura tal cual (Claude).
 - **Pendiente sin grupo:** ocultar los países de legado en los filtros públicos. El servidor ya expone `status`; la propuesta es que lo haga G4.
 
+**Añadidas al cerrar G2 (2026-10-15, aceptadas por el usuario):**
+- **Duplicado:** el aviso queda en el paso 1, con el enlace a lo existente, y el botón pasa a «Continuar igualmente». No bloquea.
+- **Nombres parecidos:** solo avisan los nombres que se escriben («Añadir «…»»), no los detectados en la fuente: un compilado traería decenas de avisos. «Usar «X»» sustituye el nombre por el existente.
+  - Cuentan como parecidos los que se escriben casi igual, los que contienen al otro y los que comparten una palabra de cuatro letras o más.
+  - Se buscan por hasta tres palabras del nombre. Si la regla de la palabra compartida resulta ruidosa, se puede endurecer.
+- **La observación de admin en Sugerir** va al historial (`p_reason`), no a la propuesta, porque el servidor la usaría como reseña.
+- **«Nuevo lanzamiento»** sigue oculto en el Estudio en móvil; allí está «Sugerir» en el header.
+
 **Sustituye:**
 - en «Sugerir (U13)»: el «Continuar en la consola» de admin y los cuatro «Añadir «…»»;
 - en «Editor del Estudio (U16)»: el alta de géneros desde el Combobox;

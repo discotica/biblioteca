@@ -14,6 +14,9 @@ export type StudioSectionId = 'catalogo' | 'propuestas' | 'reportes';
 
 export const STUDIO_BASE = '/estudio';
 
+/** U19: un solo flujo para crear. «Nuevo lanzamiento» del Estudio lleva a Sugerir. */
+export const NEW_RELEASE_HREF = '/sugerir';
+
 export const STUDIO_SECTIONS: ReadonlyArray<{ id: StudioSectionId; label: string; href: string }> = [
   { id: 'catalogo', label: 'Catálogo', href: `${STUDIO_BASE}/catalogo` },
   { id: 'propuestas', label: 'Propuestas', href: `${STUDIO_BASE}/propuestas` },

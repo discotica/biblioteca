@@ -26,18 +26,11 @@ export const RELEASE_TYPE_OPTIONS: Array<{ value: ReleaseTypeSlug; label: string
   { value: 'sample-pack', label: 'Sample Pack' }
 ];
 
-export interface ContributionPayload {
-  version: 2;
-  title: string;
-  primary_artists: string[];
-  collaborators: string[];
-  release_type: ReleaseTypeSlug | '';
-  release_date: string;
-  genres: string[];
-  countries: string[];
-  label?: string;
-  team_note?: string;
-}
+/**
+ * Lo que envía la interfaz desde U19 (G2): la propuesta v3 de G1. Las filas guardadas antes de G1
+ * pueden traer `version: 2` y sin sello; quien las lee usa valores por defecto.
+ */
+export type ContributionPayload = ContributionPayloadV3;
 
 export interface DetectedMetadata {
   provider?: string;
@@ -75,12 +68,6 @@ export interface Contribution {
 
 export type SourceProvider = 'bandcamp' | 'spotify' | 'soundcloud';
 
-/**
- * Altas administrativas (U13): E09 no acepta propuestas de admin, así que su
- * "Sugerir" es el lanzamiento nuevo del Catálogo del Estudio (U15).
- */
-export const ADMIN_NEW_RELEASE_HREF = '/estudio/catalogo?nuevo=1';
-
 function rpcError(error: { message: string; code?: string; details?: string | null; hint?: string | null } | null) {
   if (!error) return;
   // details lleva el valor rechazado de los errores v3 (U19); describeContributionError lo usa.
@@ -106,11 +93,11 @@ export function sourceProviderFor(value: string): SourceProvider | null {
 }
 
 export type ContributionFieldErrors = Partial<Record<
-  'source' | 'title' | 'primary_artists' | 'release_type' | 'release_date' | 'genres' | 'countries',
+  'source' | 'title' | 'primary_artists' | 'release_type' | 'release_date' | 'genres' | 'countries' | 'label',
   string
 >>;
 
-/** UX-only mirror of required fields; E09 remains authoritative for every submission. */
+/** Espejo de los obligatorios para la interfaz; el servidor (v3, U19) decide cada envío. */
 export function contributionFieldErrors(sourceUrl: string, payload: ContributionPayload): ContributionFieldErrors {
   const errors: ContributionFieldErrors = {};
   if (!sourceProviderFor(sourceUrl)) errors.source = 'Usa una URL HTTPS de Bandcamp, Spotify o SoundCloud.';
@@ -120,6 +107,7 @@ export function contributionFieldErrors(sourceUrl: string, payload: Contribution
   if (!payload.release_date) errors.release_date = 'La fecha de lanzamiento es obligatoria.';
   if (!payload.genres.some((value) => value.trim())) errors.genres = 'Añade al menos un género.';
   if (!payload.countries.some((value) => value.trim())) errors.countries = 'Añade al menos un país.';
+  if (!payload.label?.trim()) errors.label = 'El sello es obligatorio. Si es autoeditado, elige «Independiente».';
   return errors;
 }
 
@@ -182,7 +170,7 @@ export async function submitContribution(id: string, input: {
 type SourceInput = {
   sourceUrl: string;
   sourceProvider: SourceProvider;
-  payload: ContributionPayload | ContributionPayloadV3;
+  payload: ContributionPayload;
   detectedMetadata: DetectedMetadata;
 };
 
@@ -268,32 +256,52 @@ function names(rows: unknown): string[] {
 }
 
 /**
- * Sugerencias de géneros y países para los Combobox de /sugerir (U13). Son de
- * lectura pública; el payload sigue llevando nombres libres, como en E09.
+ * Géneros y países que se pueden elegir en /sugerir: solo la lista seleccionable (U19). Los de
+ * legado se conservan donde ya están, pero no se ofrecen, y el servidor rechaza lo demás.
  */
 export async function loadContributionDictionaries(): Promise<{ genres: string[]; countries: string[] }> {
   const [genres, countries] = await Promise.all([
-    supabase.from('genres').select('name').order('name').limit(1000),
-    supabase.from('countries').select('name').order('name').limit(1000)
+    supabase.from('genres').select('name').eq('status', 'selectable').order('name').limit(1000),
+    supabase.from('countries').select('name').eq('status', 'selectable').order('name').limit(1000)
   ]);
   rpcError(genres.error);
   rpcError(countries.error);
   return { genres: names(genres.data), countries: names(countries.data) };
 }
 
-/** Artistas del catálogo cuyo nombre contiene `query` (mínimo dos caracteres). */
-export async function searchArtistNames(query: string): Promise<string[]> {
+const likePattern = (value: string) => `%${value.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
+
+async function searchNames(table: 'artists' | 'labels', query: string): Promise<string[]> {
   const value = query.trim();
   if (value.length < 2) return [];
-  const pattern = value.replace(/[\\%_]/g, (character) => `\\${character}`);
-  const { data, error } = await supabase
-    .from('artists')
-    .select('name')
-    .ilike('name', `%${pattern}%`)
-    .order('name')
-    .limit(20);
+  const { data, error } = await supabase.from(table).select('name').ilike('name', likePattern(value)).order('name').limit(20);
   rpcError(error);
   return names(data);
+}
+
+/** Artistas del catálogo cuyo nombre contiene `query` (mínimo dos caracteres). */
+export const searchArtistNames = (query: string) => searchNames('artists', query);
+
+/** Sellos del catálogo cuyo nombre contiene `query` (mínimo dos caracteres). */
+export const searchLabelNames = (query: string) => searchNames('labels', query);
+
+/**
+ * Candidatos para el aviso de nombres parecidos (U19): los nombres del catálogo y los valores
+ * conservados de los alias que contienen alguno de los `terms`. Quien llama decide cuáles se parecen.
+ */
+export async function similarCatalogNames(kind: 'artists' | 'labels', terms: string[]): Promise<string[]> {
+  const aliasTable = kind === 'artists' ? 'artist_aliases' : 'label_aliases';
+  const found = await Promise.all(
+    terms.filter((term) => term.trim().length >= 2).map(async (term) => {
+      const [catalog, aliases] = await Promise.all([
+        searchNames(kind, term),
+        supabase.from(aliasTable).select(`name, kept:${kind}(name)`).ilike('name', likePattern(term.trim())).limit(20)
+      ]);
+      // Sin alias (tabla vacía o aún sin migrar) el aviso sigue con los nombres del catálogo.
+      return [...catalog, ...(aliases.error ? [] : names((aliases.data ?? []).map((row: { kept?: unknown }) => row.kept)))];
+    })
+  );
+  return [...new Set(found.flat())];
 }
 
 export async function loadContribution(id: string): Promise<Contribution | null> {

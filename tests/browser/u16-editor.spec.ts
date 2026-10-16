@@ -2,7 +2,7 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 
 // U16 — Estudio: editor. Supabase simulado: ninguna petición sale a la red.
 // Lo que se prueba aquí, a 390 y 1440:
-// - crear, editar, archivar y revertir funcionan en los dos anchos;
+// - editar, archivar y revertir funcionan en los dos anchos; crear entra por Sugerir (U19);
 // - el payload de cada mutación auditada (E06) es exactamente el de E07 para la
 //   misma edición: mismas claves, mismos valores, misma versión, operación y
 //   observación. Como E06 audita lo que recibe, la auditoría registra igual;
@@ -12,7 +12,6 @@ const project = 'hgocyrzhgohetfpzbmfs';
 const base = `https://${project}.supabase.co`;
 const adminId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const releaseId = '11111111-1111-4111-8111-111111111111';
-const createdId = '11111111-1111-4111-8111-222222222222';
 const artistA = '22222222-2222-4222-8222-222222222222';
 const artistB = '33333333-3333-4333-8333-333333333333';
 const labelId = '44444444-4444-4444-8444-444444444444';
@@ -101,19 +100,18 @@ async function mockAdmin(page: Page) {
     if (rpc === 'admin_catalog_quick_view_counts') return json(route, { draft: 0, incomplete: 0, missing_cover: 0, open_reports: 0, total: 1, statuses: null });
     if (rpc === 'admin_get_catalog_release') return json(route, current);
     if (rpc === 'admin_get_catalog_history') return json(route, history);
-    if (rpc === 'admin_create_catalog_release' || rpc === 'admin_update_catalog_release' || rpc === 'admin_revert_catalog_change') {
+    if (rpc === 'admin_update_catalog_release' || rpc === 'admin_revert_catalog_change') {
       const body = route.request().postDataJSON();
       writes.push({ rpc, body });
-      const operation = rpc === 'admin_create_catalog_release' ? 'create' : body.p_operation ?? 'revert';
-      const id = rpc === 'admin_create_catalog_release' ? createdId : releaseId;
+      const operation = body.p_operation ?? 'revert';
       current = {
         ...current,
         ...(body.p_payload ?? {}),
-        id,
+        id: releaseId,
         status: operation === 'archive' ? 'archived' : operation === 'publish' ? 'published' : (body.p_payload?.status ?? current.status),
-        catalog_version: operation === 'create' ? 1 : current.catalog_version + 1
+        catalog_version: current.catalog_version + 1
       };
-      return json(route, { release_id: id, catalog_version: current.catalog_version, change_set_id: `${operation}-change` });
+      return json(route, { release_id: releaseId, catalog_version: current.catalog_version, change_set_id: `${operation}-change` });
     }
     if (url.hostname.includes('supabase')) return json(route, []);
     return route.continue();
@@ -144,34 +142,22 @@ for (const width of widths) {
       await page.setViewportSize(width.size);
     });
 
-    test('crear: el borrador nuevo envía el payload de E07 y la URL pasa a su id', async ({ page }) => {
+    test('crear: desde U19 el alta entra por Sugerir; ?nuevo=1 redirige y no hay editor en blanco', async ({ page }) => {
       const writes = await mockAdmin(page);
+      if (width.name === '1440') {
+        await page.goto('/estudio/catalogo');
+        const create = page.getByRole('link', { name: 'Nuevo lanzamiento' });
+        await expect(create).toHaveAttribute('href', '/sugerir');
+        await create.click();
+        await expect(page).toHaveURL(/\/sugerir$/);
+        await expect(page.getByRole('heading', { level: 1, name: 'Sugerir un lanzamiento' })).toBeVisible();
+      }
+      // Los enlaces viejos (?nuevo=1, también desde /admin/catalogo) llegan a Sugerir.
       await page.goto('/estudio/catalogo?nuevo=1');
-      await expect(page.getByText('Nuevo lanzamiento', { exact: true })).toBeVisible();
-      await expect(page.getByText('El historial aparecerá después de crear el borrador.')).toBeVisible();
-      await page.getByLabel('Título').fill('Pulso I');
-      const group = page.getByRole('group', { name: 'Artistas principales' });
-      await group.getByRole('combobox').fill('Luca');
-      await page.getByRole('option', { name: 'Luca Durán' }).click();
-      await expect(group.locator('.credit__name')).toHaveText(['Luca Durán']);
-      await page.getByPlaceholder('¿Qué cambió?').fill('Alta editorial');
-      await page.getByRole('button', { name: 'Crear borrador' }).click();
-      await expect(feedback(page)).toHaveText('Borrador creado.');
-      await expect(page).toHaveURL(new RegExp(`\\?lanzamiento=${createdId}$`));
-
-      expect(writes).toHaveLength(1);
-      expect(writes[0].rpc).toBe('admin_create_catalog_release');
-      expect(writes[0].body).toEqual({
-        p_reason: 'Alta editorial',
-        p_payload: {
-          slug: 'pulso-i', title: 'Pulso I', release_date: null, release_type_id: null, label_id: null, review: '',
-          status: 'draft', credit_quality: 'proposed', artist_ids: [artistA], collaborator_ids: [], genre_ids: [], country_ids: [],
-          radar: { experimental: 0, denso: 0, sintetico: 0, bailable: 0, rapido: 0 }, links: [], cover_url: null
-        }
-      });
-      // Tras crear, la observación se vacía y el editor muestra el lanzamiento guardado.
-      await expect(page.getByPlaceholder('¿Qué cambió?')).toHaveValue('');
-      await expect(page.locator('.editor__version')).toHaveText('v1');
+      await expect(page).toHaveURL(/\/sugerir$/);
+      await expect(page.getByRole('heading', { level: 1, name: 'Sugerir un lanzamiento' })).toBeVisible();
+      await expect(page.getByText('Borrador nuevo, sin guardar.')).toHaveCount(0);
+      expect(writes).toHaveLength(0);
     });
 
     test('editar: guardar sin cambios y con cambios envía exactamente lo editado', async ({ page }) => {

@@ -25,6 +25,9 @@ if (!fs.existsSync(SNAPSHOT_FILE)) {
 }
 export const snapshot = JSON.parse(zlib.gunzipSync(fs.readFileSync(SNAPSHOT_FILE)).toString('utf8')) as Snapshot;
 export const tables = snapshot.tables;
+// U19: el snapshot es anterior a las listas cerradas de G1. Sin `status`, todo es seleccionable
+// (Sugerir pide `status=eq.selectable`). Se quita al volver a grabar con staging después de G5.
+for (const table of ['genres', 'countries']) for (const row of tables[table]) row.status ??= 'selectable';
 const catalog = tables.catalog_releases as CatalogRow[];
 
 // ---------- reloj y origen fijos ----------

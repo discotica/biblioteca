@@ -18,6 +18,11 @@
     query?: string;
     /** Ofrece "Añadir «texto»" cuando nada coincide exactamente. */
     allowCreate?: boolean;
+    /**
+     * Un solo valor (U19, el sello): elegir otro lo sustituye y la lista se cierra. `value`
+     * sigue siendo una lista, de cero o un elemento.
+     */
+    single?: boolean;
     /** Texto de la opción de crear. */
     createLabel?: (text: string) => string;
     /**
@@ -59,6 +64,7 @@
     value = $bindable([]),
     query = $bindable(''),
     allowCreate = false,
+    single = false,
     createLabel = (text) => `Añadir «${text}»`,
     oncreate,
     onchange,
@@ -149,6 +155,12 @@
       const { value: picked, label: text } = entry.option;
       const removing = value.includes(picked);
       known[picked] = text;
+      if (single) {
+        commit(removing ? [] : [picked], `${text} ${removing ? 'quitado' : 'elegido'}.`);
+        query = '';
+        hide();
+        return;
+      }
       commit(removing ? value.filter((v) => v !== picked) : [...value, picked], `${text} ${removing ? 'quitado' : 'añadido'}. ${countLabel(removing ? value.length - 1 : value.length + 1)}`);
       query = '';
       await tick();
@@ -162,6 +174,12 @@
       if (!created) return;
       const option = typeof created === 'string' ? { value: created, label: created } : created;
       known[option.value] = option.label;
+      if (single) {
+        commit([option.value], `${option.label} elegido.`);
+        query = '';
+        hide();
+        return;
+      }
       if (!value.includes(option.value)) commit([...value, option.value], `${option.label} añadido. ${countLabel(value.length + 1)}`);
       query = '';
     } finally {
@@ -180,7 +198,7 @@
   async function removeAt(index: number, focusAfter: 'previous' | 'next' | 'input') {
     const removed = value[index];
     if (removed === undefined) return;
-    commit(value.filter((_, i) => i !== index), `${labelOf(removed)} quitado. ${countLabel(value.length - 1)}`);
+    commit(value.filter((_, i) => i !== index), `${labelOf(removed)} quitado.${single ? '' : ` ${countLabel(value.length - 1)}`}`);
     await tick();
     const remaining = chips();
     const target = focusAfter === 'input' ? null : focusAfter === 'previous' ? remaining[index - 1] ?? remaining[index] : remaining[index] ?? remaining[index - 1];
@@ -358,7 +376,7 @@
 
   {#if open && control}
     <div class="ui-combobox__popup" bind:this={popup} use:anchoredLayer={{ target: layerFor(control), trigger: control, matchWidth: true, gutter: 4 }}>
-      <ul class="ui-combobox__list" id={listId} role="listbox" aria-label={label} aria-multiselectable="true">
+      <ul class="ui-combobox__list" id={listId} role="listbox" aria-label={label} aria-multiselectable={single ? undefined : 'true'}>
         {#each entries as entry, index (entry.kind === 'option' ? `o:${entry.option.value}` : 'create')}
           {#if entry.kind === 'option'}
             {@const selected = value.includes(entry.option.value)}

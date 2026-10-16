@@ -9,7 +9,7 @@ Lo origina la lista de correcciones del Estudio que el usuario anotó al usarlo 
 | Grupo | Contenido | Estado |
 | --- | --- | --- |
 | G1 — Servidor | Listas cerradas, alias, validación, aceptar sin altas implícitas, radar en la propuesta, duplicados por enlace | Aceptado el 2026-10-15, sin commit (ver [contrato](#contrato-del-servidor-g1)) |
-| G2 — Sugerir | Un solo flujo para crear, para todos los roles; sello obligatorio; textos; radar opcional | Abierto |
+| G2 — Sugerir | Un solo flujo para crear, para todos los roles; sello obligatorio; textos; radar opcional | Aceptado el 2026-10-15 |
 | G3 — Cola en el editor | Admin y colaborador corrigen en el editor; el autor edita hasta que alguien la toma; artistas nuevos en los créditos; RC2-P1-01 | Abierto |
 | G4 — Diccionarios | Pantalla de admin: crear, renombrar, fusionar con alias y borrar huérfanos | Abierto |
 | G5 — Staging | Migraciones de G1 a G4 aplicadas en staging y recorrido corto | Abierto |
@@ -325,6 +325,20 @@ Un chat por grupo, en este orden y nunca dos a la vez. Los prompts están en [`p
 6. Radar opcional en el paso de datos, reutilizando los controles del editor.
 7. Aviso de duplicado al detectar la fuente.
 8. Pruebas de navegador por rol y capturas del censo recapturadas.
+
+**Cierre de G2 (2026-10-15).**
+- **Qué quedó:**
+  - «Nuevo lanzamiento» del Estudio es un enlace a `/sugerir` (`NEW_RELEASE_HREF` en `studio.ts`), y `?nuevo=1` redirige allí.
+  - Se retiraron `adminHandoff.ts`, el editor en blanco (`isNew`, `oncreated`) y `createCatalog` y `findArtistsByNames` de `adminCatalog.ts`. `blankCatalog` se conserva para G3.
+  - Sugerir envía la propuesta v3. Comunidad y colaborador usan `submit_contribution`; admin usa `admin_create_draft_from_suggestion`, con la observación como `p_reason` (en la propuesta sería la reseña). La lógica por rol (botón, pantalla final y aviso de duplicado) está en [`suggestFlow.ts`](../../src/lib/domain/suggestFlow.ts).
+  - Géneros y países piden `status=eq.selectable` y no tienen `allowCreate`. Un rechazo del servidor (`describeContributionError`) se marca en su campo y en su paso.
+  - Sello: `Combobox` con el modo nuevo `single` (lo usará G3 en el editor) y «Independiente» fijo arriba.
+  - Radar: [`RadarControls.svelte`](../../src/lib/components/RadarControls.svelte), compartido con el editor. Clases `radar-field`, porque `.radar` es una regla global de `styles.css`.
+- **Pruebas:**
+  - `npm test` 173/173, `build`, `lint:tokens` y `test:browser` ×2 (346/346);
+  - [`u19-sugerir.spec.ts`](../../tests/browser/u19-sugerir.spec.ts) por rol;
+  - recorrido con los RPC reales en el stack local aislado. Encontró que la búsqueda de parecidos usaba una sola palabra: «Sello Raro Records» no encontraba «Sello Raro».
+- **Capturas** en [`capturas-u19/`](./capturas-u19/). Se recapturaron 8 del censo: `sugerir-D/M`, `sugerir-anon-D/M`, `sugerir-detected-D/M`, `sugerir-admin-D` y `admin-new-D`. Esta última conserva su ID y ahora muestra Sugerir.
 
 ### G3 — La cola en el editor · Opus 5.5 `xhigh`
 

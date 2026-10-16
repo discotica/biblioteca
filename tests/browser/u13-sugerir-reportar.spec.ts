@@ -28,10 +28,10 @@ function contribution(input: Record<string, unknown> = {}) {
     id: ids.draft, author_id: ids.community, status: 'draft',
     source_url: 'https://artista.bandcamp.com/album/pulso', source_provider: 'bandcamp',
     payload: {
-      version: 2, title: 'Pulso I', primary_artists: ['Artista detectado'], collaborators: [],
-      release_type: 'ep', release_date: '2026-09-18', genres: ['Ambient'], countries: ['Colombia']
+      version: 3, title: 'Pulso I', primary_artists: ['Artista detectado'], collaborators: [],
+      release_type: 'ep', release_date: '2026-09-18', genres: ['Ambient'], countries: ['Colombia'], label: 'Sello U13'
     },
-    payload_version: 2, payload_quality: 'confirmed', detected_metadata: detected, queue_kind: null,
+    payload_version: 3, payload_quality: 'confirmed', detected_metadata: detected, queue_kind: null,
     submitted_at: null, reviewer_note: null, reviewed_at: null, release_id: null,
     created_at: '2026-10-09T10:00:00Z', updated_at: '2026-10-09T10:00:00Z',
     ...input
@@ -176,10 +176,10 @@ for (const width of [390, 1440]) {
     await addChip(page, 'Colaboradores', 'invit', 'Artista invitada');
     await page.getByLabel(/^Tipo/).selectOption('ep');
     await addChip(page, 'Géneros', 'amb', 'Ambient');
-    // Un país que aún no está en el catálogo se puede añadir, como el texto libre de E10.
-    await addChip(page, 'Países', 'Perú', 'Añadir «Perú»', 'Perú');
+    // U19: países y géneros solo de la lista; el sello sí puede ser nuevo.
+    await addChip(page, 'Países', 'Col', 'Colombia');
     await page.keyboard.press('Escape');
-    await page.getByLabel(/^Sello/).fill('Sello propio');
+    await addChip(page, 'Sello', 'Sello propio', 'Añadir «Sello propio»', 'Sello propio');
     await noOverflow(page);
     await shot(page, `2-datos-${width}`);
 
@@ -188,8 +188,8 @@ for (const width of [390, 1440]) {
     await expect(page.getByLabel('Enlace de la fuente')).toHaveValue('https://artista.bandcamp.com/album/pulso');
     await page.getByRole('button', { name: 'Continuar' }).click();
     await expect(page.getByLabel('Título')).toHaveValue('Pulso I');
-    await expect(page.getByRole('button', { name: 'Quitar Perú' })).toBeVisible();
-    await expect(page.getByLabel(/^Sello/)).toHaveValue('Sello propio');
+    await expect(page.getByRole('button', { name: 'Quitar Colombia' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Quitar Sello propio' })).toBeVisible();
 
     // Paso 3: la nota es opcional.
     await page.getByRole('button', { name: 'Continuar' }).click();
@@ -211,7 +211,7 @@ for (const width of [390, 1440]) {
     await expect(summary).toContainText('Pulso I');
     await expect(summary).toContainText('Artista detectado, Segunda artista');
     await expect(summary).toContainText('Artista invitada');
-    await expect(summary).toContainText('Perú');
+    await expect(summary).toContainText('Colombia');
     await expect(page.getByText('Sin nota')).toBeVisible();
     await noOverflow(page);
     await shot(page, `4-enviar-${width}`);
@@ -223,8 +223,8 @@ for (const width of [390, 1440]) {
     expect(calls.submit).toHaveLength(1);
     const payload = calls.submit[0].p_payload;
     expect(payload).toEqual({
-      version: 2, title: 'Pulso I', primary_artists: ['Artista detectado', 'Segunda artista'], collaborators: ['Artista invitada'],
-      release_type: 'ep', release_date: '2026-09-18', genres: ['Ambient'], countries: ['Perú'],
+      version: 3, title: 'Pulso I', primary_artists: ['Artista detectado', 'Segunda artista'], collaborators: ['Artista invitada'],
+      release_type: 'ep', release_date: '2026-09-18', genres: ['Ambient'], countries: ['Colombia'],
       label: 'Sello propio'
     });
     expect(payload).not.toHaveProperty('team_note');
@@ -280,42 +280,7 @@ test('U13 el borrador se conserva entre visitas: se guarda en un paso y se retom
   await expect(page.getByLabel('Enlace de la fuente')).toHaveValue('https://artista.bandcamp.com/album/pulso');
 });
 
-test('U13 admin: Sugerir muestra el mismo flujo y el último paso abre la consola con lo rellenado', async ({ page }) => {
-  await mock(page, 'admin');
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/manual');
-  await page.getByRole('banner').getByRole('link', { name: 'Sugerir' }).first().click();
-  await expect(page).toHaveURL(/\/sugerir$/);
-  await expect(page.getByLabel('Enlace de la fuente')).toBeFocused();
-  await page.getByLabel('Enlace de la fuente').fill('https://artista.bandcamp.com/album/pulso');
-  await page.getByRole('button', { name: 'Detectar' }).click();
-  await expect(page.getByLabel('Título')).toHaveValue('Pulso I');
-  // Sin borradores: E09 no dejaría enviarlos.
-  await expect(page.getByRole('button', { name: 'Guardar borrador' })).toHaveCount(0);
-  await page.getByLabel(/^Tipo/).selectOption('ep');
-  await addChip(page, 'Géneros', 'amb', 'Ambient');
-  await addChip(page, 'Países', 'Perú', 'Añadir «Perú»', 'Perú');
-  await page.keyboard.press('Escape');
-  await page.getByLabel(/^Sello/).fill('Sello U13');
-  await page.getByRole('button', { name: 'Continuar' }).click();
-  await expect(page.getByLabel(/^Observación del cambio/)).toBeVisible();
-  await page.getByRole('button', { name: 'Continuar' }).click();
-  await expect(page.getByRole('button', { name: 'Enviar a revisión' })).toHaveCount(0);
-  await shot(page, 'admin-enviar-1440');
-  await page.getByRole('button', { name: 'Continuar en el Estudio' }).click();
-
-  // U15: el alta vive en el Catálogo del Estudio y su URL la mantiene abierta.
-  await expect(page).toHaveURL(/\/estudio\/catalogo\?nuevo=1$/);
-  await expect(page.getByText('Nuevo lanzamiento', { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { level: 1, name: 'Pulso I' })).toBeVisible();
-  await expect(page.getByRole('status').filter({ hasText: 'Datos traídos de Sugerir' })).toContainText('Segunda artista (artista)');
-  await expect(page.getByRole('status').filter({ hasText: 'Datos traídos de Sugerir' })).toContainText('Perú (país)');
-  await expect(page.getByPlaceholder('https://bandcamp.com/…')).toHaveValue('https://artista.bandcamp.com/album/pulso');
-  await expect(page.getByPlaceholder('¿Qué cambió?')).toHaveValue('Alta desde Sugerir.');
-  await shot(page, 'admin-consola-1440');
-  // El traspaso se lee una vez: recargar la consola no lo repite.
-  expect(await page.evaluate(() => sessionStorage.getItem('discotica:sugerir-a-consola'))).toBeNull();
-});
+// El final de admin (antes «Continuar en el Estudio») está en u19-sugerir.spec.ts: crea el borrador.
 
 test('U13 reportar desde la ficha: el lanzamiento llega identificado y el reporte lo incluye', async ({ page }) => {
   const { calls } = await mock(page, 'comunidad');
