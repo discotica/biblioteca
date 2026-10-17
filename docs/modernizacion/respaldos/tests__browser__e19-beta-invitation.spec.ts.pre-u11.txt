@@ -1,0 +1,92 @@
+import { expect, test } from '@playwright/test';
+
+const betaEnabled = process.env.VITE_BETA_INVITATION_ENABLED === 'true';
+
+async function stubLegacyCatalog(page: import('@playwright/test').Page) {
+  await page.route(/docs\.google\.com\/spreadsheets/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/tab-separated-values',
+      body: 'artist\ttitle\ttype\tcountry\tgenre\trelease_date\nPrueba\tPrueba\tEP\tColombia\tAmbient\t2026-01-01\n'
+    });
+  });
+}
+
+test('E19: el kill switch conserva una URL beta pero no monta ni interpreta la invitación', async ({ page }) => {
+  test.skip(betaEnabled, 'Esta comprobación se ejecuta con el flag desactivado.');
+  await stubLegacyCatalog(page);
+  await page.goto('/?beta=1&nombre=Mar%C3%ADa&pais=Colombia');
+  await expect(page.locator('[data-beta-invitation]')).toHaveCount(0);
+  await expect(page).toHaveURL(/beta=1.*nombre=Mar%C3%ADa/);
+  await expect(page.getByRole('button', { name: 'Buscar' })).toBeVisible();
+});
+
+test.describe('E19: invitación beta con flag activo', () => {
+  test.skip(!betaEnabled, 'Estas comprobaciones requieren VITE_BETA_INVITATION_ENABLED=true.');
+
+  test('acepta parámetros válidos, conserva filtros y limpia historial de forma idempotente', async ({ page }) => {
+    await stubLegacyCatalog(page);
+    await page.goto('/?beta&nombre=Mar%C3%ADa&pais=Colombia&genero=Ambient');
+
+    const dialog = page.getByRole('dialog', { name: 'Hola, María.' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('Estás entrando a una versión en prueba de nuestra biblioteca. Explora el catálogo y cuéntanos si encuentras algo que podamos mejorar.');
+    await expect(dialog.getByRole('link', { name: 'Escribir a hola@discotica.com' })).toHaveAttribute('href', 'mailto:hola@discotica.com');
+    await expect(page.getByRole('button', { name: 'Cerrar invitación beta' })).toBeFocused();
+
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Explorar' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(page).toHaveURL(/\?pais=Colombia&genero=Ambient&orden=match$/);
+    await expect(page.getByRole('button', { name: 'Buscar' })).toBeFocused();
+
+    // A normal in-app link is a pushed history entry, but must not carry the
+    // invitation parameters. Back/Forward preserves that clean state too.
+    await page.locator('.card a[href^="/?"]').first().click();
+    await expect(page).not.toHaveURL(/(?:beta|nombre)=/);
+    await expect(page.locator('[data-beta-invitation]')).toHaveCount(0);
+    await page.goBack();
+    await expect(page.locator('[data-beta-invitation]')).toHaveCount(0);
+    await expect(page).toHaveURL(/\?pais=Colombia&genero=Ambient&orden=match$/);
+    await page.goForward();
+    await expect(page).not.toHaveURL(/(?:beta|nombre)=/);
+    await expect(page.locator('[data-beta-invitation]')).toHaveCount(0);
+
+    // An explicitly opened beta URL remains a valid invitation link.
+    await page.goto('/?beta=1&nombre=%E6%9D%8E%E9%9B%B7&pais=Colombia');
+    await expect(page.getByRole('dialog', { name: 'Hola, 李雷.' })).toBeVisible();
+    await page.getByRole('button', { name: 'Explorar' }).click();
+    await expect(page.locator('[data-beta-invitation]')).toHaveCount(0);
+    await expect(page).toHaveURL(/\?pais=Colombia&orden=match$/);
+  });
+
+  test('rechaza beta malformada y renderiza XSS como texto, nunca markup', async ({ page }) => {
+    await stubLegacyCatalog(page);
+    await page.goto('/?beta=true&nombre=Ana');
+    await expect(page.locator('[data-beta-invitation]')).toHaveCount(0);
+
+    const attack = '<img onerror=alert(1)>';
+    await page.goto(`/?beta=1&nombre=${encodeURIComponent(attack)}`);
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText(attack);
+    await expect(dialog.locator('img')).toHaveCount(0);
+    await expect(await page.evaluate(() => document.querySelector('[data-beta-invitation] img'))).toBeNull();
+  });
+
+  test.describe('responsive', () => {
+    test.use({ viewport: { width: 360, height: 740 } });
+
+    test('mantiene el diálogo utilizable en móvil y el cierre por backdrop conserva filtros', async ({ page }) => {
+      await stubLegacyCatalog(page);
+      await page.goto('/?beta=1&nombre=%F0%9F%98%80&pais=Colombia');
+      const dialog = page.getByRole('dialog', { name: 'Hola, 😀.' });
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toHaveCSS('max-height', /px/);
+      await page.locator('[data-beta-invitation]').click({ position: { x: 4, y: 4 } });
+      await expect(dialog).toHaveCount(0);
+      await expect(page).toHaveURL(/\?pais=Colombia&orden=match$/);
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    });
+  });
+});

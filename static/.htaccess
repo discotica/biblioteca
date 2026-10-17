@@ -1,5 +1,17 @@
 RewriteEngine On
 RewriteBase /
+
+# "Crate" pasó a "colección": los enlaces compartidos con las rutas viejas
+# redirigen con 301. Apache conserva la query; el navegador conserva el hash.
+# Misma regla en el cliente: src/lib/domain/collectionRoutes.ts.
+RewriteRule ^mis-crates/?$ /mis-colecciones [R=301,L]
+RewriteRule ^crate/([^/]+)/?$ /coleccion/$1 [R=301,L]
+
+# La consola y la estación editorial se unieron en el Estudio (U15).
+# Misma regla en el cliente: src/lib/domain/studio.ts.
+RewriteRule ^admin/catalogo/?$ /estudio/catalogo [R=301,L]
+RewriteRule ^editorial/?$ /estudio/propuestas [R=301,L]
+
 RewriteRule ^index\.html$ - [L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

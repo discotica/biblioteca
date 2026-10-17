@@ -1,0 +1,534 @@
+import { expect, test, type Page } from '@playwright/test';
+
+const rows = [
+  releaseRow('11111111-1111-4111-8111-111111111111', 'disco-bandcamp-artista-bc', 'Disco Bandcamp', 'Álbum', '2026-08-09', 'Artista BC', 'https://artista.bandcamp.com/album/disco', 'https://example.test/bc.jpg', [
+    { id: '44444444-4444-4444-8444-444444444444', slug: 'invitada', name: 'Invitada', position: 0 }
+  ]),
+  releaseRow('22222222-2222-4222-8222-222222222222', 'disco-soundcloud-artista-sc', 'Disco SoundCloud', 'EP', '2026-08-10', 'Artista SC', 'https://soundcloud.com/artista/disco', 'https://example.test/sc.jpg'),
+  releaseRow('33333333-3333-4333-8333-333333333333', 'disco-spotify-artista-sp', 'Disco Spotify', 'Single', '2026-08-11', 'Artista SP', 'https://open.spotify.com/album/1234567890123456789012', 'https://example.test/sp.jpg')
+  ,releaseRowWithCredits('44444444-1111-4111-8111-111111111111', 'dos-principales-colaborador', 'Dos principales y un colaborador', 'Álbum', [
+    credit('principal-uno', 'Principal Uno'), credit('principal-dos', 'Principal Dos')
+  ], [credit('colaborador-unico', 'Colaborador Único')])
+  ,releaseRowWithCredits('55555555-1111-4111-8111-111111111111', 'un-principal-dos-colaboradores', 'Un principal y dos colaboradores', 'EP', [
+    credit('principal-tres', 'Principal Tres')
+  ], [credit('colaborador-dos-a', 'Colaborador Dos A'), credit('colaborador-dos-b', 'Colaborador Dos B')])
+  ,releaseRowWithCredits('66666666-1111-4111-8111-111111111111', 'cuatro-principales', 'Título extraordinariamente largo que debe permanecer dentro de las tres líneas disponibles sin crear desplazamiento horizontal', 'Single', [
+    credit('principal-cuatro-a', 'Nombre Principal Excepcionalmente Largo A'), credit('principal-cuatro-b', 'Nombre Principal Excepcionalmente Largo B'),
+    credit('principal-cuatro-c', 'Nombre Principal Excepcionalmente Largo C'), credit('principal-cuatro-d', 'Nombre Principal Excepcionalmente Largo D')
+  ])
+  ,releaseRowWithCredits('77777777-1111-4111-8111-111111111111', 'compilado-creditos', 'Compilado con créditos', 'Compilado', [
+    credit('compilado-a', 'Participante A'), credit('compilado-b', 'Participante B')
+  ], [credit('compilado-c', 'Colaborador de compilado')])
+  ,releaseRowWithCredits('88888888-1111-4111-8111-111111111111', 'sin-creditos', 'Lanzamiento sin créditos disponibles', 'EP', [])
+];
+
+async function authenticateHeaderFixture(page: Page) {
+  const project = 'hgocyrzhgohetfpzbmfs';
+  const user = {
+    id: 'e14-user', aud: 'authenticated', role: 'authenticated', email: 'persona@discoteca.test',
+    app_metadata: {}, user_metadata: { username: 'persona' }, created_at: '2026-09-19T00:00:00Z'
+  };
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({ sub: user.id, role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url');
+  const session = {
+    access_token: `${header}.${payload}.signature`, refresh_token: 'e14-fixture-refresh-token',
+    expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, token_type: 'bearer', user
+  };
+  await page.context().addCookies([{
+    name: `sb-${project}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(session)).toString('base64url')}`,
+    domain: '127.0.0.1', path: '/', httpOnly: false, secure: false, sameSite: 'Lax'
+  }]);
+  await page.route(`https://${project}.supabase.co/auth/v1/**`, (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(user) })
+  );
+}
+
+function credit(slug: string, name: string) {
+  return { id: `artist-${slug}`, slug, name, position: 0 };
+}
+
+function releaseRowWithCredits(
+  id: string,
+  slug: string,
+  title: string,
+  type: string,
+  primaryArtists: Array<{ id: string; slug: string; name: string; position: number }>,
+  collaborators: Array<{ id: string; slug: string; name: string; position: number }> = []
+) {
+  return {
+    id, slug, title, release_date: '2026-08-12', type, label: 'Sello', review: 'Nota',
+    experimental: 1, denso: 2, sintetico: 3, bailable: 4, rapido: 5,
+    artists: primaryArtists.map(({ name }) => name), primary_artists: primaryArtists, collaborators,
+    credit_quality: 'verified', genres: ['Electro'], countries: ['Colombia'],
+    buy_link: 'https://example.test/release', cover: 'https://example.test/credits.jpg'
+  };
+}
+
+function releaseRow(
+  id: string,
+  slug: string,
+  title: string,
+  type: string,
+  releaseDate: string,
+  artist: string,
+  buyLink: string,
+  cover: string,
+  collaborators: Array<{ id: string; slug: string; name: string; position: number }> = []
+) {
+  const artistSlug = artist.toLowerCase().replaceAll(' ', '-');
+  return {
+    id, slug, title, release_date: releaseDate, type, label: 'Sello', review: 'Nota',
+    experimental: 1, denso: 2, sintetico: 3, bailable: 4, rapido: 5,
+    artists: [artist],
+    primary_artists: [{ id: `${id}-artist`, slug: artistSlug, name: artist, position: 0 }],
+    collaborators, credit_quality: 'legacy', genres: ['Electro'], countries: ['Colombia'],
+    buy_link: buyLink, cover
+  };
+}
+
+async function mockCanonicalCatalog(page: Page) {
+  await page.route('**/rest/v1/rpc/resolve_release_slug', async (route) => {
+    const request = route.request();
+    const body = request.postDataJSON() as { p_slug?: string };
+    const requested = body.p_slug ?? '';
+    const canonicalSlug = requested === 'disco-bandcamp-legado' ? 'disco-bandcamp-artista-bc' : requested;
+    const row = rows.find((candidate) => candidate.slug === canonicalSlug);
+    const response = row
+      ? [{
+          release_id: row.id,
+          canonical_slug: row.slug,
+          match_kind: requested === row.slug ? 'canonical' : 'alias',
+          alias_kind: requested === row.slug ? null : 'migration'
+        }]
+      : [];
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response) });
+  });
+
+  await page.route('**/rest/v1/catalog_releases**', async (route) => {
+    const url = new URL(route.request().url());
+    const idFilter = url.searchParams.get('id');
+    if (idFilter?.startsWith('eq.')) {
+      const row = rows.find((candidate) => candidate.id === idFilter.slice(3));
+      await route.fulfill({ status: 200, contentType: 'application/vnd.pgrst.object+json', body: JSON.stringify(row ?? null) });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'content-range': `0-${rows.length - 1}/${rows.length}` },
+      body: JSON.stringify(rows)
+    });
+  });
+}
+
+test.beforeEach(async ({ page }) => {
+  await mockCanonicalCatalog(page);
+});
+
+const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+
+test('abre un lanzamiento desde el catálogo y conserva su portada', async ({ page }) => {
+  await page.route('https://example.test/bc.jpg', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: pixel }));
+  await page.goto('/');
+  await expect(page.getByText('Disco Bandcamp').first()).toBeVisible();
+  await page.getByRole('link', { name: 'Abrir Disco Bandcamp' }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Disco Bandcamp' });
+  await expect(dialog.getByRole('heading', { name: 'Disco Bandcamp', exact: true })).toBeVisible();
+  await expect(dialog.getByAltText('Portada de Disco Bandcamp')).toHaveAttribute('src', 'https://example.test/bc.jpg');
+});
+
+test('R2: una portada rota muestra el logo de Discótica atenuado en tarjeta y ficha', async ({ page }) => {
+  await page.route('https://example.test/bc.jpg', (route) => route.abort());
+  await page.goto('/');
+  const card = page.locator('.card--grid').filter({ hasText: 'Disco Bandcamp' });
+  // U8: la portada de la tarjeta repite el enlace del título y es decorativa (aria-hidden).
+  const cardFallback = card.locator('.ui-cover__fallback img[src="/img/logo.svg"]');
+  await expect(cardFallback).toBeVisible();
+  await expect(cardFallback).toHaveCSS('opacity', '0.2');
+  await expect(card.locator('img.ui-cover__image')).toHaveCount(0);
+
+  await page.getByRole('link', { name: 'Abrir Disco Bandcamp' }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Disco Bandcamp' });
+  // U9: la ficha usa Cover, que nombra el respaldo con el mismo texto alternativo.
+  const detailFallback = dialog.getByRole('img', { name: 'Portada de Disco Bandcamp' });
+  await expect(detailFallback).toBeVisible();
+  await expect(detailFallback.locator('img[src="/img/logo.svg"]')).toHaveCSS('opacity', '0.2');
+  await expect(dialog.getByAltText('Portada de Disco Bandcamp')).toHaveCount(0);
+});
+
+for (const [slug, player] of [
+  ['disco-bandcamp-artista-bc', 'Bandcamp player'],
+  ['disco-soundcloud-artista-sc', 'SoundCloud player'],
+  ['disco-spotify-artista-sp', 'Spotify player']
+]) {
+  test(`muestra el reproductor ${player}`, async ({ page }) => {
+    await page.goto(`/lanzamiento/${slug}`);
+    await expect(page.getByTitle(player)).toBeVisible();
+  });
+}
+
+test('ruta y modal resuelven el mismo alias a la URL canónica', async ({ page }) => {
+  await page.goto('/lanzamiento/disco-bandcamp-legado');
+  await expect(page.getByRole('heading', { name: 'Disco Bandcamp', exact: true })).toBeVisible();
+
+  await page.goto('/?modal=disco-bandcamp-legado');
+  await expect(page.getByRole('dialog', { name: 'Disco Bandcamp' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Abrir Disco Bandcamp', includeHidden: true }).first()).toHaveAttribute(
+    'href',
+    /\/lanzamiento\/disco-bandcamp-artista-bc/
+  );
+});
+
+test('un alias inexistente o ambiguo no abre una ficha arbitraria', async ({ page }) => {
+  await page.goto('/lanzamiento/alias-ambiguo');
+  await expect(page.getByRole('heading', { name: 'No pudimos abrir este lanzamiento' })).toBeVisible();
+
+  await page.goto('/?modal=alias-ambiguo');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('la página de un colaborador incluye el lanzamiento acreditado', async ({ page }) => {
+  await page.goto('/artista/invitada');
+  await expect(page.getByRole('heading', { name: 'Invitada', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Abrir Disco Bandcamp' }).first()).toBeVisible();
+});
+
+test('E05/R2: la tarjeta lista todos los principales con enlaces canónicos y resume colaboradores en "y N más"', async ({ page }) => {
+  await page.goto('/');
+  const card = page.locator('.card--grid').filter({ hasText: 'Dos principales y un colaborador' });
+  await expect(card.getByRole('link', { name: 'Principal Uno' })).toHaveAttribute('href', /\/artista\/principal-uno$/);
+  await expect(card.getByRole('link', { name: 'Principal Dos' })).toHaveAttribute('href', /\/artista\/principal-dos$/);
+  await expect(card.getByRole('button', { name: /Varios artistas/ })).toHaveCount(0);
+  await expect(card.getByText('y 1 más', { exact: true })).toBeVisible();
+  await expect(card.getByRole('link', { name: 'Colaborador Único' })).toHaveCount(0);
+  await card.getByRole('link', { name: 'Principal Dos' }).click();
+  await expect(page).toHaveURL(/\/artista\/principal-dos(?:\?|$)/);
+  await expect(page.getByRole('heading', { name: 'Principal Dos', exact: true })).toBeVisible();
+});
+
+test('R2: hay espacio visible después de la coma entre principales', async ({ page }) => {
+  await page.goto('/');
+  const names = page.locator('.card--grid').filter({ hasText: 'Dos principales y un colaborador' }).locator('.ui-credit-line__names');
+  // Con la misma posición, los créditos se ordenan por nombre: Dos, Uno.
+  const first = await names.getByRole('link', { name: 'Principal Dos' }).boundingBox();
+  const second = await names.getByRole('link', { name: 'Principal Uno' }).boundingBox();
+  // La coma ocupa su ancho y el margen deja aire antes del siguiente nombre.
+  expect(second!.x - (first!.x + first!.width)).toBeGreaterThan(4);
+  await expect(names.locator('.ui-credits__sep').first()).toHaveCSS('margin-inline-end', /^[1-9]/);
+});
+
+test('R2: varios principales y colaboradores no abren menú; solo el Compilado lo hace', async ({ page }) => {
+  await page.goto('/');
+  const collaboratorCard = page.locator('.card--grid').filter({ hasText: 'Un principal y dos colaboradores' });
+  await expect(collaboratorCard.getByRole('link', { name: 'Principal Tres' })).toBeVisible();
+  await expect(collaboratorCard.getByText('y 2 más', { exact: true })).toBeVisible();
+  await expect(collaboratorCard.getByRole('button', { name: /Varios artistas/ })).toHaveCount(0);
+
+  const primaryCard = page.locator('.card--grid').filter({ hasText: 'Título extraordinariamente largo' });
+  await expect(primaryCard.getByRole('button', { name: /Varios artistas/ })).toHaveCount(0);
+  for (const letter of ['A', 'B', 'C', 'D']) {
+    await expect(primaryCard.getByRole('link', { name: `Nombre Principal Excepcionalmente Largo ${letter}` })).toHaveCount(1);
+  }
+
+  const compiled = page.locator('.card--grid').filter({ hasText: 'Compilado con créditos' });
+  await compiled.getByRole('button', { name: 'Varios artistas' }).press('Enter');
+  // U8: el menú va al portal de la página (U6), fuera de la tarjeta.
+  const menu = page.getByRole('menu', { name: 'Créditos del lanzamiento' });
+  await expect(menu.getByText(/^Colaborador(es)?$/)).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Colaborador de compilado' })).toHaveAttribute('href', /\/artista\/compilado-c$/);
+  await expect(menu.getByRole('menuitem', { name: 'Participante B' })).toHaveAttribute('href', /\/artista\/compilado-b$/);
+  await page.keyboard.press('Escape');
+  await expect(compiled.getByRole('button', { name: 'Varios artistas' })).toBeFocused();
+});
+
+test('E05: compilado, créditos ausentes, truncado y teclado se mantienen utilizables en todos los anchos', async ({ page }) => {
+  for (const width of [360, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
+    const compiled = page.locator('.card--grid').filter({ hasText: 'Compilado con créditos' });
+    await expect(compiled.getByRole('button', { name: 'Varios artistas' })).toBeVisible();
+    await expect(page.locator('.card--grid').filter({ hasText: 'Lanzamiento sin créditos disponibles' }).locator('.ui-credit-line')).toHaveCount(0);
+    await expect(page.locator('.card__titulo').filter({ hasText: 'Título extraordinariamente largo' })).toHaveCSS('-webkit-line-clamp', '2');
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+});
+
+test('E04: el diálogo etiqueta, contiene el foco, bloquea el fondo y lo restaura', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 500 });
+  await page.goto('/');
+  const trigger = page.getByRole('link', { name: 'Abrir Disco Bandcamp' }).first();
+  await page.evaluate(() => window.scrollTo(0, 180));
+  await trigger.click();
+
+  const dialog = page.getByRole('dialog', { name: 'Disco Bandcamp' });
+  const close = dialog.getByRole('button', { name: 'Cerrar' });
+  await expect(dialog).toHaveAttribute('aria-modal', 'true');
+  await expect(close).toBeFocused();
+  await expect(page.locator('header.site-header')).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.locator('body')).toHaveCSS('position', 'fixed');
+  const scrollAtOpen = await page.locator('body').evaluate((body) => Math.abs(parseInt(body.style.top, 10)));
+
+  await page.keyboard.press('Shift+Tab');
+  await expect(dialog.locator(':focus')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(page.locator('body')).not.toHaveCSS('position', 'fixed');
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(scrollAtOpen);
+});
+
+test('E04: el backdrop cierra el diálogo sin activar el catálogo del fondo', async ({ page }) => {
+  await page.goto('/');
+  const trigger = page.getByRole('link', { name: 'Abrir Disco Bandcamp' }).first();
+  await trigger.click();
+  const dialog = page.getByRole('dialog', { name: 'Disco Bandcamp' });
+  await expect(dialog).toBeVisible();
+
+  await page.locator('.backdrop').click({ position: { x: 2, y: 2 } });
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
+test('E04: la hoja móvil cierra por Escape y devuelve el foco a su disparador', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.evaluate(() => window.scrollTo(0, 180));
+  const trigger = page.locator('.mobile-search-row').getByRole('button', { name: /^Filtros/ });
+  await trigger.click();
+
+  const sheet = page.getByRole('dialog', { name: 'Filtros' });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Cerrar' })).toBeFocused();
+  await expect(page.locator('body')).toHaveCSS('position', 'fixed');
+  const scrollAtOpen = await page.locator('body').evaluate((body) => Math.abs(parseInt(body.style.top, 10)));
+  await page.keyboard.press('Escape');
+
+  await expect(sheet).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(page.locator('body')).not.toHaveCSS('position', 'fixed');
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(scrollAtOpen);
+});
+
+test('E04: el menú móvil inicia foco y Escape devuelve el foco al botón', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const trigger = page.getByRole('button', { name: 'Abrir menú' });
+  await trigger.click();
+
+  const menu = page.getByRole('navigation', { name: 'Menú' });
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('link', { name: 'Manual' })).toBeFocused();
+  await page.keyboard.press('Escape');
+
+  await expect(menu).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
+test('E04: el menú contiene Tab y se cierra al pulsar fuera sin perder su disparador', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const trigger = page.getByRole('button', { name: 'Abrir menú' });
+  await trigger.click();
+
+  const menu = page.getByRole('navigation', { name: 'Menú' });
+  const first = menu.getByRole('link', { name: 'Manual' });
+  const last = menu.getByRole('link', { name: 'Instagram' });
+  await first.press('Shift+Tab');
+  await expect(last).toBeFocused();
+  await last.press('Tab');
+  await expect(first).toBeFocused();
+
+  await page.locator('main').click({ position: { x: 10, y: 10 } });
+  await expect(menu).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
+test('E04: la pila mantiene el bloqueo hasta cerrar la última capa y devuelve el foco correcto', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(async () => {
+    const { dialogOverlay } = await import('/src/lib/ui/overlay.ts');
+    const opener = document.createElement('button');
+    opener.textContent = 'Abrir pila de prueba';
+    document.body.append(opener);
+    opener.focus();
+
+    const outer = document.createElement('div');
+    outer.setAttribute('role', 'dialog');
+    outer.setAttribute('aria-modal', 'true');
+    outer.dataset.e04Outer = '';
+    const outerInitial = document.createElement('button');
+    outerInitial.dataset.overlayInitialFocus = '';
+    outerInitial.textContent = 'Cerrar capa exterior';
+    const innerOpener = document.createElement('button');
+    innerOpener.textContent = 'Abrir capa interior';
+    outer.append(outerInitial, innerOpener);
+    document.body.append(outer);
+
+    let outerAction: ReturnType<typeof dialogOverlay>;
+    outerAction = dialogOverlay(outer, {
+      onClose: () => {
+        outerAction.destroy();
+        outer.remove();
+      },
+      returnFocus: opener
+    });
+
+    innerOpener.focus();
+    const inner = document.createElement('div');
+    inner.setAttribute('role', 'dialog');
+    inner.setAttribute('aria-modal', 'true');
+    inner.dataset.e04Inner = '';
+    const innerInitial = document.createElement('button');
+    innerInitial.dataset.overlayInitialFocus = '';
+    innerInitial.textContent = 'Cerrar capa interior';
+    inner.append(innerInitial);
+    document.body.append(inner);
+
+    let innerAction: ReturnType<typeof dialogOverlay>;
+    innerAction = dialogOverlay(inner, {
+      onClose: () => {
+        innerAction.destroy();
+        inner.remove();
+      },
+      returnFocus: innerOpener
+    });
+  });
+
+  const outer = page.locator('[data-e04-outer]');
+  const inner = page.locator('[data-e04-inner]');
+  await expect(inner.getByRole('button', { name: 'Cerrar capa interior' })).toBeFocused();
+  await expect(outer).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.locator('body')).toHaveCSS('position', 'fixed');
+
+  await page.keyboard.press('Escape');
+  await expect(inner).toHaveCount(0);
+  await expect(outer).not.toHaveAttribute('aria-hidden', 'true');
+  await expect(outer.getByRole('button', { name: 'Abrir capa interior' })).toBeFocused();
+  await expect(page.locator('body')).toHaveCSS('position', 'fixed');
+
+  await page.keyboard.press('Escape');
+  await expect(outer).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Abrir pila de prueba' })).toBeFocused();
+  await expect(page.locator('body')).not.toHaveCSS('position', 'fixed');
+});
+
+test('E04: reduced motion reduce las transiciones de la capa', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/?modal=disco-bandcamp-artista-bc');
+  const dialog = page.getByRole('dialog', { name: 'Disco Bandcamp' });
+  await expect(dialog).toBeVisible();
+  expect(await dialog.evaluate((node) => Number.parseFloat(getComputedStyle(node).animationDuration))).toBeLessThanOrEqual(0.00001);
+});
+
+test('E14: jerarquiza acciones y secundarios sin perder el retorno de Sugerir', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+
+  const header = page.locator('header.site-header');
+  await expect(header.getByRole('link', { name: 'Sugerir' })).toHaveAttribute('href', /\/auth\/login\?redirect=%2Fsugerir$/);
+  await expect(header.getByRole('link', { name: 'Entrar' })).toBeVisible();
+  await expect(header.getByRole('link', { name: 'Instagram' })).toHaveCount(0);
+
+  const menuButton = header.getByRole('button', { name: 'Menú' });
+  await expect(menuButton).toHaveCSS('min-height', '44px');
+  await menuButton.press('Enter');
+  const menu = page.getByRole('navigation', { name: 'Menú' });
+  await expect(menu.getByRole('link', { name: 'Manual' })).toBeFocused();
+  await expect(menu.getByRole('link', { name: 'Blog' })).toBeVisible();
+  await expect(menu.getByRole('link', { name: 'Substack' })).toBeVisible();
+  await expect(menu.getByRole('link', { name: 'Instagram' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(menuButton).toBeFocused();
+
+  await page.setViewportSize({ width: 360, height: 844 });
+  await expect(header.getByRole('link', { name: 'Sugerir' })).toBeVisible();
+  await expect(header.getByRole('link', { name: 'Entrar' })).toBeVisible();
+  await expect(header.getByRole('button', { name: 'Abrir menú' })).toHaveCSS('width', '44px');
+});
+
+test('E14: en móvil se oculta al bajar, vuelve solo al inicio y se congela para menú/campo', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 500 });
+  await page.goto('/');
+  await page.locator('main').evaluate((main) => {
+    const spacer = document.createElement('div');
+    spacer.style.height = '1400px';
+    const input = document.createElement('input');
+    input.dataset.e14FocusField = '';
+    spacer.append(input);
+    main.append(spacer);
+  });
+  const header = page.locator('header.site-header');
+
+  await page.evaluate(() => window.scrollTo(0, 120));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(120);
+  await expect(header).toHaveAttribute('data-header-visible', 'false');
+  await page.evaluate(() => window.scrollTo(0, 32));
+  await expect(header).toHaveAttribute('data-header-visible', 'false');
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(header).toHaveAttribute('data-header-visible', 'true');
+
+  await header.getByRole('button', { name: 'Abrir menú' }).click();
+  await page.evaluate(() => window.scrollTo(0, 180));
+  await expect(header).toHaveAttribute('data-header-visible', 'true');
+  await page.keyboard.press('Escape');
+
+  const field = page.locator('[data-e14-focus-field]');
+  await field.focus();
+  await page.evaluate(() => window.scrollTo(0, 240));
+  await expect(header).toHaveAttribute('data-header-visible', 'true');
+  await field.blur();
+  await page.waitForTimeout(20);
+  await page.evaluate(() => window.scrollTo(0, 280));
+  await expect(header).toHaveAttribute('data-header-visible', 'false');
+});
+
+// U7 reemplaza el grupo de enlaces de E14 por el avatar con menú de cuenta
+// (Perfil, Mis colecciones, Mis aportes, Salir). El orden y el móvil se conservan.
+test('E14/U7: con sesión, el avatar abre el menú de cuenta y el móvil lo muestra dentro del menú', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await authenticateHeaderFixture(page);
+  await page.goto('/');
+
+  const header = page.locator('header.site-header');
+  const account = header.getByRole('button', { name: 'Cuenta @persona' });
+  await expect(account).toBeVisible();
+  await expect(header.getByRole('link', { name: 'Entrar' })).toHaveCount(0);
+  await expect(header.getByRole('link', { name: 'Perfil' })).toHaveCount(0);
+
+  await account.press('Enter');
+  const accountMenu = page.getByRole('menu', { name: 'Cuenta @persona' });
+  const items = accountMenu.getByRole('menuitem');
+  await expect(items.first()).toHaveText('Perfil');
+  await expect(items.first()).toBeFocused();
+  await expect(items.first()).toHaveAttribute('href', '/perfil/persona');
+  await expect(accountMenu.getByRole('menuitem', { name: 'Mis colecciones' })).toHaveAttribute('href', '/mis-colecciones');
+  await expect(items.last()).toHaveText('Salir');
+  const aportes = accountMenu.getByRole('menuitem', { name: 'Mis aportes' });
+  if (await aportes.count()) await expect(aportes).toHaveAttribute('href', '/perfil/persona#mis-aportes');
+  await page.keyboard.press('Escape');
+  await expect(accountMenu).toHaveCount(0);
+  await expect(account).toBeFocused();
+
+  await page.setViewportSize({ width: 360, height: 844 });
+  await header.getByRole('button', { name: 'Abrir menú' }).click();
+  const menu = page.getByRole('navigation', { name: 'Menú' });
+  await expect(menu.getByRole('link', { name: 'Perfil' })).toBeFocused();
+  await expect(menu.getByRole('link', { name: 'Mis colecciones' })).toBeVisible();
+  await expect(menu.getByRole('button', { name: 'Salir' })).toBeVisible();
+});
+
+test('E14: el header móvil queda por debajo de overlays y no recupera foco', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 844 });
+  await page.goto('/');
+  const trigger = page.getByRole('link', { name: 'Abrir Disco Bandcamp' }).first();
+  await trigger.click();
+  const dialog = page.getByRole('dialog', { name: 'Disco Bandcamp' });
+  await expect(dialog).toBeVisible();
+  await expect(page.locator('header.site-header')).toHaveAttribute('aria-hidden', 'true');
+  expect(await page.locator('header.site-header').evaluate((header) => Number(getComputedStyle(header).zIndex))).toBeLessThan(
+    await dialog.evaluate((node) => Number(getComputedStyle(node).zIndex) || 1000)
+  );
+  await page.keyboard.press('Escape');
+  await expect(trigger).toBeFocused();
+});

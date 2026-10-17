@@ -1,0 +1,52 @@
+<script lang="ts">
+  // Compartir de la tarjeta y la fila (U8): IconButton discreto que copia el
+  // enlace público. Al copiar, el icono pasa a ✓ y la ayuda a "Enlace copiado";
+  // un lector de pantalla lo oye por la región viva.
+  import { onDestroy } from 'svelte';
+  import { IconButton } from '$lib/ui';
+  import { shareUrl } from './lanzamiento';
+
+  type Props = {
+    slug: string;
+    class?: string;
+  };
+
+  let { slug, class: className = '' }: Props = $props();
+
+  const COPIED_MS = 1500;
+  let copied = $state(false);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  function share() {
+    navigator.clipboard
+      ?.writeText?.(shareUrl(slug))
+      .then(() => {
+        copied = true;
+        clearTimeout(timer);
+        timer = setTimeout(() => (copied = false), COPIED_MS);
+      })
+      .catch(() => {});
+  }
+
+  onDestroy(() => clearTimeout(timer));
+</script>
+
+<span class="compartir {className}">
+  <IconButton
+    icon={copied ? 'check' : 'compartir'}
+    label={copied ? 'Enlace copiado' : 'Copiar enlace'}
+    size="sm"
+    variant="ghost"
+    tooltipAlign="end"
+    onclick={share}
+  />
+  <span class="sr-only" role="status">{copied ? 'Enlace copiado' : ''}</span>
+</span>
+
+<style>
+  .compartir { display: inline-flex; flex: none; }
+  /* Discreto: el tono de los metadatos hasta que se apunta o se enfoca. */
+  .compartir :global(.ui-btn--ghost) { color: var(--color-texto-tenue); }
+  .compartir :global(.ui-btn--ghost:hover),
+  .compartir :global(.ui-btn--ghost:focus-visible) { color: var(--color-texto); }
+</style>

@@ -108,7 +108,7 @@
           .map(([x, y]) => `${x},${y}`).join(' ')
       }
       fill="none"
-      stroke="#f8ffee"
+      style="stroke: var(--color-texto)"
       stroke-width="0.5"
       stroke-opacity={(nivel + 1) / 5}
     />
@@ -119,11 +119,11 @@
     {@const angle = -Math.PI / 2 + i * ((2 * Math.PI) / categorias.length)}
     {@const x = center.x + radioMax * Math.cos(angle)}
     {@const y = center.y + radioMax * Math.sin(angle)}
-    <line x1={center.x} y1={center.y} x2={x} y2={y} stroke="#ccc" stroke-width="0.5" />
+    <line x1={center.x} y1={center.y} x2={x} y2={y} style="stroke: var(--color-texto-alto)" stroke-width="0.5" />
   {/each}
 
   <!-- Radar activo -->
-  <path d={puntosToPath(puntos)} fill="#96f71988" stroke="#96f719" stroke-width="2" />
+  <path d={puntosToPath(puntos)} style="fill: var(--color-radar-relleno); stroke: var(--color-acento)" stroke-width="2" />
 
   <!-- Labels (verde, pequeño, sin bold) -->
   {#each categorias as nombre, i}
@@ -134,7 +134,7 @@
       text-anchor={p.anchor}
       dominant-baseline={p.baseline}
       font-size="7"
-      fill="#96f719"
+      style="fill: var(--color-acento)"
     >
       {LABELS[i]}
     </text>

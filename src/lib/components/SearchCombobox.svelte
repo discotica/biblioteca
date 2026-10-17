@@ -1,0 +1,497 @@
+<script>
+  // Campo de búsqueda con sugerencias agrupadas por tipo (ARIA combobox).
+  // U10b: se extrae de Filtros sin cambiar el comportamiento. El texto solo
+  // filtra al confirmarlo (Enter o una sugerencia), que lo convierte en chip.
+  // Quien lo usa decide qué abre: `activate` avisa de un clic o de que se
+  // empieza a escribir (nunca de un foco), `escape` de un Esc con las
+  // sugerencias ya cerradas y `commit` de una chip nueva. U10b-2: la barra
+  // móvil ancla el listado a su propio ancho y le pasa un alto máximo
+  // (--busqueda-dropdown-max-h).
+  import Icon from '$lib/ui/Icon.svelte';
+  import IconButton from '$lib/ui/IconButton.svelte';
+  import { createEventDispatcher } from 'svelte';
+  import { allArtistCredits } from '$lib/domain/releases';
+  import { normalizeSearchText } from '$lib/domain/searchMatching';
+  import { uniqueCountries, uniqueGenres } from '$lib/domain/filterOptions';
+
+  export let valores = {
+    pais: [],
+    genero: [],
+    texto: [],
+    año: '',
+    type: ''
+  };
+
+  export let lanzamientos = [];
+  export let placeholder = 'País, género, artista, sello o álbum…';
+  /** lg: 52 px (desktop) · md: 44 px (barra móvil). */
+  export let size = 'lg';
+  /** Base de los id del listbox y sus opciones: única por instancia montada. */
+  export let id = 'busqueda';
+  export let inputEl = null;
+
+  const dispatch = createEventDispatcher();
+
+  $: listboxId = `sugerencias-${id}`;
+  $: paisesUnicos = uniqueCountries(lanzamientos);
+  $: generosUnicos = uniqueGenres(lanzamientos);
+
+  let textoTemporal = '';
+  let dropdownAbierto = false;
+  let indiceSugerencia = -1;
+
+  function displaySuggestion(item) {
+    return typeof item === 'string' ? item : item.name ?? item.title ?? item.slug ?? item.id ?? '';
+  }
+
+  function suggestionKey(item) {
+    return typeof item === 'string' ? `text:${item}` : JSON.stringify(item);
+  }
+
+  function optionId(index) {
+    return `${listboxId}-${index}`;
+  }
+
+  function ranking(query, item) {
+    const wanted = normalizeSearchText(query);
+    const candidate = normalizeSearchText(displaySuggestion(item));
+    if (candidate === wanted) return 0;
+    if (candidate.startsWith(wanted)) return 1;
+    return candidate.includes(wanted) ? 2 : 3;
+  }
+
+  function matchTop(lista, query, max = 5) {
+    if (!normalizeSearchText(query)) return [];
+    return lista
+      .map((item) => ({ item, rank: ranking(query, item) }))
+      .filter(({ rank }) => rank < 3)
+      .sort((a, b) => a.rank - b.rank || displaySuggestion(a.item).localeCompare(displaySuggestion(b.item), 'es', { sensitivity: 'base' }))
+      .slice(0, max)
+      .map(({ item }) => item);
+  }
+
+  $: artistasUnicos = Array.from(new Map(
+    (lanzamientos ?? []).flatMap(l => allArtistCredits(l).map((credit) => [
+      `${credit.id ?? ''}:${credit.slug ?? ''}:${credit.name}`,
+      { kind: 'artist', ...(credit.id ? { id: credit.id } : {}), ...(credit.slug ? { slug: credit.slug } : {}), name: credit.name }
+    ])).filter(([, credit]) => credit.name)
+  ).values());
+
+  $: sellosUnicos = Array.from(new Set((lanzamientos ?? []).map(l => l.label).filter(Boolean)))
+    .map((name) => ({ kind: 'label', name }));
+
+  $: albumsUnicos = Array.from(new Map((lanzamientos ?? []).filter(l => l.title).map((release) => [
+    `${release.id ?? ''}:${release.slug}`,
+    { kind: 'release', ...(release.id ? { id: release.id } : {}), ...(release.slug ? { slug: release.slug } : {}), title: release.title }
+  ])).values());
+
+  $: gruposSugerencias = (() => {
+    const q = textoTemporal.trim();
+    if (!q) return [];
+    const grupos = [];
+    const mp = matchTop(paisesUnicos, q, 4);
+    if (mp.length) grupos.push({ tipo: 'pais', label: 'País', items: mp });
+    const mg = matchTop(generosUnicos, q, 4);
+    if (mg.length) grupos.push({ tipo: 'genero', label: 'Género', items: mg });
+    const ma = matchTop(artistasUnicos, q, 5);
+    if (ma.length) grupos.push({ tipo: 'artista', label: 'Artista', items: ma });
+    const ms = matchTop(sellosUnicos, q, 3);
+    if (ms.length) grupos.push({ tipo: 'sello', label: 'Sello', items: ms });
+    const mal = matchTop(albumsUnicos, q, 3);
+    if (mal.length) grupos.push({ tipo: 'album', label: 'Álbum', items: mal });
+    return grupos;
+  })();
+
+  $: sugerenciasPlanas = gruposSugerencias.flatMap(g => g.items.map(v => ({ tipo: g.tipo, value: v, key: `${g.tipo}:${suggestionKey(v)}` })));
+  $: sugerenciasVisibles = dropdownAbierto && gruposSugerencias.length > 0;
+
+  $: {
+    const q = textoTemporal.trim();
+    if (q && gruposSugerencias.length > 0) {
+      dropdownAbierto = true;
+    } else if (!q) {
+      dropdownAbierto = false;
+      indiceSugerencia = -1;
+    }
+  }
+
+  function elegirSugerencia(tipo, valor) {
+    if (tipo === 'pais') {
+      toggleEnLista('pais', valor);
+    } else if (tipo === 'genero') {
+      toggleEnLista('genero', valor);
+    } else {
+      toggleTexto(valor);
+    }
+    textoTemporal = '';
+    dropdownAbierto = false;
+    indiceSugerencia = -1;
+    dispatch('commit');
+  }
+
+  function buscarTextoLibre() {
+    const q = textoTemporal.trim();
+    if (!q) return;
+    toggleTexto(q);
+    textoTemporal = '';
+    dropdownAbierto = false;
+    indiceSugerencia = -1;
+    dispatch('commit');
+  }
+
+  // Una tecla que escribe: abre el panel antes de que llegue el carácter.
+  function esImprimible(e) {
+    return e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
+  }
+
+  function onKeydown(e) {
+    if (e.key === 'Escape') {
+      // El primero cierra las sugerencias; con ellas cerradas, avisa.
+      const habiaSugerencias = sugerenciasVisibles;
+      dropdownAbierto = false;
+      indiceSugerencia = -1;
+      if (!habiaSugerencias) dispatch('escape');
+      return;
+    }
+    if (e.key === 'ArrowDown' || esImprimible(e)) dispatch('activate');
+    const total = sugerenciasPlanas.length + 1; // +1 for free-text option
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!dropdownAbierto) { dropdownAbierto = gruposSugerencias.length > 0; return; }
+      indiceSugerencia = indiceSugerencia < total - 1 ? indiceSugerencia + 1 : -1;
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!dropdownAbierto) return;
+      indiceSugerencia = indiceSugerencia > -1 ? indiceSugerencia - 1 : total - 1;
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (dropdownAbierto && indiceSugerencia >= 0 && indiceSugerencia < sugerenciasPlanas.length) {
+        const { tipo, value } = sugerenciasPlanas[indiceSugerencia];
+        elegirSugerencia(tipo, value);
+      } else {
+        buscarTextoLibre();
+      }
+    }
+  }
+
+  // El cierre diferido deja que el clic en una sugerencia llegue antes que el
+  // blur. Si el campo recupera el foco en ese margen (p. ej. tras quitar una
+  // chip), el cierre pendiente se cancela: si no, cierra las sugerencias con el
+  // campo enfocado.
+  let cierreTrasBlur;
+  function onSearchBlur() {
+    clearTimeout(cierreTrasBlur);
+    cierreTrasBlur = setTimeout(() => { dropdownAbierto = false; indiceSugerencia = -1; }, 160);
+  }
+
+  function onSearchFocus() {
+    clearTimeout(cierreTrasBlur);
+    if (gruposSugerencias.length) dropdownAbierto = true;
+  }
+
+  function toggleEnLista(key, valor) {
+    const yaEstá = valores[key].includes(valor);
+    const nuevo = {
+      ...valores,
+      [key]: yaEstá ? valores[key].filter(v => v !== valor) : [...valores[key], valor]
+    };
+    dispatch('filtrar', nuevo);
+  }
+
+  function toggleTexto(valor) {
+    const key = suggestionKey(valor);
+    const yaEstá = valores.texto.some((item) => suggestionKey(item) === key);
+    dispatch('filtrar', {
+      ...valores,
+      texto: yaEstá ? valores.texto.filter((item) => suggestionKey(item) !== key) : [...valores.texto, valor]
+    });
+  }
+</script>
+
+<div class="campo-busqueda">
+  <div class="busqueda-wrap">
+    <div class="busqueda-input-row busqueda-input-row--{size}">
+      <span class="busqueda-icono"><Icon name="buscar" size="md" /></span>
+      <!-- svelte-ignore a11y_role_supports_aria_props_implicit: this input deliberately implements the ARIA combobox pattern. -->
+      <input
+        class="busqueda-input"
+        type="text"
+        bind:this={inputEl}
+        bind:value={textoTemporal}
+        {placeholder}
+        autocomplete="off"
+        spellcheck="false"
+        role="combobox"
+        aria-label="Buscar por país, género, artista, sello o álbum"
+        aria-autocomplete="list"
+        aria-expanded={sugerenciasVisibles}
+        aria-controls={listboxId}
+        aria-activedescendant={indiceSugerencia >= 0 ? optionId(indiceSugerencia) : undefined}
+        on:pointerdown={() => dispatch('activate')}
+        on:click={() => dispatch('activate')}
+        on:input={() => dispatch('activate')}
+        on:keydown={onKeydown}
+        on:blur={onSearchBlur}
+        on:focus={onSearchFocus}
+      />
+      {#if textoTemporal}
+        <IconButton
+          class="busqueda-clear"
+          icon="cerrar"
+          label="Limpiar búsqueda"
+          size="sm"
+          tooltipAlign="end"
+          onclick={() => { textoTemporal = ''; dropdownAbierto = false; }}
+        />
+      {/if}
+    </div>
+
+    {#if sugerenciasVisibles}
+      <div class="busqueda-dropdown" id={listboxId} role="listbox" aria-label="Sugerencias de búsqueda">
+        {#each gruposSugerencias as grupo}
+          <div class="sug-grupo">
+            <span class="sug-grupo-label">{grupo.label}</span>
+            {#each grupo.items as item}
+              {@const flatIdx = sugerenciasPlanas.findIndex(s => s.key === `${grupo.tipo}:${suggestionKey(item)}`)}
+              <button
+                class="sug-item"
+                class:sug-item--focused={flatIdx === indiceSugerencia}
+                id={optionId(flatIdx)}
+                type="button"
+                role="option"
+                aria-selected={flatIdx === indiceSugerencia}
+                on:click={() => elegirSugerencia(grupo.tipo, item)}
+              >
+                <span class="sug-tipo sug-tipo--{grupo.tipo}">{grupo.label}</span>
+                <span class="sug-valor">{displaySuggestion(item)}</span>
+              </button>
+            {/each}
+          </div>
+        {/each}
+
+        <div class="sug-libre-wrap">
+          <button
+            class="sug-libre"
+            class:sug-item--focused={indiceSugerencia === sugerenciasPlanas.length}
+            id={optionId(sugerenciasPlanas.length)}
+            role="option"
+            aria-selected={indiceSugerencia === sugerenciasPlanas.length}
+            type="button"
+            on:click={buscarTextoLibre}
+          >
+            <Icon name="buscar" size="sm" />
+            Buscar "<strong>{textoTemporal.trim()}</strong>"
+          </button>
+        </div>
+      </div>
+    {/if}
+  </div>
+</div>
+
+<style>
+.campo-busqueda { width: 100%; }
+
+/* Rich search */
+.busqueda-wrap {
+  position: relative;
+  width: 100%;
+}
+
+/* El campo de texto es el control principal de la búsqueda: 52 px (Field lg)
+   en desktop, 44 (md) en la barra móvil; texto de 16 y borde e icono en el
+   acento. */
+.busqueda-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--field-h-lg);
+  box-sizing: border-box;
+  padding: 0 var(--space-2) 0 var(--control-px-md);
+  background: var(--color-acento-tinte);
+  border: 1px solid var(--color-acento-border);
+  border-radius: var(--control-radius);
+  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+
+.busqueda-input-row--md { min-height: var(--field-h-md); }
+
+.busqueda-input-row:hover { border-color: var(--color-acento-texto); }
+
+.busqueda-input-row:focus-within {
+  border-color: var(--color-acento-texto);
+  box-shadow: var(--focus-ring);
+  background: var(--color-sombra);
+}
+
+.busqueda-icono {
+  display: flex;
+  color: var(--color-acento);
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.busqueda-input {
+  flex: 1;
+  align-self: stretch;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-texto);
+  font-family: var(--font-base);
+  font-size: var(--text-md);
+  min-width: 0;
+  padding: 0;
+  /* El foco lo marca la fila (:focus-within): sin el anillo global dentro. */
+  box-shadow: none;
+}
+
+.busqueda-input::placeholder {
+  color: var(--color-texto-medio);
+}
+
+/* Suggestions dropdown */
+.busqueda-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: var(--layer-dropdown);
+  background: var(--color-velo-opaco);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--color-linea);
+  border-radius: var(--control-radius);
+  padding: .45rem;
+  box-shadow: 0 16px 48px var(--color-sombra-fuerte);
+  /* La barra móvil lo limita al borde visible (teclado abierto). */
+  max-height: var(--busqueda-dropdown-max-h, none);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sug-grupo {
+  margin-bottom: .1rem;
+}
+
+.sug-grupo-label {
+  display: block;
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--color-texto-tenue);
+  padding: .35rem .55rem .15rem;
+}
+
+.sug-item {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  width: 100%;
+  padding: .48rem .55rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--motion-instant) ease, border-color var(--motion-instant) ease;
+  font-family: var(--font-base);
+}
+
+.sug-item:hover,
+.sug-item--focused {
+  background: var(--color-superficie-2);
+  border-color: var(--color-linea-sutil);
+}
+
+.sug-tipo {
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  border-radius: var(--radius-pill);
+  padding: .18rem .48rem;
+  line-height: 1.4;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+}
+
+.sug-tipo--pais {
+  background: var(--color-cat-pais-dim);
+  border-color: var(--color-cat-pais-borde);
+  color: var(--color-cat-pais);
+}
+
+.sug-tipo--genero {
+  background: var(--color-cat-genero-dim);
+  border-color: var(--color-cat-genero-borde);
+  color: var(--color-cat-genero);
+}
+
+.sug-tipo--artista {
+  background: var(--color-acento-dim);
+  border-color: var(--color-borde-hover);
+  color: var(--color-acento);
+}
+
+.sug-tipo--sello {
+  background: var(--color-cat-sello-dim);
+  border-color: var(--color-cat-sello-borde);
+  color: var(--color-cat-sello);
+}
+
+.sug-tipo--album {
+  background: var(--color-cat-lanzamiento-dim);
+  border-color: var(--color-cat-lanzamiento-borde);
+  color: var(--color-cat-lanzamiento);
+}
+
+.sug-valor {
+  font-size: var(--text-sm);
+  color: var(--color-texto);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sug-libre-wrap {
+  margin-top: .3rem;
+  padding-top: .3rem;
+  border-top: 1px solid var(--color-linea-sutil);
+}
+
+.sug-libre {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  width: 100%;
+  padding: .48rem .55rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-base);
+  font-size: var(--text-sm);
+  color: var(--color-texto-tenue);
+  transition: background var(--motion-instant) ease, color var(--motion-instant) ease, border-color var(--motion-instant) ease;
+}
+
+.sug-libre:hover,
+.sug-libre.sug-item--focused {
+  background: var(--color-superficie-2);
+  border-color: var(--color-linea-sutil);
+  color: var(--color-texto);
+}
+
+.sug-libre :global(.ui-icon) {
+  flex-shrink: 0;
+  opacity: .5;
+}
+
+.sug-libre strong {
+  color: var(--color-texto);
+  font-weight: 600;
+}
+</style>

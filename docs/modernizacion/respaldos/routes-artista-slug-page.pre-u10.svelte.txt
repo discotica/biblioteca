@@ -1,0 +1,164 @@
+<script lang="ts">
+  import PageLayout from '$lib/layouts/PageLayout.svelte';
+  import { catalogCrumb } from '$lib/layouts/crumbs';
+  import LanzamientoCard from '$lib/components/LanzamientoCard.svelte';
+  import LanzamientoModal from '$lib/components/LanzamientoModal.svelte';
+  import { slugFromLanzamiento } from '$lib/utils/slugLanzamiento';
+  import { onMount } from 'svelte';
+  import { page } from '$app/stores';
+  import { normalizeReleaseDate } from '$lib/domain/releases';
+
+  let lanzamientoActivo = null;
+  function abrirModal(lanzamiento) { lanzamientoActivo = lanzamiento; }
+  function cerrarModal() { lanzamientoActivo = null; }
+
+  export let data;
+
+  let ordenSeleccionado = 'fecha-desc';
+
+  // Reactivo: se actualiza si cambia `data`
+  $: lanzamientos = data?.lanzamientos ?? [];
+  $: nombreArtista = data?.nombreArtista ?? '';
+
+
+  // Render progresivo para artistas grandes (sin paginacion)
+  const LOTE = 36;
+  let visibles = LOTE;
+
+  $: lanzamientosOrdenados = (() => {
+    switch (ordenSeleccionado) {
+      case 'fecha-desc':
+        return [...lanzamientos].sort((a, b) => normalizeReleaseDate(b.release_date).timestamp - normalizeReleaseDate(a.release_date).timestamp);
+      case 'fecha-asc':
+        return [...lanzamientos].sort((a, b) => normalizeReleaseDate(a.release_date).timestamp - normalizeReleaseDate(b.release_date).timestamp);
+      case 'titulo-asc':
+        return [...lanzamientos].sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''));
+      case 'titulo-desc':
+        return [...lanzamientos].sort((a, b) => (b.title ?? '').localeCompare(a.title ?? ''));
+      default:
+        return [...lanzamientos];
+    }
+  })();
+
+  $: total = lanzamientosOrdenados.length;
+  $: visibles = Math.min(visibles, total || LOTE);
+  $: lanzamientosVisibles = lanzamientosOrdenados.slice(0, visibles);
+
+  // Si cambia el orden o el dataset, reinicia el render progresivo
+  $: if (lanzamientosOrdenados) {
+    visibles = Math.min(LOTE, total || LOTE);
+  }
+
+  function cargarMas() {
+    visibles = Math.min(total, visibles + LOTE);
+  }
+
+  onMount(() => {
+    let raf = 0;
+    const step = () => {
+      if (visibles < total) {
+        visibles = Math.min(total, visibles + LOTE);
+        raf = requestAnimationFrame(step);
+      }
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  });
+</script>
+
+<svelte:head>
+  <title>{nombreArtista} | Discótica</title>
+</svelte:head>
+
+<PageLayout breadcrumbs={[catalogCrumb($page.url.search), { label: nombreArtista }]} eyebrow="Artista" title={nombreArtista}>
+  {#snippet actions()}
+    <label class="orden">
+      Ordenar por:
+      <select bind:value={ordenSeleccionado}>
+        <option value="fecha-desc">Más reciente</option>
+        <option value="fecha-asc">Más antiguo</option>
+        <option value="titulo-asc">Título A → Z</option>
+        <option value="titulo-desc">Título Z → A</option>
+      </select>
+    </label>
+  {/snippet}
+
+  {#if lanzamientosOrdenados.length === 0}
+    <p class="mensaje-vacio">Este artista aún no tiene lanzamientos registrados en Discótica.</p>
+  {:else}
+    <div class="resultados__grid lanzamientos-grilla">
+      {#each lanzamientosVisibles as lanzamiento}
+        <LanzamientoCard {lanzamiento} onabrir={abrirModal} />
+      {/each}
+    </div>
+    {#if visibles < lanzamientosOrdenados.length}
+      <button class="cargar-mas" type="button" on:click={cargarMas}>
+        Cargar más
+      </button>
+    {/if}
+  {/if}
+</PageLayout>
+
+{#if lanzamientoActivo}
+  {#key slugFromLanzamiento(lanzamientoActivo)}
+    <LanzamientoModal lanzamiento={lanzamientoActivo} on:cerrar={cerrarModal} />
+  {/key}
+{/if}
+
+<style>
+  @import '$lib/styles/styles.css';
+
+
+
+
+
+
+  .mensaje-vacio {
+    color: var(--color-texto-secundario);
+    font-style: italic;
+    font-size: var(--text-md);
+    padding: var(--spacing-md);
+  }
+
+
+
+
+  .orden {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--color-texto-medio);
+    font-size: var(--text-sm);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 679px) {
+    .orden { width: 100%; justify-content: space-between; }
+    .orden select { flex: 1; }
+  }
+
+
+
+  select {
+    font-size: var(--text-md);
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+    background: var(--color-panel);
+    color: var(--color-texto);
+    border: 1px solid var(--color-borde);
+  }
+
+  .cargar-mas{
+    margin-top: var(--spacing-md);
+    background: transparent;
+    color: var(--color-texto);
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radius-base);
+    padding: 0.65rem 1rem;
+    cursor: pointer;
+  }
+  .cargar-mas:hover{
+    border-color: var(--color-acento);
+    color: var(--color-acento);
+  }
+</style>

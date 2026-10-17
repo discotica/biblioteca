@@ -1,0 +1,509 @@
+<script>
+  // Inicio: orquesta el SearchState único (E12), los resultados (E13), la
+  // búsqueda móvil (E15) y la sesión modal (E17). Las derivaciones viven en
+  // $lib/domain/homeSearchView, las navegaciones en $lib/ui/homeUrl y cada
+  // superficie en $lib/components/home.
+  import { getContext, onMount } from 'svelte';
+  import LanzamientoModal from '$lib/components/LanzamientoModal.svelte';
+  import BetaInvitation from '$lib/components/BetaInvitation.svelte';
+  import WelcomeBanner from '$lib/components/WelcomeBanner.svelte';
+  import ActiveSearchPills from '$lib/components/ActiveSearchPills.svelte';
+  import HomeSearchToggle from '$lib/components/home/HomeSearchToggle.svelte';
+  import MobileSearchBar from '$lib/components/home/MobileSearchBar.svelte';
+  import HomeFilterPanel from '$lib/components/home/HomeFilterPanel.svelte';
+  import HomeResults from '$lib/components/home/HomeResults.svelte';
+  import MobileFilterSheet from '$lib/components/home/MobileFilterSheet.svelte';
+  import { page } from '$app/stores';
+  import { get } from 'svelte/store';
+  import { tick } from 'svelte';
+  import { slugFromLanzamiento } from '$lib/utils/slugLanzamiento';
+  import { fetchLanzamientos, resolveReleaseBySlug } from '$lib/utils/catalogoStore';
+  import { matchReleases } from '$lib/domain/searchMatching';
+  import { recommendReleases } from '$lib/domain/releaseRecommendations';
+  import { closeModalPlan, entryForSession, idleModalSession, pushModalRelease, restoreModalSession, visitModalBase } from '$lib/domain/modalHistory';
+  import { createSearchState, hasSearchCriteria, parseSearchState, searchStateToCriteria, serializeSearchState } from '$lib/domain/searchState';
+  import {
+    activeSearchPills, availableOrders, countActiveFilters, describeResults, pageSlice, searchFilterValues,
+    totalPagesFor, withFilterForm, withOrder, withPage, withRadar, withoutPill
+  } from '$lib/domain/homeSearchView';
+  import {
+    currentModalEntry, currentQuery, markModalEntry, navigateToSearch, replaceSearchHref,
+    replaceWithCanonicalQuery, restoreUnderlyingScroll, searchHref as searchHrefFor, startModalSession
+  } from '$lib/ui/homeUrl';
+  import { MOBILE_SEARCH_QUERY, observeMobileSearchChrome } from '$lib/ui/mobileSearchChrome';
+  import { parseBetaInvitation, removeBetaInvitationParams } from '$lib/domain/betaInvitation';
+  import { WELCOME_CONTENT } from '$lib/content/welcome';
+  import { WELCOME_SESSION_CONTEXT, consumeWelcomeDecision, markWelcomeHandled } from '$lib/ui/welcomeSession';
+
+  // A presentation kill switch only. It never grants access or changes E18.
+  const betaInvitationEnabled = import.meta.env.VITE_BETA_INVITATION_ENABLED === 'true';
+  const welcomeSession = getContext(WELCOME_SESSION_CONTEXT);
+
+  let lanzamientos = [];
+  let lanzamientosFiltrados = [];
+  let cargandoTSV = true;
+  let errorCargaCatalogo = false;
+  let radarRef;
+  let radarRefMobile;
+  let mostrarPanelFiltros = false;
+  let modalFiltrosMobile = false;
+  let filtrosMobileTriggerEl;
+  let mobileSearchVisible = true;
+  let mobileViewportHeight = 0;
+  let mobileViewportBottom = 0;
+  let mobileSearchButtonEl;
+  let searchState = createSearchState();
+  let unknownSearchParams = new URLSearchParams();
+  let paginaActual = 1;
+  let coincidencias = [];
+  let coincidenciasExactas = [];
+  let coincidenciasAproximadas = [];
+  let resultadosGridEl;
+  let desktopSearchButtonEl;
+  let betaInvitation = null;
+  let welcomeVisible = false;
+
+  // Modal
+  let lanzamientoActivo = null;
+  let modalSession = idleModalSession();
+  let modalReturnFocus = null;
+  let pendingDirectClose = false;
+  let modalResolutionVersion = 0;
+  $: recomendacionesActivas = lanzamientoActivo ? recommendReleases(lanzamientoActivo, lanzamientos) : [];
+
+  async function abrirModal(lanzamiento) {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // A card already carries the canonical release it was listed from: open at
+    // once instead of paying two sequential round trips (resolver + lookup).
+    // Only legacy rows, which have no canonical identity yet, go through the resolver.
+    let release = lanzamiento?.source === 'canonical' && lanzamiento.id ? lanzamiento : null;
+    if (!release) {
+      const resolution = await resolveReleaseBySlug(slugFromLanzamiento(lanzamiento));
+      if (resolution.status !== 'resolved') return;
+      release = resolution.release;
+    }
+    const canonicalSlug = slugFromLanzamiento(release);
+    modalSession = startModalSession('catalog', searchState, unknownSearchParams, canonicalSlug);
+    modalReturnFocus = opener;
+    lanzamientoActivo = release;
+    searchState = createSearchState({ ...searchState, modal: canonicalSlug });
+    await navegarEstado({ historyEntry: entryForSession(modalSession) });
+  }
+
+  async function cerrarModal() {
+    const plan = closeModalPlan(modalSession);
+    if (plan.kind === 'go') {
+      pendingDirectClose = plan.finishDirectAtDepthZero;
+      history.go(plan.delta);
+      return;
+    }
+    if (plan.kind === 'replace') await replaceWithModalBase(plan.href, plan.scroll);
+  }
+
+  async function abrirRecomendacion({ recommendation }) {
+    if (!lanzamientoActivo || modalSession.phase !== 'open') return;
+    const slug = slugFromLanzamiento(recommendation.release);
+    const next = pushModalRelease(modalSession, slug);
+    modalSession = next.session;
+    searchState = createSearchState({ ...searchState, modal: slug });
+    await navegarEstado({ historyEntry: next.entry });
+  }
+
+  function searchHref(state) {
+    return searchHrefFor(state, unknownSearchParams);
+  }
+
+  function syncBetaInvitation(params) {
+    betaInvitation = betaInvitationEnabled ? parseBetaInvitation(params) : null;
+  }
+
+  async function closeBetaInvitation() {
+    // Build from E12's serialized search state, then remove only E19-owned
+    // keys. Keep the retained unknown set clean too: otherwise a later E12
+    // navigation would serialize stale beta keys back into an internal link.
+    // Deleting again is a no-op, so repeated close/replace is stable.
+    unknownSearchParams = removeBetaInvitationParams(unknownSearchParams);
+    const params = removeBetaInvitationParams(serializeSearchState(searchState, unknownSearchParams));
+    betaInvitation = null;
+    const nextQs = params.toString();
+    if (nextQs === currentQuery()) return;
+    await replaceSearchHref(nextQs ? `?${nextQs}` : '/', currentModalEntry());
+  }
+
+  function decideWelcome() {
+    welcomeVisible = consumeWelcomeDecision(welcomeSession?.initialPath, get(page).url.searchParams);
+  }
+
+  function closeWelcome() {
+    markWelcomeHandled();
+    welcomeVisible = false;
+  }
+
+  async function exploreWelcome() {
+    closeWelcome();
+    await tick();
+    const target = window.matchMedia(MOBILE_SEARCH_QUERY).matches
+      ? mobileSearchButtonEl
+      : desktopSearchButtonEl;
+    const fallback = resultadosGridEl;
+    const focusTarget = target ?? fallback;
+    if (!focusTarget) return;
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    focusTarget.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'auto' : 'smooth' });
+    focusTarget.focus({ preventScroll: true });
+  }
+
+  async function replaceWithModalBase(href, scroll = modalSession.baseScroll) {
+    const baseState = createSearchState({ ...modalSession.baseSearchState, modal: null });
+    lanzamientoActivo = null;
+    searchState = baseState;
+    modalSession = visitModalBase(modalSession);
+    pendingDirectClose = false;
+    await replaceSearchHref(href, null);
+    await restoreUnderlyingScroll(scroll);
+  }
+
+  let syncingFromURL = false;
+  let lastSeenQS = '';
+
+  async function canonizarURLActual() {
+    const canonical = serializeSearchState(searchState, unknownSearchParams).toString();
+    lastSeenQS = canonical;
+    await replaceWithCanonicalQuery(canonical);
+  }
+
+  async function sincronizarModalDesdeURL(modalSlug) {
+    if (!modalSlug) {
+      const scroll = modalSession.baseScroll;
+      lanzamientoActivo = null;
+      if (modalSession.phase === 'open') {
+        modalSession = visitModalBase(modalSession);
+        await restoreUnderlyingScroll(scroll);
+      }
+      return;
+    }
+
+    const historyEntry = currentModalEntry();
+    if (pendingDirectClose && historyEntry?.origin === 'direct' && historyEntry.depth === 0) {
+      modalSession = restoreModalSession(historyEntry);
+      await replaceWithModalBase(historyEntry.baseHref, historyEntry.baseScroll);
+      return;
+    }
+
+    if (historyEntry) modalSession = restoreModalSession(historyEntry);
+    else if (modalSession.phase !== 'open') {
+      modalSession = startModalSession('direct', searchState, unknownSearchParams, modalSlug);
+      markModalEntry(modalSession);
+    }
+
+    if (lanzamientoActivo && slugFromLanzamiento(lanzamientoActivo) === modalSlug) return;
+    const local = lanzamientos.find((release) => release.slug === modalSlug || release.legacySlug === modalSlug);
+    if (local) {
+      lanzamientoActivo = local;
+      return;
+    }
+    const resolutionVersion = ++modalResolutionVersion;
+    const resolution = await resolveReleaseBySlug(modalSlug);
+    // A Back/Forward can happen while the resolver is in flight.
+    if (resolutionVersion !== modalResolutionVersion || searchState.modal !== modalSlug) return;
+    if (resolution.status === 'resolved') {
+      lanzamientoActivo = resolution.release;
+      return;
+    }
+    const baseState = createSearchState({ ...searchState, modal: null });
+    searchState = baseState;
+    lanzamientoActivo = null;
+    await replaceSearchHref(searchHref(baseState), null);
+  }
+
+  // Sync reactivo: si cambia la query en la misma ruta (/?...), actualiza filtros y re-filtra
+  $: if (!cargandoTSV) {
+    const qsNow = $page.url.searchParams.toString();
+    if (qsNow !== lastSeenQS) {
+      const prev = new URLSearchParams(lastSeenQS);
+      const next = new URLSearchParams(qsNow);
+      prev.delete('modal'); next.delete('modal');
+      lastSeenQS = qsNow;
+
+      if (prev.toString() !== next.toString()) {
+        syncingFromURL = true;
+        const parsed = parseSearchState($page.url.searchParams);
+        searchState = parsed.state;
+        unknownSearchParams = parsed.unknown;
+        syncBetaInvitation($page.url.searchParams);
+        aplicarTodosLosFiltros({ skipURL: true });
+        void canonizarURLActual();
+        syncingFromURL = false;
+      } else {
+        searchState = createSearchState({ ...searchState, modal: $page.url.searchParams.get('modal') || null });
+      }
+      void sincronizarModalDesdeURL(searchState.modal);
+    }
+  }
+
+  $: totalPaginas = totalPagesFor(lanzamientosFiltrados.length);
+  $: paginaActual = searchState.page;
+  $: coincidenciasPaginadas = pageSlice(coincidencias, paginaActual);
+  // Sin criterios, E11 entrega la colección completa pero no la etiqueta como
+  // "exacta". Para la superficie E13 eso es el estado normal del catálogo,
+  // nunca el aviso de aproximación.
+  $: haySoloAproximados = hasSearchCriteria(searchState) && coincidenciasExactas.length === 0 && coincidenciasAproximadas.length > 0;
+  $: hayGruposMixtos = coincidenciasExactas.length > 0 && coincidenciasAproximadas.length > 0;
+  $: aproximadosEnPagina = coincidenciasPaginadas.filter((match) => match.group === 'approximate').length;
+  $: exactosEnPagina = coincidenciasPaginadas.filter((match) => match.group === 'exact').length;
+  $: mostrarSeparadorAlInicio = hayGruposMixtos && aproximadosEnPagina > 0 && exactosEnPagina === 0;
+  $: ordenesDisponibles = availableOrders(searchState);
+  // Sin dependencias reactivas: se evalúa una sola vez, al montar, y anuncia
+  // "Cargando lanzamientos.". Se conserva así en U2 (sin cambio de
+  // comportamiento); corregirlo es trabajo de U10.
+  $: anuncioResultados = resultAnnouncement();
+
+  // Alias visual temporal: el único estado editable y compartible es SearchState.
+  $: filtrosSeleccionados = searchFilterValues(searchState);
+  $: activePills = activeSearchPills(searchState);
+  $: contarFiltrosActivos = countActiveFilters(searchState);
+  $: hayFiltrosActivos = contarFiltrosActivos > 0;
+
+  function resultAnnouncement() {
+    return describeResults({
+      loading: cargandoTSV,
+      error: errorCargaCatalogo,
+      total: coincidencias.length,
+      onlyApproximate: haySoloAproximados,
+      approximateTotal: coincidenciasAproximadas.length,
+      mixedGroups: hayGruposMixtos,
+      exactOnPage: exactosEnPagina,
+      approximateOnPage: aproximadosEnPagina
+    });
+  }
+
+  async function desplazarAGrilla() {
+    await tick();
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    resultadosGridEl?.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'auto' : 'smooth' });
+  }
+
+  function irAPagina(p) {
+    searchState = withPage(searchState, p, totalPaginas);
+    void navegarEstado();
+    void desplazarAGrilla();
+  }
+
+  function cambiarOrden(order) {
+    if (!ordenesDisponibles.some((option) => option.value === order)) return;
+    searchState = withOrder(searchState, order);
+    aplicarTodosLosFiltros();
+    void desplazarAGrilla();
+  }
+
+  function quitarPill(pill) {
+    searchState = withoutPill(searchState, pill);
+    if (pill.kind === 'radar') {
+      radarRef?.resetRadar();
+      radarRefMobile?.resetRadar();
+    }
+    aplicarTodosLosFiltros();
+  }
+
+  function abrirFiltrosMobile(trigger = mobileSearchButtonEl) {
+    filtrosMobileTriggerEl = trigger;
+    mobileSearchVisible = true;
+    modalFiltrosMobile = true;
+  }
+
+  function abrirFiltrosOcultos(trigger) {
+    if (typeof window !== 'undefined' && !window.matchMedia(MOBILE_SEARCH_QUERY).matches) {
+      mostrarPanelFiltros = true;
+      return;
+    }
+    abrirFiltrosMobile(trigger);
+  }
+
+  function cerrarFiltrosMobile() {
+    modalFiltrosMobile = false;
+  }
+
+  // --- Acciones ---
+  function reiniciarFiltrosYRadar() {
+    searchState = createSearchState();
+    radarRef?.resetRadar();
+    radarRefMobile?.resetRadar();
+    aplicarTodosLosFiltros();
+  }
+
+  onMount(() => {
+    let mounted = true;
+
+    const manejarClickGlobal = (event) => {
+      document.querySelectorAll('.dropdown[open]').forEach((dropdown) => {
+        if (!dropdown.contains(event.target)) dropdown.removeAttribute('open');
+      });
+    };
+
+    const initialize = async () => {
+      cargandoTSV = true;
+
+      try {
+        lanzamientos = await fetchLanzamientos();
+        errorCargaCatalogo = false;
+      } catch (err) {
+        console.error('Error cargando catálogo:', err);
+        lanzamientos = [];
+        errorCargaCatalogo = true;
+      }
+
+      if (!mounted) return;
+
+      cargandoTSV = false;
+
+      const parsed = parseSearchState(get(page).url.searchParams);
+      searchState = parsed.state;
+      unknownSearchParams = parsed.unknown;
+      syncBetaInvitation(get(page).url.searchParams);
+      decideWelcome();
+      await canonizarURLActual();
+
+      aplicarTodosLosFiltros();
+
+      // Abrir modal si la URL tiene ?modal=[slug]
+      const modalSlug = searchState.modal;
+      if (!modalSlug) return;
+      const resolution = await resolveReleaseBySlug(modalSlug);
+      if (resolution.status === 'resolved') {
+        lanzamientoActivo = resolution.release;
+        const storedEntry = currentModalEntry();
+        if (storedEntry) {
+          modalSession = restoreModalSession(storedEntry);
+        } else {
+          modalSession = startModalSession('direct', searchState, unknownSearchParams, slugFromLanzamiento(resolution.release));
+          markModalEntry(modalSession);
+        }
+      } else {
+        searchState = createSearchState({ ...searchState, modal: null });
+        await replaceSearchHref(searchHref(searchState), null);
+      }
+    };
+
+    document.addEventListener('click', manejarClickGlobal);
+    const stopMobileSearchChrome = observeMobileSearchChrome({
+      sheetOpen: () => modalFiltrosMobile,
+      onSearchVisible: (visible) => (mobileSearchVisible = visible),
+      onViewport: (height, bottom) => {
+        mobileViewportHeight = height;
+        mobileViewportBottom = bottom;
+      }
+    });
+    void initialize();
+    return () => {
+      mounted = false;
+      document.removeEventListener('click', manejarClickGlobal);
+      stopMobileSearchChrome();
+    };
+  });
+
+  function actualizarFiltros({ detail }) {
+    searchState = withFilterForm(searchState, detail);
+    aplicarTodosLosFiltros();
+  }
+
+  function actualizarRadar(event) {
+    searchState = withRadar(searchState, event.detail);
+    aplicarTodosLosFiltros();
+  }
+
+  function aplicarTodosLosFiltros({ skipURL = false } = {}) {
+    const evaluation = matchReleases(lanzamientos, searchStateToCriteria(searchState));
+    const resultado = evaluation.matches.map(({ release }) => release);
+
+    const total = totalPagesFor(resultado.length);
+    if (searchState.page > total) searchState = createSearchState({ ...searchState, page: total });
+
+    lanzamientosFiltrados = resultado;
+    coincidencias = evaluation.matches;
+    coincidenciasExactas = evaluation.exact;
+    coincidenciasAproximadas = evaluation.approximate;
+
+    if (!skipURL && !syncingFromURL) void navegarEstado();
+  }
+
+  function navegarEstado({ replaceState = false, historyEntry = undefined } = {}) {
+    return navigateToSearch(searchState, unknownSearchParams, { replaceState, historyEntry });
+  }
+</script>
+
+<!-- Desktop keeps the established inline panel. Mobile uses the persistent bar below. -->
+{#if welcomeVisible}
+  <WelcomeBanner content={WELCOME_CONTENT} on:close={closeWelcome} on:explore={exploreWelcome} />
+{/if}
+
+<HomeSearchToggle open={mostrarPanelFiltros} bind:buttonEl={desktopSearchButtonEl} on:click={() => mostrarPanelFiltros = !mostrarPanelFiltros} />
+
+<MobileSearchBar
+  visible={mobileSearchVisible} expanded={modalFiltrosMobile} count={contarFiltrosActivos}
+  bind:buttonEl={mobileSearchButtonEl} on:open={(event) => abrirFiltrosMobile(event.detail)}
+/>
+
+{#if hayFiltrosActivos}
+<div class="active-pills-outside l-container l-container--wide">
+  <ActiveSearchPills
+    pills={activePills}
+    on:remove={(event) => quitarPill(event.detail)}
+    on:overflow={(event) => abrirFiltrosOcultos(event.detail)}
+  />
+</div>
+{/if}
+
+<HomeFilterPanel
+  open={mostrarPanelFiltros} {lanzamientos} valores={filtrosSeleccionados} bind:radarRef
+  on:filtrar={actualizarFiltros} on:filtrarRadar={actualizarRadar} on:reset={reiniciarFiltrosYRadar}
+/>
+
+<HomeResults
+  loading={cargandoTSV} error={errorCargaCatalogo} announcement={anuncioResultados}
+  page={paginaActual} totalPages={totalPaginas} order={searchState.order} orders={ordenesDisponibles}
+  approximateNotice={haySoloAproximados ? 'No encontramos resultados exactos, pero aquí tienes los más cercanos.' : ''}
+  matches={coincidencias} pageMatches={coincidenciasPaginadas}
+  onlyApproximate={haySoloAproximados} separatorAtStart={mostrarSeparadorAlInicio}
+  bind:gridEl={resultadosGridEl}
+  on:page={(event) => irAPagina(event.detail)}
+  on:order={(event) => cambiarOrden(event.detail)}
+  on:abrir={(event) => abrirModal(event.detail)}
+/>
+
+<MobileFilterSheet
+  open={modalFiltrosMobile} pills={activePills} {lanzamientos} valores={filtrosSeleccionados}
+  viewportHeight={mobileViewportHeight} viewportBottom={mobileViewportBottom}
+  returnFocus={filtrosMobileTriggerEl} bind:radarRef={radarRefMobile}
+  on:close={cerrarFiltrosMobile} on:remove={(event) => quitarPill(event.detail)}
+  on:filtrar={actualizarFiltros} on:filtrarRadar={actualizarRadar} on:reset={reiniciarFiltrosYRadar}
+/>
+
+{#if lanzamientoActivo}
+  <LanzamientoModal
+    lanzamiento={lanzamientoActivo}
+    recommendations={recomendacionesActivas}
+    returnFocus={modalReturnFocus}
+    on:cerrar={cerrarModal}
+    on:recomendar={(event) => abrirRecomendacion(event.detail)}
+  />
+{/if}
+
+{#if betaInvitation}
+  <BetaInvitation
+    name={betaInvitation.name}
+    returnFocus={desktopSearchButtonEl}
+    on:close={closeBetaInvitation}
+  />
+{/if}
+
+<style>
+.active-pills-outside {
+  margin-top: -.25rem;
+  margin-bottom: .75rem;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .active-pills-outside { margin-top: 0; }
+}
+</style>

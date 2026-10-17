@@ -1,7 +1,7 @@
 <footer class="site-footer">
   <div class="accent-rule" aria-hidden="true"></div>
 
-  <div class="container inner">
+  <div class="l-container l-container--wide inner">
     <nav class="footer-links" aria-label="Links">
       <a href="https://instagram.com/discotica_" target="_blank" rel="noopener noreferrer">
         <img src="/img/insta.svg" alt="" aria-hidden="true" />
@@ -29,8 +29,8 @@
 <style>
   .site-footer {
     padding: 3rem 0 2rem;
-    background: rgba(0, 0, 0, .35);
-    border-top: 1px solid rgba(255, 255, 255, .06);
+    background: var(--color-sombra);
+    border-top: 1px solid var(--color-linea-sutil);
     position: relative;
   }
 
@@ -44,7 +44,7 @@
     height: 2px;
     background: var(--color-acento);
     opacity: .55;
-    border-radius: 1px;
+    border-radius: var(--radius-xs);
   }
 
   .inner {
@@ -65,13 +65,13 @@
     display: flex;
     align-items: center;
     gap: .45rem;
-    font-size: .72rem;
-    font-weight: 700;
-    letter-spacing: .09em;
-    text-transform: uppercase;
-    color: rgba(248, 255, 238, .35);
+    font-size: var(--nav-font-size);
+    font-weight: var(--nav-font-weight);
+    letter-spacing: var(--nav-letter-spacing);
+    text-transform: var(--nav-text-transform);
+    color: var(--color-texto-tenue);
     text-decoration: none;
-    transition: color 140ms ease;
+    transition: color var(--motion-fast) ease;
   }
 
   .footer-links a:hover {
@@ -83,30 +83,29 @@
     height: 15px;
     filter: brightness(0) invert(1);
     opacity: .5;
-    transition: opacity 140ms ease;
+    transition: opacity var(--motion-fast) ease;
     flex-shrink: 0;
   }
 
   .footer-links a:hover img { opacity: .9; }
 
-  @media (max-width: 540px) {
-    .footer-links { gap: 1.5rem; }
-    .footer-links a { font-size: .68rem; }
+  @media (max-width: 480px) {
+    .footer-links { flex-wrap: wrap; justify-content: center; gap: .75rem 1.5rem; }
   }
 
   /* Text */
   .claim {
     margin: 0;
-    font-size: .62rem;
+    font-size: var(--text-2xs);
     letter-spacing: .13em;
     text-transform: uppercase;
-    color: rgba(248, 255, 238, .18);
+    color: var(--color-texto-tenue);
     text-align: center;
   }
 
   .copy {
     margin: 0;
-    font-size: .68rem;
-    color: rgba(248, 255, 238, .12);
+    font-size: var(--text-2xs);
+    color: var(--color-texto-tenue);
   }
 </style>

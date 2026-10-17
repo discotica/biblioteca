@@ -1,0 +1,193 @@
+<script lang="ts">
+  import { createEventDispatcher } from 'svelte';
+  import type { Crate } from '$lib/stores/cratesStore';
+  import { eliminarCrate } from '$lib/stores/cratesStore';
+  import { user } from '$lib/stores/authStore';
+
+  export let crate: Crate;
+  export let editable = false;
+
+  const dispatch = createEventDispatcher<{ eliminar: { id: string } }>();
+
+  let confirmandoEliminar = false;
+  $: username = typeof $user?.user_metadata?.username === 'string'
+    ? $user.user_metadata.username
+    : '__self__';
+
+  async function confirmarEliminar() {
+    await eliminarCrate(crate.id);
+    dispatch('eliminar', { id: crate.id });
+    confirmandoEliminar = false;
+  }
+</script>
+
+<article class="crate-card">
+  <a class="crate-link" href="/coleccion/{crate.slug}?usuario={encodeURIComponent(username)}">
+    <div class="crate-header">
+      <span class="crate-badge" class:publico={crate.is_public} class:privado={!crate.is_public}>
+        {crate.is_public ? 'Pública' : 'Privada'}
+      </span>
+    </div>
+
+    <h3 class="crate-nombre">{crate.name}</h3>
+
+    {#if crate.description}
+      <p class="crate-desc">{crate.description}</p>
+    {/if}
+
+    <span class="crate-conteo">
+      {crate.item_count ?? 0} {(crate.item_count ?? 0) === 1 ? 'lanzamiento' : 'lanzamientos'}
+    </span>
+  </a>
+
+  {#if editable}
+    <div class="crate-acciones">
+      {#if confirmandoEliminar}
+        <span class="confirmar-texto">¿Eliminar?</span>
+        <button class="btn-danger" on:click={confirmarEliminar}>Sí, eliminar</button>
+        <button class="btn-ghost" on:click={() => (confirmandoEliminar = false)}>Cancelar</button>
+      {:else}
+        <button class="btn-ghost" on:click={() => (confirmandoEliminar = true)}>
+          Eliminar
+        </button>
+      {/if}
+    </div>
+  {/if}
+</article>
+
+<style>
+  .crate-card {
+    background: var(--color-superficie-1);
+    border: 1px solid var(--color-linea-sutil);
+    border-radius: var(--radius-base);
+    overflow: hidden;
+    transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .crate-card:hover {
+    border-color: var(--color-acento-suave);
+    background: var(--color-acento-tinte);
+  }
+
+  .crate-link {
+    padding: 1.25rem;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    flex: 1;
+  }
+
+  .crate-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .crate-badge {
+    font-size: var(--text-2xs);
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: .2rem .55rem;
+    border-radius: var(--radius-xs);
+  }
+
+  .crate-badge.publico {
+    background: var(--color-acento-dim);
+    color: var(--color-acento-texto);
+    border: 1px solid var(--color-acento-suave);
+  }
+
+  .crate-badge.privado {
+    background: var(--color-superficie-2);
+    color: var(--color-texto-tenue);
+    border: 1px solid var(--color-linea);
+  }
+
+  .crate-nombre {
+    font-size: var(--text-md);
+    font-weight: 800;
+    color: var(--color-texto);
+    margin: .25rem 0 0;
+    letter-spacing: -.01em;
+    line-height: 1.3;
+  }
+
+  .crate-desc {
+    font-size: var(--text-xs);
+    color: var(--color-texto-tenue);
+    line-height: 1.5;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .crate-conteo {
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--color-texto-tenue);
+    margin-top: auto;
+    padding-top: .5rem;
+  }
+
+  .crate-acciones {
+    padding: .75rem 1.25rem;
+    border-top: 1px solid var(--color-linea-sutil);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+
+  .confirmar-texto {
+    font-size: var(--text-2xs);
+    color: var(--color-danger);
+    margin-right: .25rem;
+  }
+
+  .btn-ghost {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--color-texto-tenue);
+    padding: .3rem .5rem;
+    border-radius: var(--radius-xs);
+    font-family: inherit;
+    transition: color var(--motion-fast) ease, background var(--motion-fast) ease;
+  }
+
+  .btn-ghost:hover {
+    color: var(--color-texto-medio);
+    background: var(--color-superficie-2);
+  }
+
+  .btn-danger {
+    background: var(--color-danger-dim);
+    border: 1px solid var(--color-danger-borde);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--color-danger);
+    padding: .3rem .7rem;
+    font-family: inherit;
+    transition: all var(--motion-fast) ease;
+  }
+
+  .btn-danger:hover {
+    background: var(--color-danger-dim);
+    color: var(--color-danger);
+  }
+</style>

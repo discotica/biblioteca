@@ -1,0 +1,127 @@
+<script>
+  // Hoja de filtros móvil (E15, U10) sobre la primitiva Sheet. No tiene estado
+  // de búsqueda propio: recibe los valores del SearchState y emite los cambios,
+  // que se aplican al instante. × descarta y «Ver N lanzamientos» vuelve a los
+  // resultados: las dos cierran, pero el pie dice qué hay detrás. El gesto de
+  // cierre solo empieza en el asa o la cabecera.
+  import { createEventDispatcher } from 'svelte';
+  import Sheet from '$lib/ui/Sheet.svelte';
+  import Button from '$lib/ui/Button.svelte';
+  import Icon from '$lib/ui/Icon.svelte';
+  import Filtros from '$lib/components/Filtros.svelte';
+  import ActiveSearchPills from '$lib/components/ActiveSearchPills.svelte';
+  import RadarPanel from './RadarPanel.svelte';
+  import ResetFiltersButton from './ResetFiltersButton.svelte';
+
+  export let open = false;
+  export let pills = [];
+  export let lanzamientos = [];
+  export let valores;
+  /** Lanzamientos que mostrará el catálogo al cerrar (exactos y aproximados). */
+  export let count = 0;
+  export let returnFocus = null;
+  export let radarRef = null;
+
+  const dispatch = createEventDispatcher();
+  const formatter = new Intl.NumberFormat('es-CO');
+
+  $: verLabel = count > 0
+    ? `Ver ${formatter.format(count)} lanzamiento${count === 1 ? '' : 's'}`
+    : 'Ver resultados';
+
+  function close() {
+    dispatch('close');
+  }
+</script>
+
+<Sheet {open} title="Filtros" class="filtros-mobile-sheet" {returnFocus} onclose={close}>
+  {#snippet header()}
+    {#if pills.length}
+      <ActiveSearchPills
+        {pills}
+        layout="band"
+        label="Todos los filtros activos"
+        on:remove
+      />
+    {/if}
+  {/snippet}
+
+  <div class="filtros-mobile-body">
+    <Filtros
+      {lanzamientos}
+      {valores}
+      on:filtrar
+    />
+    <details class="sheet-radar">
+      <summary>
+        <span>Radar</span>
+        <span class="sheet-radar__chevron"><Icon name="chevron-abajo" size="sm" /></span>
+      </summary>
+      <div class="sheet-radar__body">
+        <RadarPanel
+          radar={valores.radar}
+          showTitle={false}
+          bind:this={radarRef}
+          on:filtrarRadar
+        />
+      </div>
+    </details>
+  </div>
+
+  {#snippet footer()}
+    <!-- Las dos acciones de la hoja, juntas: deshacer y ver el resultado. -->
+    <div class="filtros-mobile-pie">
+      <ResetFiltersButton label="Reiniciar" on:click={() => dispatch('reset')} />
+      <Button block onclick={close}>{verLabel}</Button>
+    </div>
+  {/snippet}
+</Sheet>
+
+<style>
+  .filtros-mobile-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .sheet-radar {
+    border: 1px solid var(--color-linea-fuerte);
+    border-radius: var(--control-radius);
+  }
+
+  .sheet-radar > summary {
+    min-height: var(--target-touch);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--space-3);
+    color: var(--color-texto);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    letter-spacing: var(--nav-letter-spacing);
+    text-transform: uppercase;
+    list-style: none;
+    cursor: pointer;
+  }
+  .sheet-radar > summary::-webkit-details-marker { display: none; }
+  .sheet-radar > summary:focus-visible {
+    outline: 2px solid var(--focus-ring-color);
+    outline-offset: 2px;
+    border-radius: var(--control-radius);
+  }
+
+  .sheet-radar__chevron {
+    display: flex;
+    color: var(--color-acento);
+    transition: transform var(--motion-fast) ease;
+  }
+  .sheet-radar[open] .sheet-radar__chevron { transform: rotate(180deg); }
+
+  .sheet-radar__body {
+    padding: var(--space-3);
+    border-top: 1px solid var(--color-linea-sutil);
+  }
+
+  .filtros-mobile-pie { display: flex; gap: var(--space-2); }
+  .filtros-mobile-pie > :global(.reset-filtros) { flex: none; }
+</style>

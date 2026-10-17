@@ -1,0 +1,157 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { page } from '$app/stores';
+  import { user } from '$lib/stores/authStore';
+  import { crates, cratesLoaded, cargarCrates } from '$lib/stores/cratesStore';
+  import CrateCard from '$lib/components/CrateCard.svelte';
+  import CreateCrateModal from '$lib/components/CreateCrateModal.svelte';
+  import { supabase } from '$lib/supabase';
+  import PageLayout from '$lib/layouts/PageLayout.svelte';
+  import Button from '$lib/ui/Button.svelte';
+  import Notice from '$lib/ui/Notice.svelte';
+  import { afterNavigate, replaceState } from '$app/navigation';
+
+  // Avisos al llegar desde un enlace de correo (U12). Se leen una vez y se
+  // quitan de la URL, para que recargar o compartir no los repita.
+  const AVISOS: Record<string, { title: string; text: string }> = {
+    'cuenta-confirmada': {
+      title: 'Tu cuenta está confirmada',
+      text: 'Ya puedes crear colecciones, compartirlas y sugerir lanzamientos.'
+    },
+    contrasena: { title: 'Contraseña actualizada', text: 'Usa tu contraseña nueva la próxima vez que entres.' }
+  };
+  let aviso: { title: string; text: string } | null = null;
+
+  let modalAbierto = false;
+  let perfil: { username: string; display_name: string | null } | null = null;
+
+  // La sesión ya trae el usuario: las migas no esperan a la consulta del perfil.
+  $: username = perfil?.username ?? ($user?.user_metadata?.username as string | undefined) ?? '';
+
+  $: if ($page.url.searchParams.get('crear') === '1') {
+    modalAbierto = true;
+  }
+
+  // afterNavigate y no onMount: replaceState necesita el router ya iniciado,
+  // y en una carga directa onMount corre antes.
+  afterNavigate(({ to }) => {
+    const avisoParam = to?.url.searchParams.get('aviso');
+    if (!to || !avisoParam) return;
+    aviso = AVISOS[avisoParam] ?? null;
+    const url = new URL(to.url);
+    url.searchParams.delete('aviso');
+    replaceState(url, {});
+  });
+
+  onMount(async () => {
+    if (!$cratesLoaded) await cargarCrates();
+
+    if ($user) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('username, display_name')
+        .eq('id', $user.id)
+        .single();
+      perfil = data;
+    }
+  });
+
+  async function cerrarSesion() {
+    await supabase.auth.signOut();
+  }
+</script>
+
+<svelte:head>
+  <title>Mis colecciones — Biblioteca Discótica</title>
+</svelte:head>
+
+<PageLayout
+  container="regular"
+  breadcrumbs={username ? [{ label: `@${username}`, href: `/perfil/${username}` }, { label: 'Mis colecciones' }] : undefined}
+  title="Mis colecciones"
+>
+  {#snippet actions()}
+    <Button icon="agregar" onclick={() => (modalAbierto = true)}>Nueva colección</Button>
+  {/snippet}
+
+  {#if aviso}
+    <Notice tone="success" title={aviso.title} class="mis-colecciones__aviso">{aviso.text}</Notice>
+  {/if}
+
+  {#if !$cratesLoaded}
+    <p class="estado">Cargando colecciones…</p>
+  {:else if $crates.length === 0}
+    <div class="vacio">
+      <p>Todavía no creaste ninguna colección.</p>
+      <button class="btn-nuevo" on:click={() => (modalAbierto = true)}>
+        Crear mi primera colección
+      </button>
+    </div>
+  {:else}
+    <ul class="crates-grid">
+      {#each $crates as crate (crate.id)}
+        <li>
+          <CrateCard {crate} editable={true} />
+        </li>
+      {/each}
+    </ul>
+  {/if}
+</PageLayout>
+
+<CreateCrateModal
+  bind:abierto={modalAbierto}
+  on:creado={() => {}}
+/>
+
+<style>
+  :global(.mis-colecciones__aviso) { margin-bottom: var(--space-6); }
+
+
+
+
+
+
+  .btn-nuevo {
+    background: var(--color-acento);
+    color: var(--color-sobre-acento);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: .65rem 1.2rem;
+    font-size: var(--text-xs);
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity var(--motion-fast) ease;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+
+  .btn-nuevo:hover { opacity: .85; }
+
+  .estado {
+    color: var(--color-texto-tenue);
+    font-size: var(--text-sm);
+    padding: 2rem 0;
+  }
+
+  .vacio {
+    padding: 4rem 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    text-align: center;
+    color: var(--color-texto-tenue);
+    font-size: var(--text-md);
+  }
+
+  .crates-grid {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+  }
+</style>

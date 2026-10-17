@@ -1,0 +1,49 @@
+<script>
+  import { createEventDispatcher } from 'svelte';
+  import Pagination from '$lib/components/Pagination.svelte';
+
+  export let page = 1;
+  export let totalPages = 1;
+  export let order = 'fecha-desc';
+  export let orders = [];
+  export let approximateNotice = '';
+
+  const dispatch = createEventDispatcher();
+
+  function selectOrder(event) {
+    dispatch('order', event.currentTarget.value);
+  }
+</script>
+
+<div class="results-bar">
+  <div class="results-bar__main">
+    <Pagination {page} {totalPages} label="Paginación superior de resultados" on:change={(event) => dispatch('page', event.detail)} />
+
+    <label class="results-bar__order">
+      <span>Ordenar por</span>
+      <select value={order} on:change={selectOrder} aria-label="Ordenar resultados">
+        {#each orders as option}
+          <option value={option.value}>{option.label}</option>
+        {/each}
+      </select>
+    </label>
+  </div>
+
+  {#if approximateNotice}
+    <p class="results-bar__notice">{approximateNotice}</p>
+  {/if}
+</div>
+
+<style>
+  .results-bar { margin: var(--spacing-lg) 0 var(--spacing-sm); }
+  .results-bar__main { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-sm); min-height: var(--target-touch); }
+  .results-bar__order { display: inline-flex; align-items: center; justify-content: flex-end; gap: .6rem; color: var(--color-texto-secundario); font-size: var(--text-xs); font-weight: 600; white-space: nowrap; }
+  .results-bar__order select { min-height: var(--target-touch); max-width: 190px; padding: 0 .65rem; border: 1px solid var(--color-borde); border-radius: var(--radius-sm); background: var(--color-panel); color: var(--color-texto); font: inherit; }
+  .results-bar__notice { margin: var(--spacing-sm) 0 0; color: var(--color-texto-secundario); font-size: var(--text-sm); }
+
+  @media (max-width: 768px) {
+    .results-bar__main { display: grid; grid-template-columns: 1fr; align-items: stretch; }
+    .results-bar__order { justify-content: space-between; }
+    .results-bar__order select { width: min(100%, 220px); }
+  }
+</style>

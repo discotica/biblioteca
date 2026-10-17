@@ -1,0 +1,142 @@
+<script>
+  // Búsqueda del inicio en desktop (U10b, >768): el campo de texto es el
+  // disparador. Cerrado mide min(100%, 24rem) y va centrado, con las chips
+  // centradas debajo; un clic o empezar a escribir lo amplía desde el centro
+  // al ancho del panel, muestra la × y despliega el panel, y las chips pasan
+  // al inicio, alineadas con el formulario. Un foco (Tab, la bienvenida, el cierre de un diálogo) no abre.
+  // Cierran la × y el segundo Esc, que dejan el foco en el campo, y un clic
+  // fuera de la región: las chips, las sugerencias y los desplegables están
+  // dentro. Cerrar conserva el texto, los filtros y el radar.
+  // En móvil solo se ven las chips, como banda bajo MobileSearchBar; allí la
+  // región de búsqueda es la barra (U10b-2), así que esta deja de serlo.
+  import { onMount, tick } from 'svelte';
+  import { MOBILE_QUERY } from '$lib/ui/breakpoints';
+  import IconButton from '$lib/ui/IconButton.svelte';
+  import SearchCombobox from '$lib/components/SearchCombobox.svelte';
+  import ActiveSearchPills from '$lib/components/ActiveSearchPills.svelte';
+  import HomeFilterPanel from './HomeFilterPanel.svelte';
+
+  export let open = false;
+  export let lanzamientos = [];
+  export let valores;
+  export let pills = [];
+  export let radarRef = null;
+  export let inputEl = null;
+
+  const panelId = 'panel-busqueda';
+  const mobileQuery = window.matchMedia(MOBILE_QUERY);
+  let region;
+  let mobile = mobileQuery.matches;
+
+  function abrir() {
+    open = true;
+  }
+
+  async function cerrar() {
+    open = false;
+    await tick();
+    inputEl?.focus({ preventScroll: true });
+  }
+
+  onMount(() => {
+    // dropdownMenu (overlay.ts) no encaja: mueve el foco al abrir, lo devuelve
+    // al cerrar y anula el pointerdown de fuera, y aquí el clic en un
+    // resultado tiene que llegar a su destino.
+    const onPointerDown = (event) => {
+      if (open && region && !region.contains(event.target)) open = false;
+    };
+    const onBreakpoint = () => (mobile = mobileQuery.matches);
+    document.addEventListener('pointerdown', onPointerDown, true);
+    mobileQuery.addEventListener?.('change', onBreakpoint);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      mobileQuery.removeEventListener?.('change', onBreakpoint);
+    };
+  });
+</script>
+
+<div
+  class="home-search l-container l-container--wide"
+  role={mobile ? undefined : 'search'}
+  aria-label={mobile ? undefined : 'Catálogo'}
+  bind:this={region}
+>
+  <div class="home-search__row" class:home-search__row--open={open}>
+    <div class="home-search__field">
+      <SearchCombobox
+        {lanzamientos}
+        {valores}
+        bind:inputEl
+        on:filtrar
+        on:activate={abrir}
+        on:escape={cerrar}
+      />
+    </div>
+    {#if open}
+      <IconButton
+        class="home-search__close"
+        icon="cerrar"
+        label="Cerrar búsqueda"
+        size="lg"
+        tooltipAlign="end"
+        aria-expanded="true"
+        aria-controls={panelId}
+        onclick={cerrar}
+      />
+    {/if}
+  </div>
+
+  {#if pills.length}
+    <div class="active-pills-outside">
+      <ActiveSearchPills {pills} align={open ? 'start' : 'center'} on:remove />
+    </div>
+  {/if}
+
+  <HomeFilterPanel
+    id={panelId}
+    {open}
+    {lanzamientos}
+    {valores}
+    bind:radarRef
+    on:filtrar
+    on:filtrarRadar
+    on:reset
+  />
+</div>
+
+<style>
+  .home-search { margin: var(--space-5) auto var(--space-4); }
+
+  .home-search__row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  /* Cerrado: min(100%, 24rem), centrado. Abierto: todo el ancho que deja la ×;
+     al crecer desde el centro no salta de lado. */
+  .home-search__field {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 24rem;
+    transition: max-width var(--motion-fast) var(--ease-expressive);
+  }
+  .home-search__row--open .home-search__field { max-width: 100%; }
+
+  /* La banda de chips trae su propio relleno vertical (área táctil de 44). */
+  .active-pills-outside { margin-top: var(--space-2); }
+  .home-search :global(.filtros-wrap) { margin-top: var(--space-3); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .home-search__field { transition: none; }
+  }
+
+  /* En móvil buscar y filtrar viven en MobileSearchBar y la hoja: aquí solo
+     quedan las chips, en banda bajo la barra. Sin chips la región no ocupa. */
+  @media (max-width: 768px) {
+    .home-search { margin-top: 0; margin-bottom: 0; }
+    .home-search__row { display: none; }
+    .active-pills-outside { margin: 0 0 var(--space-1); }
+  }
+</style>

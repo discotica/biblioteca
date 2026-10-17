@@ -1,0 +1,297 @@
+<!-- Reconstruido en U12 desde la lectura del chat: sin las líneas en blanco del original. -->
+<script lang="ts">
+  import AccountLayout from '$lib/layouts/AccountLayout.svelte';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
+  import { supabase } from '$lib/supabase';
+  let email = '';
+  let password = '';
+  let confirmPassword = '';
+  let username = '';
+  let displayName = '';
+  let newsletterOptIn = false;
+  let privacidadAceptada = false;
+  let error = '';
+  let mensajeExito = '';
+  let cargando = false;
+  let usernameDisponible: boolean | null = null;
+  let checkingUsername = false;
+  const usernameRegex = /^[a-z0-9_-]{3,30}$/;
+  const usernamePattern = '[a-z0-9_\\-]{3,30}';
+  async function verificarUsername() {
+    usernameDisponible = null;
+    if (!usernameRegex.test(username)) return;
+    checkingUsername = true;
+    const { data } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('username', username)
+      .maybeSingle();
+    checkingUsername = false;
+    usernameDisponible = data === null;
+  }
+  async function registrar() {
+    error = '';
+    if (password !== confirmPassword) {
+      error = 'Las contraseñas no coinciden.';
+      return;
+    }
+    if (!usernameRegex.test(username)) {
+      error = 'El nombre de usuario solo puede tener letras minúsculas, números, guiones y guiones bajos (3–30 caracteres).';
+      return;
+    }
+    if (usernameDisponible === false) {
+      error = 'Este nombre de usuario ya está en uso.';
+      return;
+    }
+    if (!privacidadAceptada) {
+      error = 'Debes aceptar la política de privacidad para continuar.';
+      return;
+    }
+    cargando = true;
+    const { error: err } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          username,
+          display_name: displayName || username,
+          newsletter_opt_in: newsletterOptIn
+        },
+        emailRedirectTo: `${window.location.origin}/auth/reset?flow=signup`
+      }
+    });
+    cargando = false;
+    if (err) {
+      if (err.message.includes('already registered') || err.message.includes('already been registered')) {
+        error = 'Este email ya tiene una cuenta registrada.';
+      } else {
+        error = `Error: ${err.message}`;
+      }
+      return;
+    }
+    mensajeExito = 'Revisa tu correo para confirmar tu cuenta.';
+  }
+</script>
+<svelte:head>
+  <title>Crear cuenta — Biblioteca Discótica</title>
+</svelte:head>
+<AccountLayout title="Crear cuenta">
+    {#if mensajeExito}
+      <div class="exito-msg">
+        <strong>{mensajeExito}</strong>
+        <p>Una vez que confirmes tu email puedes entrar y crear tus colecciones.</p>
+        <a href={`/auth/login?redirect=${encodeURIComponent($page.url.searchParams.get('redirect') ?? '')}`}>Ir a iniciar sesión</a>
+      </div>
+    {:else}
+      <form on:submit|preventDefault={registrar} class="auth-form">
+        <label class="campo">
+          <span>Email</span>
+          <input type="email" bind:value={email} autocomplete="email" required placeholder="tu@correo.com" />
+        </label>
+        <label class="campo">
+          <span>Nombre de usuario</span>
+          <div class="username-wrap">
+            <input
+              type="text"
+              bind:value={username}
+              on:blur={verificarUsername}
+              autocomplete="username"
+              required
+              placeholder="ej: cumbiero_total"
+              pattern={usernamePattern}
+              title="Solo minúsculas, números, - y _ (3–30 caracteres)"
+            />
+            {#if checkingUsername}
+              <span class="username-hint">Verificando…</span>
+            {:else if usernameDisponible === true}
+              <span class="username-hint disponible">Disponible</span>
+            {:else if usernameDisponible === false}
+              <span class="username-hint ocupado">Ya está en uso</span>
+            {/if}
+          </div>
+          <small class="campo-ayuda">Solo minúsculas, números, - y _ · 3–30 caracteres · No podrás cambiarlo después</small>
+        </label>
+        <label class="campo">
+          <span>Nombre para mostrar <em class="opcional">(opcional)</em></span>
+          <input type="text" bind:value={displayName} autocomplete="name" placeholder="Como quieres que te vean" maxlength="60" />
+        </label>
+        <label class="campo">
+          <span>Contraseña</span>
+          <input type="password" bind:value={password} autocomplete="new-password" required minlength="8" />
+        </label>
+        <label class="campo">
+          <span>Confirmar contraseña</span>
+          <input type="password" bind:value={confirmPassword} autocomplete="new-password" required minlength="8" />
+        </label>
+        <label class="campo-check">
+          <input type="checkbox" bind:checked={newsletterOptIn} />
+          <span>Quiero recibir novedades y ofertas de Discótica por email.</span>
+        </label>
+        <label class="campo-check campo-check--requerido">
+          <input type="checkbox" bind:checked={privacidadAceptada} required />
+          <span>
+            Leí y acepto la <a href="/privacidad" target="_blank">política de privacidad</a>.
+          </span>
+        </label>
+        {#if error}
+          <p class="error-msg">{error}</p>
+        {/if}
+        <button type="submit" class="btn-primary" disabled={cargando}>
+          {cargando ? 'Creando cuenta…' : 'Crear cuenta'}
+        </button>
+      </form>
+    {/if}
+    {#snippet footer()}
+      {#if !mensajeExito}
+        <span>¿Ya tienes cuenta?</span>
+        <a href="/auth/login">Entrar</a>
+      {/if}
+    {/snippet}
+</AccountLayout>
+<style>
+  .auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+  .campo {
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+  }
+  .campo > span {
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--color-texto-tenue);
+  }
+  .campo input {
+    background: var(--color-superficie-2);
+    border: 1px solid var(--color-linea);
+    border-radius: var(--radius-sm);
+    padding: .75rem 1rem;
+    color: var(--color-texto);
+    font-size: var(--text-md);
+    font-family: inherit;
+    transition: border-color var(--motion-fast) ease;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .campo input:focus {
+    outline: none;
+    border-color: var(--color-acento);
+  }
+  .campo input::placeholder {
+    color: var(--color-texto-tenue);
+  }
+  .username-wrap {
+    position: relative;
+  }
+  .username-hint {
+    position: absolute;
+    right: .75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--color-texto-tenue);
+    pointer-events: none;
+  }
+  .username-hint.disponible { color: var(--color-acento); }
+  .username-hint.ocupado    { color: var(--color-danger); }
+  .campo-ayuda {
+    font-size: var(--text-2xs);
+    color: var(--color-texto-tenue);
+    line-height: 1.4;
+  }
+  .opcional {
+    font-style: normal;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: var(--text-2xs);
+  }
+  .campo-check {
+    display: flex;
+    align-items: flex-start;
+    gap: .65rem;
+    cursor: pointer;
+  }
+  .campo-check input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    accent-color: var(--color-acento);
+    cursor: pointer;
+  }
+  .campo-check span {
+    font-size: var(--text-xs);
+    color: var(--color-texto-tenue);
+    line-height: 1.5;
+  }
+  .campo-check span a {
+    color: var(--color-acento);
+    text-decoration: none;
+  }
+  .campo-check span a:hover {
+    text-decoration: underline;
+  }
+  .campo-check--requerido span {
+    color: var(--color-texto-medio);
+  }
+  .error-msg {
+    font-size: var(--text-xs);
+    color: var(--color-danger);
+    background: var(--color-danger-dim);
+    border: 1px solid var(--color-danger-borde);
+    border-radius: var(--radius-sm);
+    padding: .65rem .9rem;
+    margin: 0;
+  }
+  .btn-primary {
+    background: var(--color-acento);
+    color: var(--color-sobre-acento);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: .85rem 1rem;
+    font-size: var(--text-sm);
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity var(--motion-fast) ease;
+    font-family: inherit;
+    margin-top: .4rem;
+  }
+  .btn-primary:hover:not(:disabled) { opacity: .85; }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+  .exito-msg {
+    background: var(--color-acento-tinte);
+    border: 1px solid var(--color-acento-suave);
+    border-radius: var(--radius-base);
+    padding: 1.5rem;
+    color: var(--color-acento);
+  }
+  .exito-msg strong {
+    display: block;
+    font-size: var(--text-md);
+    margin-bottom: .5rem;
+  }
+  .exito-msg p {
+    font-size: var(--text-sm);
+    color: var(--color-texto-tenue);
+    margin: 0;
+  }
+  .exito-msg a {
+    display: inline-block;
+    margin-top: 1rem;
+    color: var(--color-acento);
+    text-underline-offset: .2em;
+  }
+  .exito-msg a:hover { color: var(--color-texto); }
+</style>

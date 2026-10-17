@@ -3,23 +3,43 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
+  "engines": {
+    "node": ">=22.6"
+  },
   "scripts": {
+    "audit:catalog": "node scripts/audit-catalog.mjs",
+    "lint:tokens": "node scripts/lint-tokens.mjs",
+    "catalog:keys": "node scripts/generate-catalog-keys.mjs",
+    "import:catalog": "node scripts/import-catalog.mjs",
+    "test:catalog-import": "node --test tests/catalog-import.test.mjs",
+    "test": "node --experimental-strip-types --test tests/catalog-import.test.mjs tests/media-health.test.mjs tests/release-domain.test.mjs tests/credit-inference.test.mjs tests/search-matching.test.mjs tests/search-state.test.mjs tests/release-recommendations.test.mjs tests/beta-invitation.test.mjs tests/home-search-view.test.mjs tests/collection-routes.test.mjs tests/account.test.mjs tests/profile-social.test.mjs tests/token-lint.test.mjs tests/ui-primitives.test.mjs tests/ui-composite.test.mjs tests/filter-options.test.mjs tests/contribution-steps.test.mjs tests/contribution-rows.test.mjs tests/contribution-contract.test.mjs tests/suggest-flow.test.mjs tests/studio.test.mjs tests/release-editor.test.mjs tests/proposal-editor.test.mjs tests/studio-inbox.test.mjs tests/username-login.test.mjs tests/dictionaries.test.mjs",
+    "test:browser": "playwright test",
+    "visual:data": "node tests/visual/record-staging.mjs",
+    "visual:capture": "playwright test -c tests/visual/playwright.config.ts --update-snapshots=all",
+    "visual:compare": "playwright test -c tests/visual/playwright.config.ts --update-snapshots=none",
+    "test:anchos": "VISUAL_SPEC=anchos-zoom.spec.ts playwright test -c tests/visual/playwright.config.ts --reporter=list",
+    "verify:media": "node scripts/verify-release-media.mjs",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@sveltejs/adapter-auto": "^6.1.0",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.22.2",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "supabase": "^2.116.0",
     "svelte": "^5.0.0",
     "vite": "^6.2.6"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.5",
+    "@supabase/supabase-js": "^2.112.4",
     "csv-parse": "^6.1.0",
     "flexsearch": "^0.8.205",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "pg": "8.23.0"
   }
 }
