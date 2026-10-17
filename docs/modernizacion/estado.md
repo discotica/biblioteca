@@ -4,13 +4,34 @@ Actualizado: 2026-10-16.
 
 > **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:**
 >
-> 1. Paso 11b — U19: flujo del Estudio y diccionarios ([expediente](./u19-estudio-flujo-2026-10-15.md)), grupos G1 a G5 en orden. G1 y G2 aceptados y cerrados el 2026-10-15; G3 (cola en el editor, con RC2-P1-01) y G4 (diccionarios) el 2026-10-16. Sigue G5 (aplicar G1 a G4 en staging, con autorización del usuario).
-> 2. El usuario normaliza la hoja contra las listas cerradas y corrige los textos dañados (RC2-P1-02). Después se repite el paso 8.
+> 1. Paso 11b — U19: flujo del Estudio y diccionarios ([expediente](./u19-estudio-flujo-2026-10-15.md)). G1 y G2 se aceptaron el 2026-10-15; G3 y G4, el 2026-10-16. G5 dejó G1 a G4 aplicados en staging el 2026-10-16, con el recorrido completo; aceptado ese mismo día.
+> 2. El usuario corrige la hoja con la lista de rechazos de G1 (`../discotica-backups/2026-10-15-u19-g1/rechazos-hoja-actual.tsv`: WORLD, Entrañas, TSA y los 7 de siempre) y los textos dañados (RC2-P1-02). Después se repite el paso 8: con G1 en staging, la importación ya rechaza los géneros y países fuera de la lista.
 > 3. Se repite el paso 11 como E21-rc3.
 >
 > RC2-P0-01 (enlaces de Auth) quedó corregido y verificado en staging con un correo real el 2026-10-15, con las plantillas nuevas ya en el dashboard ([expediente](./e21-rc2-2026-10-15.md#rc2-p0-01--los-enlaces-de-auth-terminan-en-el-enlace-venció)).
 >
 > El paso 11 (E21-rc2) dio **NO-GO** el 2026-10-15 ([expediente](./e21-rc2-2026-10-15.md)). Los pasos 1 a 10 están cerrados: el 8 se aceptó con la hoja tal como está y el 10 se decidió por delegación ([decisiones](./decisiones.md#pasos-8-y-10-del-lanzamiento-2026-10-15)). La QA manual en dispositivos conviene hacerla después de la corrección.
+
+## Paso 11b — U19, G5: G1 a G4 aplicados en staging (2026-10-16)
+
+Solo staging (`hgocyrzhgohetfpzbmfs`), con autorización del usuario en el chat. Producción no se tocó y no hubo despliegue. Los detalles están en el [cierre de G5](./u19-estudio-flujo-2026-10-15.md#g5--aplicar-en-staging--opus-55-high), y los registros en `../discotica-backups/2026-10-16-u19-g5/`.
+
+- **Antes de escribir:**
+  - destino comprobado con dos señales: `migration list --project-ref` (31 aplicadas, la última la del paso 8) e `inet_server_addr()` igual al DNS de staging;
+  - dump del mismo día (`04326126…`), con el inventario idéntico antes y después;
+  - advisors: 44 `INFO` y 0 `WARN`.
+- **Migraciones:** `20261015190000`, `190100`, `190200`, `20261016120000` y `20261016180000`, aplicadas una por una entre las 23:39:37 y las 23:42:36 UTC, con el método del paso 7. Nunca `--linked`. Quedan 36 en remoto, sin pendientes.
+- **Verificación:**
+  - `u19-g1` (129), `u19-g3` (59) y `u19-g4` (104);
+  - `e09-verify` y la concurrencia de E09;
+  - E06, E06-reopen, E08, E18, S7 y sheet-replace;
+  - las matrices U15 y B8;
+  - `anon` sin `EXECUTE` en las 18 RPC de U19;
+  - advisors finales: 49 `INFO` y 0 `WARN`.
+  - No se corrió `d2-verify`, que supone una base vacía.
+- **Recorrido** con la app local contra staging y las cuentas de E21-rc2: sugerir por rol, el aviso de duplicado, la corrección del colaborador en la cola, el autor bloqueado, aceptar como borrador, fusionar un duplicado con redirección de la URL vieja y borrar un huérfano. Todo OK, sin errores de consola ni respuestas ≥ 400. Los dos borradores de prueba (`U19G5`) quedaron archivados.
+- **Hallazgo U19-G5-01 (P2, viene de E09):** la «Nota interna para admin» del colaborador se guarda, pero admin no la ve en ningún sitio.
+- **Cuenta:** `e21rc2_comunidad` tiene contraseña nueva, guardada en `.env.local` (`E21_STAGING_COMUNIDAD_*`).
 
 ## Paso 11b — U19, G4: diccionarios (2026-10-16)
 

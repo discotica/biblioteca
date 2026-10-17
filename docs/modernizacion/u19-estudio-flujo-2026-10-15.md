@@ -12,7 +12,7 @@ Lo origina la lista de correcciones del Estudio que el usuario anotó al usarlo 
 | G2 — Sugerir | Un solo flujo para crear, para todos los roles; sello obligatorio; textos; radar opcional | Aceptado el 2026-10-15 |
 | G3 — Cola en el editor | Admin y colaborador corrigen en el editor; el autor edita hasta que alguien la toma; artistas nuevos en los créditos; RC2-P1-01 | Aceptado el 2026-10-16 (ver [cierre](#g3--la-cola-en-el-editor--opus-55-xhigh)) |
 | G4 — Diccionarios | Pantalla de admin: crear, renombrar, fusionar con alias y borrar huérfanos | Aceptado el 2026-10-16 (ver [cierre](#g4--pantalla-de-diccionarios--opus-55-high)) |
-| G5 — Staging | Migraciones de G1 a G4 aplicadas en staging y recorrido corto | Abierto |
+| G5 — Staging | Migraciones de G1 a G4 aplicadas en staging y recorrido corto | Aceptado el 2026-10-16, aplicado en staging (ver [cierre](#g5--aplicar-en-staging--opus-55-high)) |
 
 ## Lo que hay hoy (verificado en el código y en staging)
 
@@ -432,6 +432,62 @@ Con la autorización del usuario y el método del paso 7:
 - hace un recorrido corto con las cuatro cuentas: sugerir por rol, corregir en la cola, aceptar, fusionar un duplicado y borrar un huérfano de prueba.
 
 Después, la hoja: el usuario la normaliza contra las listas cerradas (ver abajo) y el paso 8 se repite. Con esto, la importación ya rechaza lo que no esté en la lista.
+
+**Cierre de G5 (2026-10-16).** Solo staging (`hgocyrzhgohetfpzbmfs`), con autorización del usuario en el chat. Producción no se tocó y no hubo despliegue. Los registros están en `../discotica-backups/2026-10-16-u19-g5/`, con `SHA256SUMS`.
+- **Antes de escribir:**
+  - **Destino, con dos señales:**
+    - `migration list --project-ref` dio 31 aplicadas, la última `20261014203000` (la del paso 8, que solo tiene staging), y las 5 de U19 pendientes, sin drift;
+    - `inet_server_addr()` = `2600:1f18:38df:9502::a50a`, igual al DNS de `db.hgocyrzhgohetfpzbmfs`. El de `ewntlvugbopokdrvnwvg` es `…3036:…`.
+    - El CLI resolvió además «Biblioteca Staging».
+  - **Dump del mismo día:** `staging-hgocyrzhgohetfpzbmfs-2026-10-16-pre-g5.dump`, de 2,9 MB, con 872 entradas TOC y SHA-256 `04326126…`. Se hizo con `pg_dump` 17.6 de la imagen `supabase/postgres:17.6.1.165`. El inventario de 78 tablas es idéntico antes y después del volcado.
+  - **Advisors** (`--db-url`, `--level info`): 44 `INFO` y 0 `WARN`.
+- **Método:** el del paso 7. Hubo un workdir por migración, sin `.temp/project-ref`. En cada una se corrió `--dry-run` y después `db push --project-ref hgocyrzhgohetfpzbmfs --skip-vault`. Nunca `--linked`.
+
+| Migración | Aplicada (UTC) | Verificación en staging | Advisors |
+| --- | --- | --- | --- |
+| G1 `20261015190000` | 2026-10-16 23:39:37 | Siembra: países 35 seleccionables, 20 de legado y 3 retirados; géneros 36 y 5; 4 alias de país | +11 `INFO` (`unused_index` de las tablas de alias nuevas) |
+| G1 `20261015190100` | 23:40:06 | — | +2 `INFO` (`unused_index` de los enlaces normalizados) |
+| G1 `20261015190200` | 23:40:24 | `u19-g1-verify` OK (129); `e09-verify` OK (14, con rollback); `e09-concurrency-verify` OK (borró su propuesta); E06, E06-reopen, E08, E18, S7 y sheet-replace OK | sin cambios |
+| G3 `20261016120000` | 23:42:05 | `u19-g3-verify` OK (59); G1 de nuevo OK | −8 `INFO` (las verificaciones usaron los índices) |
+| G4 `20261016180000` | 23:42:36 | `u19-g4-verify` OK (104); G3 y G1 de nuevo OK | sin cambios |
+
+- **Al final:**
+  - 36 migraciones en remoto, ninguna pendiente;
+  - advisors en 49 `INFO` y 0 `WARN`;
+  - la matriz de U15 y la B8 de S6 dan OK;
+  - las 18 RPC de U19 tienen `EXECUTE` para `authenticated` y no para `anon`. La única función `security definer` que `anon` puede ejecutar es `get_public_accepted_contributions` (D1, pública a propósito).
+- **No se corrió `d2-verify.sql`:** supone una base vacía. La copia adaptada a staging de S9 no está en el repositorio.
+- **Recorrido**
+  - **Montaje:**
+    - app local (`vite dev`, `127.0.0.1:5190`) contra staging, en Chromium headless;
+    - las cuentas de E21-rc2: `jmamanche` (admin), `colaborador_qa` y `e21rc2_comunidad`, más anon;
+    - enlaces ficticios `u19g5-*.bandcamp.com`, que se completan a mano porque la detección no encuentra nada;
+    - script, registro y capturas en `recorrido/`.
+  - **`e21rc2_comunidad`:** el usuario le puso una contraseña nueva, por recuperación, y la guardó en `.env.local` como `E21_STAGING_COMUNIDAD_EMAIL/PASSWORD`.
+  - **Resultado:** ningún error de consola ni respuesta ≥ 400 de Supabase en los pasos que se completaron.
+
+| Paso | Resultado |
+| --- | --- |
+| Sugerir como comunidad (390 px) | OK: va a la cola comunitaria, en v3; pantalla final con «Ver mis aportes» y sin «Ir al Estudio» |
+| Sugerir como colaborador | OK: va a la cola de colaborador; pantalla final con «Ir al Estudio» |
+| Sugerir como admin | OK: «Crear borrador», sin «Enviar a revisión». El borrador trae en sus créditos el artista nuevo y el sello nuevo (U19-01) |
+| Aviso de duplicado | OK: el enlace de un publicado, con `?from=`, da «Este enlace ya está en el catálogo.» y «Ver la ficha». El de la cola, con barra final, da «Ya hay una propuesta con este enlace en la cola.» y «Ver la propuesta». En los dos casos se queda en el paso 1 |
+| El colaborador corrige en la cola | OK: abre el editor sin botones de decisión y sin Catálogo; corrige el título y añade un género; «Guardar corrección» y «Marcar lista para admin». La propuesta queda `ready_for_admin` y tomada |
+| El autor, con la propuesta ya tomada | OK: Sugerir con `?draft=` la muestra bloqueada |
+| Admin acepta como borrador | OK: el borrador sale con los datos corregidos y el artista nuevo creado en la misma operación. La propuesta queda `approved` y enlazada |
+| Fusionar un duplicado | OK: «U19G5 Artista-Uno» en «U19G5 Artista Uno». El diálogo explica qué va a pasar. Queda un solo artista, la grafía vieja como alias y los dos borradores en el conservado. La URL vieja (`/artista/artist--f3c2be7d0406`) redirige a la del conservado |
+| Borrar un huérfano | OK: el borrador pasó de «U19G5 Sello Temporal» a «Independiente», y el sello se borró desde «Sin lanzamientos», con su alta y su borrado auditados |
+
+- **Lo que queda en staging:**
+  - los dos borradores `U19G5`, archivados. Los archivó el usuario en lote desde el Catálogo (00:01:05 UTC);
+  - la propuesta de comunidad, `approved`, y la del colaborador, rechazada con nota;
+  - el artista «U19G5 Artista Uno» y su alias, enlazados solo a lanzamientos archivados;
+  - ningún sello `U19G5`.
+- **Hallazgo U19-G5-01 (P2, viene de E09):** admin no ve la «Nota interna para admin» del colaborador.
+  - `prepare_contribution_for_admin` la guarda en `private.contribution_preparations`, y en staging está guardada.
+  - Ni la interfaz ni ningún RPC la leen. El evento `prepared_for_admin` lleva el texto fijo «Prepared for admin».
+  - El campo promete algo que no cumple: o se muestra en el editor de admin, o se cambia la etiqueta.
+- **Siguiente:** el usuario corrige la hoja con la lista de rechazos de G1 (`../discotica-backups/2026-10-15-u19-g1/rechazos-hoja-actual.tsv`), junto con RC2-P1-02. Después se repiten el paso 8 y el paso 11 como E21-rc3.
 
 ## Lo que tiene que decidir el usuario
 
