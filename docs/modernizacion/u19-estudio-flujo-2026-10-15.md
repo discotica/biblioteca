@@ -489,6 +489,12 @@ Después, la hoja: el usuario la normaliza contra las listas cerradas (ver abajo
   - El campo promete algo que no cumple: o se muestra en el editor de admin, o se cambia la etiqueta.
 - **Siguiente:** el usuario corrige la hoja con la lista de rechazos de G1 (`../discotica-backups/2026-10-15-u19-g1/rechazos-hoja-actual.tsv`), junto con RC2-P1-02. Después se repiten el paso 8 y el paso 11 como E21-rc3.
 
+**Hoja corregida (2026-10-25).** El detalle está en [`estado.md`](./estado.md#paso-11b--u19-hoja-corregida-contra-las-listas-cerradas-2026-10-25).
+- Son 166 cambios: 105 países, los 8 rechazos de siempre con las decisiones del paso 8 y 53 de RC2-P1-02.
+- La hoja publicada (`e67e35e9…`) da 0 rechazos contra las listas de staging.
+- Falta el enlace de Spotify de `rel_000713`, que se corrige a mano.
+- Sigue el paso 8.
+
 ## Lo que tiene que decidir el usuario
 
 1. **Valores de la hoja que no son países** (LATAM, WORLD, Entrañas, TSA): qué país va en cada lanzamiento que los usa, o si se quedan sin país. Se resuelve en la hoja, junto con RC2-P1-02.

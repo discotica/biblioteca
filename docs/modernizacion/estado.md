@@ -1,16 +1,42 @@
 # Estado operativo
 
-Actualizado: 2026-10-16.
+Actualizado: 2026-10-25.
 
 > **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:**
 >
 > 1. Paso 11b — U19: flujo del Estudio y diccionarios ([expediente](./u19-estudio-flujo-2026-10-15.md)). G1 y G2 se aceptaron el 2026-10-15; G3 y G4, el 2026-10-16. G5 dejó G1 a G4 aplicados en staging el 2026-10-16, con el recorrido completo; aceptado ese mismo día.
-> 2. El usuario corrige la hoja con la lista de rechazos de G1 (`../discotica-backups/2026-10-15-u19-g1/rechazos-hoja-actual.tsv`: WORLD, Entrañas, TSA y los 7 de siempre) y los textos dañados (RC2-P1-02). Después se repite el paso 8: con G1 en staging, la importación ya rechaza los géneros y países fuera de la lista.
+> 2. Hoja corregida el 2026-10-25 (ver abajo). La publicada tiene el SHA-256 `e67e35e9…` y su prueba en seco contra staging da 0 rechazos. Queda a mano el enlace de Spotify de `rel_000713`. Sigue repetir el paso 8 con esta hoja.
 > 3. Se repite el paso 11 como E21-rc3.
 >
 > RC2-P0-01 (enlaces de Auth) quedó corregido y verificado en staging con un correo real el 2026-10-15, con las plantillas nuevas ya en el dashboard ([expediente](./e21-rc2-2026-10-15.md#rc2-p0-01--los-enlaces-de-auth-terminan-en-el-enlace-venció)).
 >
 > El paso 11 (E21-rc2) dio **NO-GO** el 2026-10-15 ([expediente](./e21-rc2-2026-10-15.md)). Los pasos 1 a 10 están cerrados: el 8 se aceptó con la hoja tal como está y el 10 se decidió por delegación ([decisiones](./decisiones.md#pasos-8-y-10-del-lanzamiento-2026-10-15)). La QA manual en dispositivos conviene hacerla después de la corrección.
+
+## Paso 11b — U19: hoja corregida contra las listas cerradas (2026-10-25)
+
+El usuario delegó en Claude la corrección de la hoja. Claude propuso los cambios y el usuario los aplicó con un Apps Script, primero en modo de prueba. Los archivos están en `../discotica-backups/2026-10-16-hoja-correccion/`, con `SHA256SUMS`: la tabla con la evidencia de cada cambio, el script y las pruebas en seco.
+
+- **Antes:** la hoja era `83f29cda…`, la misma del paso 8, y la importación rechazaba 110 filas.
+- **166 cambios:**
+  - **105 países.** WORLD, Entrañas y TSA pasan al país de los artistas de la región que tiene cada lanzamiento, según el resto de la hoja: de 1 a 3 países se listan; de 4 en adelante, LATAM. Sin artistas identificados, se usa el país del sello. «LATAM, WORLD» queda en LATAM.
+  - **8 rechazos de siempre y decisiones del paso 8:**
+    - 5 títulos sacados de su página de Bandcamp;
+    - `sintético` 6 → 5;
+    - REUNION recupera sus artistas (ROOi, EL PLVYBXY);
+    - la fila de OH MARGÓ pasa a `rel_002797`.
+  - **53 de RC2-P1-02.** Se deshace el reemplazo viejo «uk/us/latincore» → «Reino Unido/Estados Unidos/Latin Core» en títulos, artistas, sellos y URLs, y cada caso se confirma en su página. Entran además:
+    - los hosts `malReino Unidoo` → `maluko` y `Latin Core` → `globalcore`;
+    - la fila 55, que tenía texto en lugar de URL;
+    - 5 portadas en base64 o dañadas, sustituidas por la portada oficial.
+
+  Los títulos «A / B» de la lista de rc2 no estaban dañados y no se tocaron.
+- **Confianza:** 155 alta, 10 media y 1 para revisar. El usuario aceptó aplicarlas todas. Las que conviene mirar en el Estudio:
+  - 7 países tomados del país del sello;
+  - Post Office EP → Chile;
+  - `rel_001126` (Panie Prosza Panóv 2024) → LATAM provisional;
+  - «Lukoro» ×2 y «Suuk», que salen de deshacer el reemplazo y no se pudieron confirmar.
+- **Después:** la hoja publicada, `e67e35e9…`, es idéntica celda a celda a la propuesta. Su prueba en seco contra los diccionarios de staging da **2.789 filas y 0 rechazos**, con 30 advertencias, todas valores repetidos dentro de una fila.
+- **Pendiente a mano:** el enlace de Spotify de `rel_000713` (Toezch — *Internal Fractals*) tiene el daño dentro del ID, y no se sabe si eran mayúsculas o minúsculas. Hay que copiarlo de nuevo desde Spotify. Mientras tanto, la importación lo trata como hasta ahora.
 
 ## Paso 11b — U19, G5: G1 a G4 aplicados en staging (2026-10-16)
 
