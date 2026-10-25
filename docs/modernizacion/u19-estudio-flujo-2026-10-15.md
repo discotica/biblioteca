@@ -493,7 +493,8 @@ Después, la hoja: el usuario la normaliza contra las listas cerradas (ver abajo
 - Son 166 cambios: 105 países, los 8 rechazos de siempre con las decisiones del paso 8 y 53 de RC2-P1-02.
 - La hoja publicada (`e67e35e9…`) da 0 rechazos contra las listas de staging.
 - Falta el enlace de Spotify de `rel_000713`, que se corrige a mano.
-- Sigue el paso 8.
+
+**Paso 8 repetido (2026-10-25).** Staging queda igual a la hoja: 0 rechazos, 15/15 comprobaciones, regresión y prueba de humo en verde ([registro](./catalogo-hoja-limpia-2026-10-14.md#repetición-del-2026-10-25-hoja-corregida)). Con esto se cumple el «listo cuando» del paso 11b: los cinco grupos están aceptados, la hoja importa sin rechazos y staging es igual a la hoja. Sigue E21-rc3.
 
 ## Lo que tiene que decidir el usuario
 

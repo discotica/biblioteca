@@ -103,7 +103,8 @@ Lo que hay que hacer cada vez que la hoja cambia antes de E22, y en E22 sobre pr
 5. **El mismo comando sin `--rollback`.** Nadie edita en el Estudio mientras corre; en staging tardó unos 8 minutos.
 6. **Comprobaciones en solo lectura:** publicados = filas válidas, ningún lanzamiento borrado, ningún alias perdido, colecciones intactas, y la regresión de E06, D2 y S7.
 
-- **Rollback de datos:** `rollback-catalogo.sql` borra y recarga desde el dump las 14 tablas del catálogo, con los mismos id, en una transacción.
+- **Rollback de datos:** `rollback-catalogo.sql` borra y recarga desde el dump las tablas del catálogo, con los mismos id, en una transacción. Desde U19 son 20, porque incluyen las 6 tablas de alias; la versión vigente es la del 2026-10-25, en `../discotica-backups/2026-10-25-staging/`.
+  - Se puede ensayar sin riesgo en el destino: `begin;` + el script + `rollback;`.
   - Se genera con `pg_restore -a -n public -t …` sobre el dump del mismo día.
   - Colecciones, reportes, propuestas y auditoría no se tocan.
   - Ensayado el 2026-10-14 en local, con resultado idéntico al dump.

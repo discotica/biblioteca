@@ -227,7 +227,71 @@ psql "$URL" -v ON_ERROR_STOP=1 -1 -f rollback-catalogo.sql
 
 ## Pendiente
 
-- **Repetir el reemplazo cuando la hoja traiga las correcciones 1 y 4:** antes, dump del mismo día, prueba en seco y vista previa con `--rollback`. Si la hoja ya no tiene rechazos, el comando no necesita `--keep-invalid`.
+- ~~**Repetir el reemplazo cuando la hoja traiga las correcciones 1 y 4.**~~ Se hizo el 2026-10-25: ver abajo.
+
+## Repetición del 2026-10-25 (hoja corregida)
+
+La hoja se corrigió contra las listas cerradas de U19, junto con RC2-P1-02 y las decisiones 1 y 4 de este paso. El detalle está en [`estado.md`](./estado.md#paso-11b--u19-hoja-corregida-contra-las-listas-cerradas-2026-10-25). Se hizo solo en staging, con autorización del usuario. Los registros están en `../discotica-backups/2026-10-25-paso8/` (snapshot y análisis) y en `../discotica-backups/2026-10-25-staging/` (dump, inventarios y rollback), cada uno con `SHA256SUMS`.
+
+- **Snapshot:** `catalogo-hoja-limpia.tsv`, SHA-256 `e67e35e9…`, con 2.789 filas, todas con clave. La prueba en seco contra staging da 0 rechazos.
+- **Destino, con dos señales:**
+  - `inet_server_addr()` es igual al DNS de `db.hgocyrzhgohetfpzbmfs`. Es `2600:1f18:4850:7c02:…`: la dirección cambió desde el paso 7 porque el proyecto se reinició;
+  - `migration list --project-ref` da 36 aplicadas, ninguna pendiente.
+- **Staging antes:**
+  - 2.795 lanzamientos, de ellos 2.784 publicados y 11 archivados, y 9 ítems de colección;
+  - desde el paso 8 se habían publicado desde el Estudio dos lanzamientos sin clave, *Trinity* y *Sensaciones* (2026-10-18). El importador no los toca;
+  - *Killing Mariposas* (`rel_000002`) tenía otra edición del Estudio del 18, que vuelve a lo que dice la hoja (decisión 2).
+- **Dump del mismo día:** `staging-hgocyrzhgohetfpzbmfs-2026-10-25-pre-paso8.dump`, SHA-256 `af4cbdfe…`, con 1.022 entradas TOC. El inventario de 78 tablas es idéntico antes y después del volcado.
+- **Rollback de datos** (`rollback-catalogo.sql`, generado de ese dump):
+  - ahora incluye las 6 tablas de alias de U19: 20 tablas en total;
+  - se ensayó en staging dentro de una transacción que terminó en `ROLLBACK`: sin errores, con la integridad referencial comprobada, en 18 s, y el inventario quedó idéntico.
+- **Vista previa** (`--archive-missing --prune-dictionaries --rollback`): 8 min 56 s y sin cambios.
+- **Reemplazo:** el mismo comando sin `--rollback`, entre las 19:30:57 y las 19:39:08 UTC, en una transacción.
+  - **Resultado:** 7 `created`, 143 `updated`, 1 `republished` (REUNION), 2.638 `unchanged` y 0 rechazos.
+  - **Archivado:** `rel_001638`, con 0 ítems de colección.
+  - **Creados:** `rel_002797` (OH MARGÓ) y las 6 filas que se rechazaban desde agosto.
+  - **Podados:** 9 artistas con el nombre dañado, los sellos MalReino Unidoo y NVR (huérfano) y los países WORLD, Entrañas y TSA. Ningún lanzamiento usa ya un país retirado.
+- **Comprobaciones en solo lectura** (`checks.sql`): 15/15 OK.
+  - Hay una comprobación nueva: los dos publicados del Estudio sin clave siguen publicados.
+  - Publicados de la hoja = 2.789; `catalog_releases` = 2.791.
+  - Ningún lanzamiento borrado y ningún slug canónico ni alias perdido.
+  - Los 9 ítems de colección están intactos y todos publicados.
+- **Regresión transaccional:** `e06-verify`, `e06-reopen-verify`, `s7-verify`, `catalog-sheet-replace-verify`, `u19-g1` (129), `u19-g3` (59), `u19-g4` (104) y `d2-verify`, en verde.
+  - La copia de `d2-verify` adaptada a staging suponía que no había ningún cambio en lote. Ahora hay uno, el archivado en lote de los borradores de G5 del 17 de octubre, así que la comprobación se acota a los cambios de la propia transacción.
+- **Prueba de humo,** solo lectura: 12/12. El inicio muestra 2.791 lanzamientos; la ficha, la colección pública y el Estudio cargan. Sin errores de consola ni respuestas ≥ 400.
+
+| Tabla | Antes | Después |
+| --- | ---: | ---: |
+| `releases` (total) | 2.795 | 2.802 |
+| `catalog_import_keys` | 2.790 | 2.797 |
+| `catalog_import_rejections` | 7 | 0 |
+| `release_artists` | 9.302 | 9.337 |
+| `release_countries` | 2.970 | 3.012 |
+| `release_slug_aliases` | 2.791 | 2.808 |
+| `artists` | 4.673 | 4.688 |
+| `countries` | 58 | 55 |
+| `crate_items` | 9 | 9 |
+
+### Cambios de identidad de la repetición (los usa E22)
+
+Hay 10 lanzamientos publicados cuyo título cambió al corregir el texto dañado. **El slug canónico no cambia y conserva el texto dañado**; el alias legado anterior se mantiene, y se añade uno nuevo. La lista completa, con el slug canónico, está en `analisis/identidad-nuevos-alias.txt`.
+
+| Clave | Título nuevo | Slug legado anterior | Slug legado nuevo |
+| --- | --- | --- | --- |
+| rel_000419 | Pukita | `preino-unidoita-yajaira-la-bellaca` | `pukita-yajaira-la-bellaca` |
+| rel_000587 | experimenti causa | `experimienti-caestados-unidos-shakti` | `experimenti-causa-shakti` |
+| rel_001180 | Machuka | `machreino-unidoa-2at` | `machuka-2at` |
+| rel_001416 | Fusagasuga Remixes | `festados-unidosgasuga-remixes-james-banguera` | `fusagasuga-remixes-james-banguera` |
+| rel_001578 | JukeLab Tektronics | `jreino-unidoelab-tektronics-watara` | `jukelab-tektronics-watara` |
+| rel_001986 | TUKI TUKI | `treino-unidoi-treino-unidoi-crrdr` | `tuki-tuki-crrdr` |
+| rel_001998 | Fusagasuga | `festados-unidosgasuga-viiaan` | `fusagasuga-viiaan` |
+| rel_002329 | Suuk | `sureino-unido-genosidra` | `suuk-genosidra` |
+| rel_002553 | Black Jukebox | `black-jreino-unidoebox-felipe-gordon` | `black-jukebox-felipe-gordon` |
+| rel_002627 | Teusaquillo | `teestados-unidosquillo-felipe-gordon` | `teusaquillo-felipe-gordon` |
+
+**Para mirar después** (el usuario decidió revisarlos a mano con todo publicado):
+- **Slugs canónicos con el texto dañado.** Los 10 de la tabla siguen con su slug viejo, por ejemplo `/lanzamiento/preino-unidoita-…`. Cambiarlos exigiría un cambio de identidad aparte, porque es la URL pública.
+- **El alias `dark-perreo-oh-margo` apunta a dos lanzamientos:** `rel_001638`, archivado, y `rel_002797`, publicado. E22 tiene que resolverlo hacia el publicado al mapear las colecciones de producción. `dark-perreo-rio-zur` sigue apuntando solo al archivado.
 - **Corregir en la hoja,** si se quiere, las URLs dañadas y los títulos vacíos de las 5 compilaciones. Estas siguen rechazadas: no estaban publicadas antes y siguen sin publicarse.
 - **Corregir las grafías en el Estudio** (decisión 5).
 - **Rotar la contraseña de la base de staging.** Se expuso en el paso 7 y sigue sin rotar.

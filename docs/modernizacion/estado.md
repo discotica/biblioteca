@@ -5,12 +5,30 @@ Actualizado: 2026-10-25.
 > **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:**
 >
 > 1. Paso 11b — U19: flujo del Estudio y diccionarios ([expediente](./u19-estudio-flujo-2026-10-15.md)). G1 y G2 se aceptaron el 2026-10-15; G3 y G4, el 2026-10-16. G5 dejó G1 a G4 aplicados en staging el 2026-10-16, con el recorrido completo; aceptado ese mismo día.
-> 2. Hoja corregida el 2026-10-25 (ver abajo). La publicada tiene el SHA-256 `e67e35e9…` y su prueba en seco contra staging da 0 rechazos. Queda a mano el enlace de Spotify de `rel_000713`. Sigue repetir el paso 8 con esta hoja.
-> 3. Se repite el paso 11 como E21-rc3.
+> 2. Hoja corregida (`e67e35e9…`) y paso 8 repetido en staging el 2026-10-25: 0 rechazos, 15/15 comprobaciones, regresión y prueba de humo en verde (ver abajo). Queda a mano el enlace de Spotify de `rel_000713`.
+> 3. **Siguiente:** repetir el paso 11 como E21-rc3.
 >
 > RC2-P0-01 (enlaces de Auth) quedó corregido y verificado en staging con un correo real el 2026-10-15, con las plantillas nuevas ya en el dashboard ([expediente](./e21-rc2-2026-10-15.md#rc2-p0-01--los-enlaces-de-auth-terminan-en-el-enlace-venció)).
 >
 > El paso 11 (E21-rc2) dio **NO-GO** el 2026-10-15 ([expediente](./e21-rc2-2026-10-15.md)). Los pasos 1 a 10 están cerrados: el 8 se aceptó con la hoja tal como está y el 10 se decidió por delegación ([decisiones](./decisiones.md#pasos-8-y-10-del-lanzamiento-2026-10-15)). La QA manual en dispositivos conviene hacerla después de la corrección.
+
+## Paso 8 repetido — staging igual a la hoja corregida (2026-10-25)
+
+Se hizo solo en staging, con autorización del usuario. Producción no se tocó. El registro está en [`catalogo-hoja-limpia-2026-10-14.md`](./catalogo-hoja-limpia-2026-10-14.md#repetición-del-2026-10-25-hoja-corregida).
+
+- **Antes:**
+  - destino comprobado con dos señales; la IP de staging cambió desde el paso 7;
+  - dump del mismo día (`af4cbdfe…`) y rollback de datos regenerado con los alias de U19, ensayado dentro de una transacción con `ROLLBACK`.
+- **Reemplazo** (19:30–19:39 UTC):
+  - 7 creados (`rel_002797` y las 6 filas que se rechazaban), 143 actualizados, REUNION republicado y `rel_001638` archivado;
+  - se podaron 9 artistas con nombre dañado, 2 sellos, y WORLD, Entrañas y TSA.
+- **Verificación:**
+  - 15/15 comprobaciones;
+  - regresión SQL en verde: E06, E06-reopen, D2 (copia de staging, acotada), S7, sheet-replace y U19 G1, G3 y G4;
+  - prueba de humo 12/12: 2.791 publicados, 2.789 de la hoja más 2 del Estudio sin clave.
+- **Para mirar después:**
+  - 10 slugs canónicos conservan el texto dañado. Los alias legados nuevos ya resuelven, y la tabla de identidad para E22 está ampliada;
+  - el alias `dark-perreo-oh-margo` apunta al archivado y al publicado.
 
 ## Paso 11b — U19: hoja corregida contra las listas cerradas (2026-10-25)
 
