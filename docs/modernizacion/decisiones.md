@@ -414,6 +414,18 @@ Normaliza el inventario que E21 dejó con tres nombres que no existen. Lo decidi
   - la beta la decide el usuario. Recomendación: `true` solo si ese día salen invitaciones con `?beta=1`.
 - **Rollback de la aplicación:** los cuatro a su valor seguro y Run workflow. Ensayado en E21-rc2 con Apache y el `.htaccess` real, contra staging.
 
+### Flags del lanzamiento: revisión de E21-rc3 (2026-10-25)
+
+Lo decidió Claude en E21-rc3, como pide el paso 11. El detalle está en el [expediente de E21-rc3](./e21-rc3-2026-10-25.md#5-inventario-de-flags).
+
+- **El inventario no cambia:** U19 no añade flags.
+  - Sugerir, incluido «Crear borrador» de admin, va con `VITE_EDITORIAL_ENABLED`.
+  - Diccionarios va con `VITE_ADMIN_CATALOG_ENABLED`, como el Catálogo.
+- **`VITE_EDITORIAL_ENABLED` y `VITE_ADMIN_CATALOG_ENABLED` se mueven juntos:** los dos `true` el día del corte y los dos `false` en un rollback.
+  - Con editorial encendido y la consola apagada, admin crearía en Sugerir borradores que no puede abrir. Esa combinación no se usa.
+- **Las variables de GitHub se crean el día del corte (E22-B, paso 8).** Hoy solo existen `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY`, así que un Run workflow publicaría los valores seguros.
+- **El rollback se ensayó otra vez,** sobre el candidato de rc3, con Diccionarios incluido. El servidor local debe negar `/.htaccess` como lo hace Hostinger: el `.htaccess` del proyecto no se protege a sí mismo.
+
 ### U19 — Flujo del Estudio y diccionarios (2026-10-15)
 
 Las decidió el usuario en cinco rondas de preguntas, a partir de su lista de correcciones del Estudio. El detalle está en [`u19-estudio-flujo-2026-10-15.md`](./u19-estudio-flujo-2026-10-15.md). **Todo va antes de E21-rc3** (paso 11b del plan de lanzamiento).

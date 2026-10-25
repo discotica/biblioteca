@@ -6,7 +6,8 @@ Actualizado: 2026-10-25.
 >
 > 1. Paso 11b — U19: flujo del Estudio y diccionarios ([expediente](./u19-estudio-flujo-2026-10-15.md)). G1 y G2 se aceptaron el 2026-10-15; G3 y G4, el 2026-10-16. G5 dejó G1 a G4 aplicados en staging el 2026-10-16, con el recorrido completo; aceptado ese mismo día.
 > 2. Hoja corregida (`e67e35e9…`) y paso 8 repetido en staging el 2026-10-25: 0 rechazos, 15/15 comprobaciones, regresión y prueba de humo en verde (ver abajo). Queda a mano el enlace de Spotify de `rel_000713`.
-> 3. **Siguiente:** repetir el paso 11 como E21-rc3.
+> 3. **Paso 11 cerrado: E21-rc3 dio GO** el 2026-10-25 ([expediente](./e21-rc3-2026-10-25.md)). Sin P0 abiertos; suite, recorrido en staging y rollback en verde; QA manual del usuario 13/13 OK; firmas del usuario (producto) y de Santiago (operativa).
+> 4. **Siguiente:** corregir RC3-P1-01 en la hoja (otro reemplazo viejo: 17 enlaces de compra en 404 y títulos dañados) junto con el Spotify de `rel_000713`, repetir el paso 8 en staging y pasar al paso 12 (E22-A).
 >
 > RC2-P0-01 (enlaces de Auth) quedó corregido y verificado en staging con un correo real el 2026-10-15, con las plantillas nuevas ya en el dashboard ([expediente](./e21-rc2-2026-10-15.md#rc2-p0-01--los-enlaces-de-auth-terminan-en-el-enlace-venció)).
 >
