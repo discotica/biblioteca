@@ -7,11 +7,35 @@ Actualizado: 2026-10-25.
 > 1. Paso 11b — U19: flujo del Estudio y diccionarios ([expediente](./u19-estudio-flujo-2026-10-15.md)). G1 y G2 se aceptaron el 2026-10-15; G3 y G4, el 2026-10-16. G5 dejó G1 a G4 aplicados en staging el 2026-10-16, con el recorrido completo; aceptado ese mismo día.
 > 2. Hoja corregida (`e67e35e9…`) y paso 8 repetido en staging el 2026-10-25: 0 rechazos, 15/15 comprobaciones, regresión y prueba de humo en verde (ver abajo). Queda a mano el enlace de Spotify de `rel_000713`.
 > 3. **Paso 11 cerrado: E21-rc3 dio GO** el 2026-10-25 ([expediente](./e21-rc3-2026-10-25.md)). Sin P0 abiertos; suite, recorrido en staging y rollback en verde; QA manual del usuario 13/13 OK; firmas del usuario (producto) y de Santiago (operativa).
-> 4. **Siguiente:** corregir RC3-P1-01 en la hoja (otro reemplazo viejo: 17 enlaces de compra en 404 y títulos dañados) junto con el Spotify de `rel_000713`, repetir el paso 8 en staging y pasar al paso 12 (E22-A).
+> 4. **Paso 12 (E22-A) ensayado** el 2026-10-25 sobre una copia restaurada de producción, con el resultado «el corte se puede hacer» ([guion](./e22-guion-corte-2026-10-25.md)). RC3-P1-01 no se corrige en la hoja: el usuario lo corregirá en la app, en producción, después del corte. La hoja quedó congelada en `e67e35e9…`.
+> 5. **Siguiente:** paso 13 (E22-B) con el guion, cuando el usuario fije la hora, decida el flag de beta y tenga lista la cuenta de admin de recuperación.
 >
 > RC2-P0-01 (enlaces de Auth) quedó corregido y verificado en staging con un correo real el 2026-10-15, con las plantillas nuevas ya en el dashboard ([expediente](./e21-rc2-2026-10-15.md#rc2-p0-01--los-enlaces-de-auth-terminan-en-el-enlace-venció)).
 >
 > El paso 11 (E21-rc2) dio **NO-GO** el 2026-10-15 ([expediente](./e21-rc2-2026-10-15.md)). Los pasos 1 a 10 están cerrados: el 8 se aceptó con la hoja tal como está y el 10 se decidió por delegación ([decisiones](./decisiones.md#pasos-8-y-10-del-lanzamiento-2026-10-15)). La QA manual en dispositivos conviene hacerla después de la corrección.
+
+## Paso 12 — E22-A: ensayo del corte sobre una copia de producción (2026-10-25)
+
+Producción (`ewntlvugbopokdrvnwvg`) solo se leyó, con autorización del usuario para el `pg_dump`. Los detalles están en el [guion de E22-B](./e22-guion-corte-2026-10-25.md), y los registros en `../discotica-backups/2026-10-25-produccion/` y `../discotica-backups/2026-10-25-e22-hoja/`.
+
+- **Destino,** con dos señales: el usuario del pooler lleva el ref, e `inet_server_addr()` es igual al DNS de `db.ewntlvugbopokdrvnwvg`.
+- **Dump:** `db5279a0…`, en 51 s. El inventario de 58 tablas es idéntico antes y después. La restauración local reproduce producción en datos y en estructura.
+- **Producción no estaba vacía:**
+  - tiene 5 migraciones (fases 2, 4 y 5) y la carga del catálogo de agosto (2.790 lanzamientos);
+  - tiene 2 usuarios (los del usuario), 1 colección con 1 ítem que ya tiene `release_id`, y 1 propuesta v1;
+  - el sitio en vivo no usa Supabase.
+
+  El plan de corte de rc3 se corrigió en consecuencia: `repair` y 30 migraciones, verificaciones al final, la importación actualiza en vez de crear, no hace falta migrar los ítems de colección y hay un segundo dump antes de importar.
+- **Ensayo:**
+  - las 36 migraciones aplicadas y 12/12 verificaciones;
+  - hoja congelada: 0 rechazos, con 7 creados, 736 actualizados, 2.046 iguales y 8 archivados;
+  - 24/24 comprobaciones posteriores y la tabla de identidad resuelta;
+  - RLS 43/43, la matriz igual a la de staging y advisors sin `WARN`;
+  - la app con los flags del día contra la copia, y el rollback con los flags seguros (14/14) y con el build en vivo;
+  - el rollback de datos del catálogo, ensayado con `ROLLBACK`.
+- **Hallazgos:**
+  - E22A-02 (P2): la propuesta v1 de agosto no aparece en ninguna cola, aunque cuenta en la insignia; se abre por enlace directo;
+  - E22A-03 (P2, editorial): 17 slugs legados que la hoja comparte entre varias filas dan «no encontrado».
 
 ## Paso 8 repetido — staging igual a la hoja corregida (2026-10-25)
 

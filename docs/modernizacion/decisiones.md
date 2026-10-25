@@ -426,6 +426,15 @@ Lo decidió Claude en E21-rc3, como pide el paso 11. El detalle está en el [exp
 - **Las variables de GitHub se crean el día del corte (E22-B, paso 8).** Hoy solo existen `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY`, así que un Run workflow publicaría los valores seguros.
 - **El rollback se ensayó otra vez,** sobre el candidato de rc3, con Diccionarios incluido. El servidor local debe negar `/.htaccess` como lo hace Hostinger: el `.htaccess` del proyecto no se protege a sí mismo.
 
+### Hoja congelada y corrección posterior (2026-10-25, E22-A)
+
+Lo decidió el usuario al empezar el paso 12. Sustituye la decisión de rc3 de corregir RC3-P1-01 en la hoja antes de E22-A.
+
+- **La hoja se congela como está:** `e67e35e9…`, la misma que ya tiene staging. El paso 8 no se repite.
+- **RC3-P1-01** (17 enlaces de Bandcamp en 404 y títulos dañados) y el Spotify de `rel_000713` se corrigen **en la app, en producción, después del corte**. No hay correcciones por base de datos.
+- **Después del corte no se vuelve a importar la hoja.** Manda en cada lanzamiento con `catalog_key`, así que pisaría lo corregido en el Estudio. Queda como respaldo de solo lectura.
+- **El plan de corte se ajusta a lo que hay en producción** ([guion, sección 2](./e22-guion-corte-2026-10-25.md#2-cambios-al-plan-de-corte-de-rc3)): `repair` y 30 migraciones, verificaciones al final, importación sobre la carga de agosto, sin la migración `e22_map_legacy_crate_items` y con un segundo dump antes de importar.
+
 ### U19 — Flujo del Estudio y diccionarios (2026-10-15)
 
 Las decidió el usuario en cinco rondas de preguntas, a partir de su lista de correcciones del Estudio. El detalle está en [`u19-estudio-flujo-2026-10-15.md`](./u19-estudio-flujo-2026-10-15.md). **Todo va antes de E21-rc3** (paso 11b del plan de lanzamiento).
