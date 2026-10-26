@@ -1,0 +1,1 @@
+import{z as d,b as o,A as u,B as c}from"./DD8nLD8L.js";function b(a,f,e,s,h){var l,n;if(u&&c(),(l=f.$$host)!=null&&l.$$shadowRoot){const r=d("slot");e!=="default"&&(r.name=e),o(a,r);return}var t=(n=f.$$slots)==null?void 0:n[e],i=!1;t===!0&&(t=f[e==="default"?"children":e],i=!0),t===void 0||t(a,i?()=>s:s)}export{b as s};

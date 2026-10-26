@@ -1,0 +1,1 @@
+import{r}from"../chunks/BMX1ug8m.js";const o=({url:e})=>{throw r(307,`/${e.search}`)},a=Object.freeze(Object.defineProperty({__proto__:null,load:o},Symbol.toStringTag,{value:"Module"}));export{a as universal};
