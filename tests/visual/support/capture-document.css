@@ -1,0 +1,11 @@
+/* Capturas de página completa y de elemento (U18). El header y la barra
+   «Buscar» son sticky: en esas capturas se dibujarían donde esté el scroll, en
+   mitad de la imagen. Aquí vuelven a su sitio en el documento (relative ocupa
+   lo mismo que sticky, así que el layout no cambia). Las capturas del viewport
+   no lo usan y conservan el comportamiento real. */
+.site-header,
+.mobile-search-anchor {
+  position: relative !important;
+  transform: none !important;
+  opacity: 1 !important;
+}

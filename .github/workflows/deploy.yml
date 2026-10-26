@@ -1,9 +1,9 @@
 name: Build y publicar rama dist
 
+# Manual hasta E22: un push o merge a main no publica nada. Para desplegar,
+# Actions > "Build y publicar rama dist" > Run workflow. Solo sale de main.
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -12,13 +12,70 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
+    # Las VITE_* se incrustan en el bundle del navegador: son públicas y salen de
+    # las variables del repositorio (vars), nunca de secrets. Sin variable, los
+    # flags caen al valor seguro (catálogo legado, todo apagado).
+    env:
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      VITE_CATALOG_SOURCE: ${{ vars.VITE_CATALOG_SOURCE || 'legacy' }}
+      VITE_EDITORIAL_ENABLED: ${{ vars.VITE_EDITORIAL_ENABLED || 'false' }}
+      VITE_ADMIN_CATALOG_ENABLED: ${{ vars.VITE_ADMIN_CATALOG_ENABLED || 'false' }}
+      VITE_BETA_INVITATION_ENABLED: ${{ vars.VITE_BETA_INVITATION_ENABLED || 'false' }}
+      # Versión del build en los reportes de problemas (E18); no es un flag.
+      VITE_APP_VERSION: ${{ github.sha }}
+
     steps:
+      # Producción solo sale de main. Se comprueba primero, antes de instalar o
+      # compilar nada, y falla (en vez de omitirse) para que se note.
+      - name: Verificar rama
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          if [ "$REF" != "refs/heads/main" ]; then
+            echo "::error title=Rama no permitida::Producción solo sale de main (se ejecutó desde $REF). Fusiona el PR en main y vuelve a lanzar el workflow eligiendo main."
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
+
+      - name: Verificar variables de despliegue
+        run: |
+          fail() { echo "::error title=Variables de despliegue::$1"; exit 1; }
+
+          [ -n "$VITE_SUPABASE_URL" ] || fail "Falta la variable de repositorio VITE_SUPABASE_URL."
+          [ -n "$VITE_SUPABASE_PUBLISHABLE_KEY" ] || fail "Falta la variable de repositorio VITE_SUPABASE_PUBLISHABLE_KEY."
+
+          case "$VITE_SUPABASE_URL" in
+            https://*) ;;
+            *) fail "VITE_SUPABASE_URL debe empezar con https://." ;;
+          esac
+
+          # La clave termina en el bundle público: rechaza claves de servicio.
+          case "$VITE_SUPABASE_PUBLISHABLE_KEY" in
+            sb_secret_*) fail "VITE_SUPABASE_PUBLISHABLE_KEY es una clave secreta (sb_secret_). Usa la publicable." ;;
+          esac
+          role=$(node -e 'try{const p=process.env.VITE_SUPABASE_PUBLISHABLE_KEY.split(".")[1];process.stdout.write(JSON.parse(Buffer.from(p,"base64url")).role??"")}catch{}')
+          [ "$role" != "service_role" ] || fail "VITE_SUPABASE_PUBLISHABLE_KEY es una service_role. Usa la clave publicable o anon."
+
+          case "$VITE_CATALOG_SOURCE" in
+            legacy|canonical) ;;
+            *) fail "VITE_CATALOG_SOURCE debe ser legacy o canonical (valor: $VITE_CATALOG_SOURCE)." ;;
+          esac
+          for name in VITE_EDITORIAL_ENABLED VITE_ADMIN_CATALOG_ENABLED VITE_BETA_INVITATION_ENABLED; do
+            case "${!name}" in
+              true|false) ;;
+              *) fail "$name debe ser true o false (valor: ${!name})." ;;
+            esac
+          done
+
+          echo "Fuente de catálogo: $VITE_CATALOG_SOURCE"
+          echo "Editorial: $VITE_EDITORIAL_ENABLED · Admin: $VITE_ADMIN_CATALOG_ENABLED · Beta: $VITE_BETA_INVITATION_ENABLED"
 
       - name: Instalar dependencias
         run: npm ci
@@ -32,4 +89,10 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build
           publish_branch: dist
-          force_orphan: true
+          # Cada despliegue añade un commit encima de dist (no reescribe la
+          # rama): Hostinger actualiza su copia desde ella y no documenta cómo
+          # reacciona a una historia reescrita. keep_files queda en false (por
+          # defecto): el build reemplaza el contenido, no se acumulan archivos
+          # viejos.
+          force_orphan: false
+          keep_files: false

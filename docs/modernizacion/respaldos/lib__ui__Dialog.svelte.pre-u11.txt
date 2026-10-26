@@ -1,0 +1,197 @@
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+  import IconButton from './IconButton.svelte';
+  import { dialogOverlay } from './overlay';
+
+  type Props = {
+    /** Abierto o cerrado. Se cierra con ×, Escape o el fondo (si `dismissible`). */
+    open: boolean;
+    /** Título visible; es el nombre accesible del diálogo. */
+    title: string;
+    /** Texto de apoyo bajo el título (aria-describedby). */
+    description?: string;
+    /** sm 28rem · md 40rem · lg 60rem; nunca más ancho que el viewport menos el margen. */
+    size?: 'sm' | 'md' | 'lg';
+    /** Tocar el fondo cierra. Escape y × cierran siempre (contrato de overlay.ts). */
+    dismissible?: boolean;
+    /** Selector del elemento que recibe el foco al abrir; por defecto, el primero enfocable. */
+    initialFocus?: string;
+    /** A quién devolver el foco al cerrar si no fue el elemento que lo abrió. */
+    returnFocus?: HTMLElement | null;
+    onclose?: () => void;
+    children: Snippet;
+    /** Pie fijo bajo el contenido con scroll: acciones del diálogo. */
+    footer?: Snippet;
+    class?: string;
+  };
+
+  let {
+    open = $bindable(),
+    title,
+    description,
+    size = 'md',
+    dismissible = true,
+    initialFocus,
+    returnFocus,
+    onclose,
+    children,
+    footer,
+    class: className = ''
+  }: Props = $props();
+
+  const id = $props.id();
+  const titleId = `${id}-title`;
+  const descriptionId = `${id}-description`;
+
+  let content = $state<HTMLElement>();
+  let body = $state<HTMLElement>();
+  let scrollable = $state(false);
+
+  function close() {
+    open = false;
+    onclose?.();
+  }
+
+  // El cuerpo solo entra en el orden de tabulación cuando tiene scroll, para que
+  // se pueda desplazar con teclado aunque no contenga nada enfocable.
+  $effect(() => {
+    if (!body || !content) return;
+    const measure = () => (scrollable = body!.scrollHeight > body!.clientHeight + 1);
+    const observer = new ResizeObserver(measure);
+    observer.observe(body);
+    observer.observe(content);
+    measure();
+    return () => observer.disconnect();
+  });
+</script>
+
+{#if open}
+  <div
+    class="ui-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby={titleId}
+    aria-describedby={description ? descriptionId : undefined}
+    use:dialogOverlay={{ onClose: close, initialFocus, returnFocus }}
+  >
+    <div class="ui-dialog__backdrop" role="presentation" onclick={() => dismissible && close()}></div>
+    <div class="ui-dialog__panel ui-dialog__panel--{size} {className}" class:ui-dialog__panel--scrollable={scrollable}>
+      <header class="ui-dialog__header">
+        <div class="ui-dialog__heading">
+          <h2 class="ui-dialog__title" id={titleId}>{title}</h2>
+          {#if description}<p class="ui-dialog__description" id={descriptionId}>{description}</p>{/if}
+        </div>
+        <IconButton icon="cerrar" label="Cerrar" tooltip="bottom" tooltipAlign="end" onclick={close} />
+      </header>
+      <!-- Región con scroll: enfocable solo cuando desborda, para desplazarla con teclado. -->
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <div
+        class="ui-dialog__body"
+        bind:this={body}
+        tabindex={scrollable ? 0 : undefined}
+        role={scrollable ? 'region' : undefined}
+        aria-labelledby={scrollable ? titleId : undefined}
+      >
+        <div bind:this={content}>{@render children()}</div>
+      </div>
+      {#if footer}<footer class="ui-dialog__footer">{@render footer()}</footer>{/if}
+    </div>
+    <!-- Portal de menús y listas abiertos desde el diálogo (layerFor en overlay.ts):
+         dentro del diálogo para el foco, fuera del panel para que nada se corte. -->
+    <div class="ui-dialog__layer" data-ui-layer></div>
+  </div>
+{/if}
+
+<style>
+  .ui-dialog {
+    position: fixed;
+    inset: 0;
+    z-index: var(--layer-overlay);
+    display: grid;
+    place-items: center;
+    padding: var(--dialog-gutter);
+    outline: none;
+  }
+
+  .ui-dialog__backdrop {
+    position: absolute;
+    inset: 0;
+    background: var(--overlay-backdrop);
+    backdrop-filter: blur(var(--overlay-blur));
+    -webkit-backdrop-filter: blur(var(--overlay-blur));
+  }
+
+  .ui-dialog__panel {
+    --dialog-w: var(--dialog-w-md);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: min(100%, var(--dialog-w));
+    max-height: calc(100dvh - 2 * var(--dialog-gutter));
+    box-sizing: border-box;
+    overflow: hidden;
+    border: 1px solid var(--color-linea);
+    border-radius: var(--radius-lg);
+    background: var(--color-panel);
+    box-shadow: var(--shadow-flotante);
+    animation: ui-dialog-in var(--motion-overlay) var(--ease-emphasized);
+  }
+  .ui-dialog__panel--sm { --dialog-w: var(--dialog-w-sm); }
+  .ui-dialog__panel--lg { --dialog-w: var(--dialog-w-lg); }
+
+  .ui-dialog__header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-4) var(--space-3) var(--space-5);
+    border-bottom: 1px solid transparent;
+    flex: none;
+  }
+  .ui-dialog__heading { flex: 1; min-width: 0; padding-top: var(--space-2); }
+  .ui-dialog__title { margin: 0; color: var(--color-texto); font-size: var(--text-xl); font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+  .ui-dialog__description { margin: var(--space-1) 0 0; color: var(--color-texto-medio); font-size: var(--text-sm); line-height: 1.5; }
+
+  .ui-dialog__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 var(--space-5) var(--space-5);
+    color: var(--color-texto-alto);
+    font-size: var(--text-md);
+    line-height: 1.55;
+  }
+  .ui-dialog__body:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: -2px; }
+
+  .ui-dialog__footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    border-top: 1px solid transparent;
+    flex: none;
+  }
+
+  /* Con scroll interno, cabecera y pie se separan del contenido con una línea. */
+  .ui-dialog__panel--scrollable .ui-dialog__header { border-bottom-color: var(--color-linea-sutil); }
+  .ui-dialog__panel--scrollable .ui-dialog__body { padding-top: var(--space-4); }
+  .ui-dialog__panel--scrollable .ui-dialog__footer { border-top-color: var(--color-linea-sutil); }
+
+  .ui-dialog__layer { position: absolute; inset: 0; z-index: var(--layer-raised); pointer-events: none; }
+
+  @keyframes ui-dialog-in {
+    from { opacity: 0; transform: translateY(var(--space-2)); }
+    to { opacity: 1; transform: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ui-dialog__panel { animation: none; }
+  }
+
+  @media (max-width: 479px) {
+    .ui-dialog__header { padding-left: var(--space-4); }
+    .ui-dialog__body { padding-inline: var(--space-4); }
+    .ui-dialog__footer { padding-inline: var(--space-4); }
+  }
+</style>

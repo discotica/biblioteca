@@ -1,0 +1,25 @@
+name: Verificar medios del catálogo
+
+on:
+  schedule:
+    - cron: '23 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  media-health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run verify:media -- --output reports/media-health.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: media-health-report
+          path: reports/media-health.json

@@ -1,0 +1,168 @@
+<script lang="ts">
+  import AccountLayout from '$lib/layouts/AccountLayout.svelte';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
+  import { supabase } from '$lib/supabase';
+
+  let username = '';
+  let password = '';
+  let error = '';
+  let cargando = false;
+  const usernamePattern = '[a-z0-9_\\-]{3,30}';
+
+  function redirectSeguro(value: string | null): string {
+    return value?.startsWith('/') && !value.startsWith('//') ? value : '/mis-colecciones';
+  }
+
+  async function iniciarSesion() {
+    error = '';
+    cargando = true;
+    const { data, error: err } = await supabase.functions.invoke('login-with-username', {
+      body: { username: username.trim().toLowerCase(), password }
+    });
+    if (!err && data?.access_token && data?.refresh_token) {
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token
+      });
+      if (sessionError) error = 'No se pudo iniciar sesión. Intenta de nuevo.';
+    }
+    cargando = false;
+    if (err || error) {
+      error = error || 'Usuario o contraseña incorrectos.';
+      return;
+    }
+    const redirect = redirectSeguro($page.url.searchParams.get('redirect'));
+    goto(redirect);
+  }
+</script>
+
+<svelte:head>
+  <title>Entrar — Biblioteca Discótica</title>
+</svelte:head>
+
+<AccountLayout title="Entrar">
+    <form on:submit|preventDefault={iniciarSesion} class="auth-form">
+      <label class="campo">
+        <span>Nombre de usuario</span>
+        <input
+          type="text"
+          bind:value={username}
+          autocomplete="username"
+          required
+          placeholder="tu_usuario"
+          pattern={usernamePattern}
+        />
+      </label>
+
+      <label class="campo">
+        <span>Contraseña</span>
+        <input
+          type="password"
+          bind:value={password}
+          autocomplete="current-password"
+          required
+          minlength="8"
+        />
+      </label>
+
+      {#if error}
+        <p class="error-msg">{error}</p>
+      {/if}
+
+      <button type="submit" class="btn-primary" disabled={cargando}>
+        {cargando ? 'Entrando…' : 'Entrar'}
+      </button>
+    </form>
+
+    {#snippet footer()}
+      <a href="/auth/recuperar">Olvidé mi contraseña</a>
+      <span aria-hidden="true">·</span>
+      <a href={`/auth/registro?redirect=${encodeURIComponent($page.url.searchParams.get('redirect') ?? '')}`}>Crear cuenta</a>
+    {/snippet}
+</AccountLayout>
+
+<style>
+
+
+
+  .auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+
+  .campo {
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+  }
+
+  .campo span {
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--color-texto-tenue);
+  }
+
+  .campo input {
+    background: var(--color-superficie-2);
+    border: 1px solid var(--color-linea);
+    border-radius: var(--radius-sm);
+    padding: .75rem 1rem;
+    color: var(--color-texto);
+    font-size: var(--text-md);
+    font-family: inherit;
+    transition: border-color var(--motion-fast) ease;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .campo input:focus {
+    outline: none;
+    border-color: var(--color-acento);
+  }
+
+  .campo input::placeholder {
+    color: var(--color-texto-tenue);
+  }
+
+  .error-msg {
+    font-size: var(--text-xs);
+    color: var(--color-danger);
+    background: var(--color-danger-dim);
+    border: 1px solid var(--color-danger-borde);
+    border-radius: var(--radius-sm);
+    padding: .65rem .9rem;
+    margin: 0;
+  }
+
+  .btn-primary {
+    background: var(--color-acento);
+    color: var(--color-sobre-acento);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: .85rem 1rem;
+    font-size: var(--text-sm);
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity var(--motion-fast) ease;
+    font-family: inherit;
+    margin-top: .4rem;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    opacity: .85;
+  }
+
+  .btn-primary:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+  }
+
+
+
+</style>

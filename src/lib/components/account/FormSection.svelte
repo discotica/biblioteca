@@ -1,0 +1,59 @@
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+
+  type Props = {
+    legend: string;
+    /** Añade "(opcional)" a la leyenda. */
+    optional?: boolean;
+    /** Aclaración bajo la leyenda. */
+    description?: string;
+    /** Ancla del grupo (p. ej. "redes", al que lleva el perfil propio, U14). */
+    id?: string;
+    children: Snippet;
+  };
+
+  let { legend, optional = false, description, id, children }: Props = $props();
+  const uid = $props.id();
+</script>
+
+<!-- Grupo de campos de las pantallas de cuenta: registro y editar cuenta. -->
+<fieldset class="form-section" {id} aria-describedby={description ? `${uid}-description` : undefined}>
+  <legend class="form-section__legend">
+    {legend}{#if optional}<span class="form-section__optional">(opcional)</span>{/if}
+  </legend>
+  {#if description}<p class="form-section__description" id="{uid}-description">{description}</p>{/if}
+  <div class="form-section__fields">{@render children()}</div>
+</fieldset>
+
+<style>
+  .form-section {
+    min-width: 0;
+    margin: 0;
+    padding: var(--space-5) 0 0;
+    border: 0;
+    border-top: 1px solid var(--color-linea-sutil);
+  }
+  .form-section__legend {
+    float: left;
+    width: 100%;
+    margin-bottom: var(--space-4);
+    padding: 0;
+    color: var(--color-texto);
+    font-size: var(--text-md);
+    font-weight: 700;
+  }
+  .form-section__optional { margin-left: .35em; color: var(--color-texto-tenue); font-weight: 400; }
+  .form-section__description {
+    clear: both;
+    margin: 0 0 var(--space-4);
+    color: var(--color-texto-medio);
+    font-size: var(--text-sm);
+    line-height: 1.55;
+  }
+  .form-section__fields {
+    clear: both;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+</style>

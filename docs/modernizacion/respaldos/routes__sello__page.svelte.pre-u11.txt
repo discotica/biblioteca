@@ -1,0 +1,150 @@
+<script lang="ts">
+  import PageLayout from '$lib/layouts/PageLayout.svelte';
+  import { catalogCrumb } from '$lib/layouts/crumbs';
+  import LanzamientoCard from '$lib/components/LanzamientoCard.svelte';
+  import LanzamientoModal from '$lib/components/LanzamientoModal.svelte';
+  import { slugFromLanzamiento } from '$lib/utils/slugLanzamiento';
+  import { page } from '$app/stores';
+  import { normalizeReleaseDate } from '$lib/domain/releases';
+  import { pageSlice, totalPagesFor } from '$lib/domain/homeSearchView';
+  import Pagination from '$lib/ui/Pagination.svelte';
+  import { tick } from 'svelte';
+
+  let lanzamientoActivo = null;
+  function abrirModal(lanzamiento) { lanzamientoActivo = lanzamiento; }
+  function cerrarModal() { lanzamientoActivo = null; }
+
+  export let data;
+
+  let ordenSeleccionado = 'fecha-desc';
+
+
+  // Reactivo: se actualiza si cambia `data`
+  $: lanzamientos = data?.lanzamientos ?? [];
+  $: nombreSello = data?.nombreSello ?? '';
+
+
+  $: lanzamientosOrdenados = (() => {
+    switch (ordenSeleccionado) {
+      case 'fecha-desc':
+        return [...lanzamientos].sort(
+          (a, b) => normalizeReleaseDate(b.release_date).timestamp - normalizeReleaseDate(a.release_date).timestamp
+        );
+      case 'fecha-asc':
+        return [...lanzamientos].sort(
+          (a, b) => normalizeReleaseDate(a.release_date).timestamp - normalizeReleaseDate(b.release_date).timestamp
+        );
+      case 'titulo-asc':
+        return [...lanzamientos].sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''));
+      case 'titulo-desc':
+        return [...lanzamientos].sort((a, b) => (b.title ?? '').localeCompare(a.title ?? ''));
+      default:
+        return [...lanzamientos];
+    }
+  })();
+
+  // Paginación numerada (U10), la misma del inicio. La página vive en el
+  // componente: la query de esta URL es la búsqueda del catálogo (incluida su
+  // `p`), que la miga "Catálogo" devuelve intacta.
+  let pagina = 1;
+  let grillaEl: HTMLElement | undefined;
+  $: totalPaginas = totalPagesFor(lanzamientosOrdenados.length);
+  // Un orden o un conjunto nuevos vuelven a la primera página.
+  $: lanzamientosOrdenados, (pagina = 1);
+  $: lanzamientosVisibles = pageSlice(lanzamientosOrdenados, Math.min(pagina, totalPaginas));
+
+  async function irAPagina(next: number) {
+    pagina = next;
+    await tick();
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    grillaEl?.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'auto' : 'smooth' });
+  }
+</script>
+
+
+<svelte:head>
+  <title>{nombreSello} | Discótica</title>
+</svelte:head>
+
+<PageLayout breadcrumbs={[catalogCrumb($page.url.search), { label: nombreSello }]} eyebrow="Sello" title={nombreSello}>
+  {#snippet actions()}
+    <label class="orden">
+      Ordenar por:
+      <select bind:value={ordenSeleccionado}>
+        <option value="fecha-desc">Más reciente</option>
+        <option value="fecha-asc">Más antiguo</option>
+        <option value="titulo-asc">Título A → Z</option>
+        <option value="titulo-desc">Título Z → A</option>
+      </select>
+    </label>
+  {/snippet}
+
+  {#if lanzamientosOrdenados.length === 0}
+    <p class="mensaje-vacio">Este sello aún no tiene lanzamientos registrados en Discótica.</p>
+  {:else}
+    <div class="resultados__grid lanzamientos-grilla" bind:this={grillaEl}>
+      {#each lanzamientosVisibles as lanzamiento}
+        <LanzamientoCard {lanzamiento} onabrir={abrirModal} />
+      {/each}
+    </div>
+    {#if totalPaginas > 1}
+      <div class="paginacion">
+        <Pagination page={pagina} totalPages={totalPaginas} label="Paginación de lanzamientos" onchange={irAPagina} />
+      </div>
+    {/if}
+  {/if}
+</PageLayout>
+
+{#if lanzamientoActivo}
+  {#key slugFromLanzamiento(lanzamientoActivo)}
+    <LanzamientoModal lanzamiento={lanzamientoActivo} on:cerrar={cerrarModal} />
+  {/key}
+{/if}
+
+<style>
+  @import '$lib/styles/styles.css';
+
+
+
+
+
+
+  .resultados__grid { scroll-margin-top: var(--spacing-lg); }
+  .paginacion { display: flex; justify-content: center; margin: var(--spacing-lg) 0; }
+
+  .mensaje-vacio {
+    color: var(--color-texto-secundario);
+    font-style: italic;
+    font-size: var(--text-md);
+    padding: var(--spacing-md);
+  }
+
+
+
+
+  .orden {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--color-texto-medio);
+    font-size: var(--text-sm);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 679px) {
+    .orden { width: 100%; justify-content: space-between; }
+    .orden select { flex: 1; }
+  }
+
+
+
+  select {
+    font-size: var(--text-md);
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+    background: var(--color-panel);
+    color: var(--color-texto);
+    border: 1px solid var(--color-borde);
+  }
+
+</style>

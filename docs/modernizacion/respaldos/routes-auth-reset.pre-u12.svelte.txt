@@ -1,0 +1,159 @@
+<!-- Reconstruido en U12 desde la lectura del chat: sin las líneas en blanco del original. -->
+<script lang="ts">
+  import AccountLayout from '$lib/layouts/AccountLayout.svelte';
+  import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
+  import { supabase } from '$lib/supabase';
+  let password = '';
+  let confirmPassword = '';
+  let error = '';
+  let cargando = false;
+  let tipo: 'recovery' | 'signup' | null = null;
+  $: titulo = error
+    ? 'Algo salió mal'
+    : tipo === 'recovery'
+      ? 'Nueva contraseña'
+      : tipo === 'signup'
+        ? 'Confirmando tu cuenta'
+        : 'Verificando enlace';
+  onMount(async () => {
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    const code = $page.url.searchParams.get('code');
+    const typeParam = $page.url.searchParams.get('flow')
+      ?? $page.url.searchParams.get('type')
+      ?? hash.get('type');
+    const authError = $page.url.searchParams.get('error_description')
+      ?? hash.get('error_description');
+    if (authError) {
+      error = 'El enlace expiró o ya fue utilizado. Solicita uno nuevo.';
+      return;
+    }
+    tipo = typeParam === 'signup' ? 'signup' : 'recovery';
+    if (code) {
+      const { error: err } = await supabase.auth.exchangeCodeForSession(code);
+      if (err) {
+        error = 'El enlace expiró o ya fue utilizado. Solicita uno nuevo.';
+        return;
+      }
+    } else {
+      // Con flujo implícito, el SDK detecta los tokens del fragmento (#) y crea
+      // la sesión. Dejamos que termine antes de decidir si el enlace era válido.
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        error = 'El enlace no es válido o ya expiró. Solicita uno nuevo.';
+        return;
+      }
+    }
+    if (tipo === 'signup') {
+      goto('/mis-colecciones');
+    }
+  });
+  async function actualizarPassword() {
+    error = '';
+    if (password !== confirmPassword) {
+      error = 'Las contraseñas no coinciden.';
+      return;
+    }
+    cargando = true;
+    const { error: err } = await supabase.auth.updateUser({ password });
+    cargando = false;
+    if (err) {
+      error = 'No se pudo actualizar la contraseña. Intenta de nuevo.';
+      return;
+    }
+    goto('/mis-colecciones');
+  }
+</script>
+<svelte:head>
+  <title>Restablecer contraseña — Biblioteca Discótica</title>
+</svelte:head>
+<AccountLayout title={titulo}>
+    {#if error}
+      <p class="error-msg">{error}</p>
+    {:else if tipo === 'recovery'}
+      <form on:submit|preventDefault={actualizarPassword} class="auth-form">
+        <label class="campo">
+          <span>Nueva contraseña</span>
+          <input type="password" bind:value={password} autocomplete="new-password" required minlength="8" />
+        </label>
+        <label class="campo">
+          <span>Confirmar contraseña</span>
+          <input type="password" bind:value={confirmPassword} autocomplete="new-password" required minlength="8" />
+        </label>
+        <button type="submit" class="btn-primary" disabled={cargando}>
+          {cargando ? 'Guardando…' : 'Guardar contraseña'}
+        </button>
+      </form>
+    {:else}
+      <p class="cargando-msg">Verificando…</p>
+    {/if}
+    {#snippet footer()}
+      {#if error}<a href="/auth/recuperar">Solicitar un nuevo enlace</a>{/if}
+    {/snippet}
+</AccountLayout>
+<style>
+  .auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+  .campo {
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+  }
+  .campo span {
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--color-texto-tenue);
+  }
+  .campo input {
+    background: var(--color-superficie-2);
+    border: 1px solid var(--color-linea);
+    border-radius: var(--radius-sm);
+    padding: .75rem 1rem;
+    color: var(--color-texto);
+    font-size: var(--text-md);
+    font-family: inherit;
+    transition: border-color var(--motion-fast) ease;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .campo input:focus {
+    outline: none;
+    border-color: var(--color-acento);
+  }
+  .error-msg {
+    font-size: var(--text-sm);
+    color: var(--color-danger);
+    background: var(--color-danger-dim);
+    border: 1px solid var(--color-danger-borde);
+    border-radius: var(--radius-sm);
+    padding: .65rem .9rem;
+    margin: 0 0 1.5rem;
+  }
+  .btn-primary {
+    background: var(--color-acento);
+    color: var(--color-sobre-acento);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: .85rem 1rem;
+    font-size: var(--text-sm);
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity var(--motion-fast) ease;
+    font-family: inherit;
+    margin-top: .4rem;
+  }
+  .btn-primary:hover:not(:disabled) { opacity: .85; }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+  .cargando-msg {
+    color: var(--color-texto-tenue);
+    font-size: var(--text-sm);
+  }
+</style>

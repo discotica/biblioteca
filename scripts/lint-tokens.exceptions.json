@@ -1,0 +1,21 @@
+{
+  "$comentario": "Lista temporal de literales tolerados por npm run lint:tokens (U4). Solo puede vaciarse: cada etapa que toque el archivo migra el literal y ejecuta npm run lint:tokens -- --prune. Añadir una entrada exige motivo y etapa que la retira. Detalle en docs/modernizacion/u4-tokens-v2-2026-10-07.md.",
+  "src/lib/components/RadarMini.svelte": [
+    {
+      "rule": "font-size",
+      "value": "font-size=\"7\"",
+      "count": 1,
+      "motivo": "Letras de los ejes del radar en unidades del viewBox SVG, no en px: escalan con el dibujo. Pasar a CSS exige fijar el tamaño del radar.",
+      "etapa": "U8 (tarjeta y radar al pasar el cursor)"
+    }
+  ],
+  "src/lib/components/RadarVisual.svelte": [
+    {
+      "rule": "font-size",
+      "value": "font-size=\"7\"",
+      "count": 1,
+      "motivo": "Mismo caso que RadarMini: unidades del viewBox del radar del panel de filtros.",
+      "etapa": "U10 (panel de filtros y radar)"
+    }
+  ]
+}

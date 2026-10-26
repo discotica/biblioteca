@@ -1,0 +1,579 @@
+<script lang="ts">
+  import { onDestroy } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
+  import AddToCrateButton from './AddToCrateButton.svelte';
+  import CoverFallback from './CoverFallback.svelte';
+  import RadarMini from './RadarMini.svelte';
+  import ReleasePlayer from './ReleasePlayer.svelte';
+  import type { ArtistCredit, Release } from '$lib/domain/releases';
+  import { summarizeReleaseCredits, VARIOUS_ARTISTS_LABEL } from '$lib/domain/releases';
+  import { canonicalReleasePath, formatReleaseDateEsCo } from '$lib/domain/releaseDetail';
+  import { createSearchState, parseSearchState, serializeSearchState } from '$lib/domain/searchState';
+  import { coverFailure } from '$lib/ui/coverFallback';
+  import { dropdownMenu } from '$lib/ui/overlay';
+  import { slugify } from '$lib/utils/slugify';
+  import { removeBetaInvitationParams } from '$lib/domain/betaInvitation';
+
+  export let release: Release;
+  export let mode: 'modal' | 'page' = 'page';
+  export let titleId = '';
+
+  let copied = false;
+  let copiedTimer: ReturnType<typeof setTimeout> | undefined;
+  let menuLayer: HTMLElement;
+  let artistsOpen = false;
+  let artistsTrigger: HTMLButtonElement;
+  let coverFailed = false;
+
+  $: resolvedTitleId = titleId || `release-title-${release.slug}-${mode}`;
+  $: coverUrl = release.coverUrl;
+  $: coverUrl, (coverFailed = false);
+  $: presentation = summarizeReleaseCredits(release);
+  $: date = formatReleaseDateEsCo(release.releaseDate);
+  $: hasRadar = Object.values(release.radar).some((value) => value > 0);
+  $: sharePath = canonicalReleasePath(release);
+
+  function artistHref(credit: ArtistCredit) {
+    return credit.slug ? `/artista/${encodeURIComponent(credit.slug)}` : null;
+  }
+
+  function closeArtists() {
+    artistsOpen = false;
+  }
+
+  function filterHref(kind: 'country' | 'genre', value: string) {
+    const parsed = parseSearchState($page.url.searchParams);
+    const state = createSearchState({
+      ...parsed.state,
+      [kind === 'country' ? 'countries' : 'genres']: [value],
+      modal: null,
+      page: 1
+    });
+    const query = serializeSearchState(state, removeBetaInvitationParams(parsed.unknown)).toString();
+    return query ? `/?${query}` : '/';
+  }
+
+  function navigateToFilter(kind: 'country' | 'genre', value: string) {
+    void goto(filterHref(kind, value), { invalidateAll: true, noScroll: false });
+  }
+
+  function share() {
+    navigator.clipboard?.writeText?.(`https://biblioteca.discotica.com${sharePath}`)
+      ?.then(() => {
+        copied = true;
+        clearTimeout(copiedTimer);
+        copiedTimer = setTimeout(() => (copied = false), 1500);
+      })
+      .catch(() => {});
+  }
+
+  onDestroy(() => clearTimeout(copiedTimer));
+</script>
+
+<article
+  class="release-detail release-detail--{mode}"
+  data-release-detail
+  data-release-detail-mode={mode}
+  data-release-slug={release.slug}
+>
+  <div class="release-detail__menu-layer" data-release-menu-layer bind:this={menuLayer}></div>
+
+  <div class="release-detail__layout" data-release-scroll-region>
+    <div class="release-detail__cover-column">
+      <div class="release-detail__cover">
+        {#if coverUrl && !coverFailed}
+          <img src={coverUrl} alt={`Portada de ${release.title}`} loading="eager" use:coverFailure={() => (coverFailed = true)} />
+        {:else}
+          <div class="release-detail__cover-placeholder" role="img" aria-label={`Portada no disponible para ${release.title}`}><CoverFallback /></div>
+        {/if}
+
+        {#if hasRadar}
+          <div class="release-detail__radar" aria-hidden="true">
+            <div class="release-detail__radar-scale"><RadarMini valores={release.radar} /></div>
+          </div>
+        {/if}
+      </div>
+    </div>
+
+    <div class="release-detail__info" data-release-scroll-region>
+      {#if presentation.label}
+        <div class="release-detail__presentation" aria-label="Artistas">
+          {#if presentation.various}
+            <button
+              class="release-detail__artists-trigger"
+              type="button"
+              bind:this={artistsTrigger}
+              aria-haspopup="menu"
+              aria-expanded={artistsOpen}
+              aria-controls={artistsOpen ? `release-artists-${release.slug}-${mode}` : undefined}
+              on:click={() => (artistsOpen = !artistsOpen)}
+            >
+              {VARIOUS_ARTISTS_LABEL} <span aria-hidden="true">▾</span>
+            </button>
+
+            {#if artistsOpen}
+              <div
+                class="release-detail__artists-menu"
+                id={`release-artists-${release.slug}-${mode}`}
+                role="menu"
+                aria-label="Artistas del lanzamiento"
+                tabindex="-1"
+                use:dropdownMenu={{ onClose: closeArtists, trigger: artistsTrigger }}
+              >
+                {#each presentation.credits as credit (`artist-${credit.id ?? credit.slug ?? credit.position}-${credit.name}`)}
+                  {#if artistHref(credit)}
+                    <a role="menuitem" href={artistHref(credit) ?? undefined}>{credit.name}</a>
+                  {:else}
+                    <span class="release-detail__artist-unlinked">{credit.name}</span>
+                  {/if}
+                {/each}
+              </div>
+            {/if}
+          {:else}
+            {#each presentation.names as credit, index (`name-${credit.id ?? credit.slug ?? credit.position}-${credit.name}`)}
+              {#if artistHref(credit)}
+                <a class="release-detail__artist-link" href={artistHref(credit) ?? undefined}>{credit.name}</a>
+              {:else}
+                <span>{credit.name}</span>
+              {/if}{#if index < presentation.names.length - 1}<span class="release-detail__artist-sep" aria-hidden="true">,</span>{/if}
+            {/each}
+            {#if presentation.moreLabel}<span class="release-detail__artist-more">{presentation.moreLabel}</span>{/if}
+          {/if}
+        </div>
+      {/if}
+
+      <svelte:element this={mode === 'page' ? 'h1' : 'h2'} class="release-detail__title" id={resolvedTitleId} tabindex="-1">
+        {release.title}
+      </svelte:element>
+
+      <dl class="release-detail__metadata">
+        {#if release.releaseType}
+          <div><dt>Tipo</dt><dd>{release.releaseType}</dd></div>
+        {/if}
+
+        {#if release.countries.length}
+          <div>
+            <dt>País</dt>
+            <dd>
+              {#each release.countries as country, index (country)}
+                <button type="button" on:click={() => navigateToFilter('country', country)}>{country}</button>{#if index < release.countries.length - 1}<span aria-hidden="true"> / </span>{/if}
+              {/each}
+            </dd>
+          </div>
+        {/if}
+
+        {#if release.label}
+          <div>
+            <dt>Sello</dt>
+            <dd><a href={`/sello/${slugify(release.label)}`}>{release.label}</a></dd>
+          </div>
+        {/if}
+
+        {#if date}
+          <div><dt>Fecha</dt><dd>{date}</dd></div>
+        {/if}
+
+        {#if release.genres.length}
+          <div class="release-detail__metadata-row--genres">
+            <dt>Género</dt>
+            <dd class="release-detail__tags">
+              {#each release.genres as genre (genre)}
+                <button class="release-detail__tag" type="button" on:click={() => navigateToFilter('genre', genre)}>{genre}</button>
+              {/each}
+            </dd>
+          </div>
+        {/if}
+      </dl>
+
+      {#if release.review}
+        <blockquote class="release-detail__review">“{release.review}”</blockquote>
+      {/if}
+
+      {#key release.slug}
+        <ReleasePlayer {release} />
+      {/key}
+
+      <div class="release-detail__actions" aria-label="Acciones del lanzamiento">
+        {#if release.buyLink}
+          <a class="release-detail__buy" href={release.buyLink} target="_blank" rel="noopener noreferrer">Comprar</a>
+        {/if}
+
+        <AddToCrateButton releaseId={release.id ?? undefined} lanzamientoSlug={release.slug} menuPortalTarget={menuLayer} />
+
+        <a class="release-detail__share" href={`/reportar${release.id ? `?release_id=${encodeURIComponent(release.id)}` : ''}`}>Reportar</a>
+
+        <button class="release-detail__share" type="button" on:click={share} aria-label="Copiar enlace canónico">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          <span class:release-detail__share-label--ok={copied}>{copied ? 'Copiado' : 'Compartir'}</span>
+        </button>
+      </div>
+
+      <section class="release-detail__recommendations" aria-label="Recomendaciones" data-release-recommendations>
+        <slot name="recommendations"></slot>
+      </section>
+    </div>
+  </div>
+</article>
+
+<style>
+  .release-detail {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    color: var(--color-texto);
+  }
+
+  .release-detail--modal {
+    height: 100%;
+    min-height: 0;
+    border-radius: inherit;
+  }
+
+  .release-detail__menu-layer {
+    position: absolute;
+    inset: 0;
+    z-index: calc(var(--layer-dropdown) + 1);
+    pointer-events: none;
+  }
+
+  .release-detail__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 440px;
+    min-width: 0;
+  }
+
+  /* The dialog itself does not clip (see LanzamientoModal); the layout clips
+     the content to its corners and the menu layer stays outside it. */
+  .release-detail--modal .release-detail__layout {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: inherit;
+  }
+
+  .release-detail__cover-column {
+    position: relative;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: var(--color-fondo);
+  }
+
+  .release-detail--page .release-detail__cover-column {
+    position: sticky;
+    top: 5.5rem;
+    align-self: start;
+  }
+
+  .release-detail__cover {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    overflow: hidden;
+  }
+
+  .release-detail__cover img,
+  .release-detail__cover-placeholder {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: linear-gradient(135deg, var(--color-panel), var(--color-fondo));
+  }
+
+  .release-detail__cover img { transition: transform var(--motion-slow) ease, opacity var(--motion-slow) ease; }
+
+  .release-detail__radar {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: var(--color-sombra-fuerte);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--motion-slow) ease;
+  }
+
+  .release-detail__radar-scale { transform: scale(1.7); transform-origin: center; }
+  .release-detail__cover:hover img { transform: scale(1.04); opacity: .12; }
+  .release-detail__cover:hover .release-detail__radar { opacity: 1; }
+
+  .release-detail__info {
+    min-width: 0;
+    padding: 2rem 2.25rem 2rem 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    box-sizing: border-box;
+  }
+
+  .release-detail--modal .release-detail__info {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  /* With a fixed-height column, flex children (the player clips its overflow,
+     so its automatic minimum is 0) would shrink instead of letting the column
+     scroll. Every block keeps its own height, including child components
+     such as ReleasePlayer, hence :global. */
+  .release-detail__info > :global(*) { flex-shrink: 0; }
+
+  .release-detail__presentation {
+    position: relative;
+    align-self: flex-start;
+    margin: 0;
+    padding-right: 2.75rem;
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--color-acento-texto);
+    overflow-wrap: anywhere;
+  }
+
+  .release-detail__presentation a,
+  .release-detail__presentation button {
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+  }
+
+  .release-detail__artist-link { text-decoration: none; }
+  /* Gap after the comma as margin: Svelte 5 trims trailing whitespace inside a span. */
+  .release-detail__artist-sep { margin-inline-end: .3em; }
+  .release-detail__artist-more { margin-inline-start: .3em; }
+  .release-detail__artist-link:hover { color: var(--color-acento); }
+
+  .release-detail__artists-trigger {
+    min-height: var(--control-h-sm);
+    margin: -7px 0;
+    padding: .15rem .45rem;
+    border: 1px solid var(--color-acento-suave);
+    border-radius: var(--radius-xs);
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .release-detail__artists-trigger:hover,
+  .release-detail__artists-trigger:focus-visible {
+    border-color: var(--color-acento-texto);
+    color: var(--color-acento);
+  }
+
+  .release-detail__artists-menu {
+    position: absolute;
+    z-index: var(--layer-dropdown);
+    top: calc(100% + .55rem);
+    left: 0;
+    min-width: 13rem;
+    max-width: min(80vw, 20rem);
+    max-height: 13rem;
+    overflow-y: auto;
+    padding: .35rem;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radius-sm);
+    background: var(--color-panel-raised);
+    box-shadow: 0 14px 36px var(--color-sombra-fuerte);
+  }
+
+  .release-detail__artists-menu a,
+  .release-detail__artist-unlinked {
+    display: block;
+    padding: .5rem .65rem;
+    border-radius: var(--radius-sm);
+    color: var(--color-texto);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    line-height: 1.35;
+    letter-spacing: normal;
+    text-decoration: none;
+    text-transform: none;
+  }
+
+  .release-detail__artists-menu a:hover,
+  .release-detail__artists-menu a:focus-visible {
+    background: var(--color-acento-dim);
+    color: var(--color-acento);
+  }
+
+  .release-detail__title {
+    margin: 0;
+    max-width: 100%;
+    font-size: var(--text-3xl);
+    font-weight: 700;
+    line-height: 1.08;
+    letter-spacing: -.02em;
+    color: var(--color-texto);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .release-detail__metadata {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+  }
+
+  .release-detail__metadata > div {
+    display: grid;
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: .65rem;
+    align-items: baseline;
+  }
+
+  .release-detail__metadata dt {
+    font-size: var(--text-2xs);
+    line-height: 1.6;
+    font-weight: 600;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--color-texto-tenue);
+  }
+
+  .release-detail__metadata dd {
+    min-width: 0;
+    margin: 0;
+    color: var(--color-texto-alto);
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+
+  .release-detail__metadata a,
+  .release-detail__metadata button {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+  .release-detail__metadata a:hover,
+  .release-detail__metadata button:hover { color: var(--color-acento); }
+  .release-detail__metadata dd > span { color: var(--color-texto-tenue); }
+  .release-detail__metadata-row--genres { align-items: start !important; }
+
+  .release-detail__tags { display: flex; flex-wrap: wrap; gap: .3rem; }
+  .release-detail__tag {
+    padding: .28rem .65rem !important;
+    border: 1px solid var(--color-acento-dim) !important;
+    border-radius: var(--radius-sm) !important;
+    background: var(--color-acento-tinte) !important;
+    color: var(--color-acento-texto) !important;
+    font-size: var(--text-2xs) !important;
+    white-space: nowrap;
+  }
+
+  .release-detail__review {
+    margin: 0;
+    padding-left: .9rem;
+    border-left: 2px solid var(--color-acento-suave);
+    color: var(--color-texto-tenue);
+    font-size: var(--text-sm);
+    font-style: italic;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .release-detail__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .65rem;
+    padding-top: .25rem;
+  }
+
+  .release-detail__buy,
+  .release-detail__share {
+    min-height: var(--control-h-lg);
+    box-sizing: border-box;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+  }
+
+  .release-detail__buy {
+    display: inline-flex;
+    align-items: center;
+    padding: .6rem var(--control-px-lg);
+    background: var(--color-acento);
+    color: var(--color-sobre-acento);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .release-detail__share {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .58rem 1rem;
+    border: 1px solid var(--color-linea);
+    background: var(--color-superficie-1);
+    color: var(--color-texto-tenue);
+    font: inherit;
+    font-size: var(--text-xs);
+    cursor: pointer;
+  }
+  .release-detail__share:hover { color: var(--color-texto-alto); border-color: var(--color-borde-hover); }
+  .release-detail__share-label--ok { color: var(--color-acento); }
+
+  .release-detail__recommendations:empty { display: none; }
+
+  @media (max-width: 680px) {
+    .release-detail--modal,
+    .release-detail--modal .release-detail__layout { height: 100%; }
+
+    .release-detail__layout {
+      display: block;
+      overflow-y: visible;
+    }
+
+    .release-detail--modal .release-detail__layout {
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .release-detail__cover-column,
+    .release-detail--page .release-detail__cover-column {
+      position: relative;
+      top: auto;
+      width: 100%;
+      padding: 1.5rem 1.5rem 0;
+      box-sizing: border-box;
+      overflow: visible;
+    }
+
+    .release-detail__cover {
+      width: min(82vw, 340px);
+      max-width: 100%;
+    }
+
+    .release-detail__info,
+    .release-detail--modal .release-detail__info {
+      height: auto;
+      overflow: visible;
+      padding: 1.5rem;
+      scrollbar-gutter: auto;
+    }
+
+    .release-detail__presentation { padding-right: 2.75rem; }
+  }
+</style>

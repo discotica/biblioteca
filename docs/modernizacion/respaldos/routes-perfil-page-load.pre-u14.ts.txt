@@ -1,0 +1,30 @@
+import type { PageLoad } from './$types';
+import { error } from '@sveltejs/kit';
+import { supabase } from '$lib/supabase';
+
+export const load: PageLoad = async ({ params }) => {
+  const { data: perfil } = await supabase
+    .from('profiles')
+    .select('id, username, display_name, bio, created_at')
+    .eq('username', params.username)
+    .single();
+
+  if (!perfil) throw error(404, 'Perfil no encontrado.');
+
+  const { data: crates } = await supabase
+    .from('crates')
+    .select('*, crate_items(count)')
+    .eq('owner_id', perfil.id)
+    .eq('is_public', true)
+    .order('created_at', { ascending: false });
+
+  const cratesConConteo = (crates ?? []).map((c: any) => ({
+    ...c,
+    item_count: c.crate_items?.[0]?.count ?? 0
+  }));
+
+  return {
+    perfil,
+    crates: cratesConConteo
+  };
+};

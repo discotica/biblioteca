@@ -1,0 +1,144 @@
+<script>
+  // Resultados del inicio (E13, U10): carga con esqueleto, error con reintento,
+  // barra de orden y paginación, grilla o lista con el separador de
+  // aproximados, contador y paginación inferior.
+  import { createEventDispatcher } from 'svelte';
+  import LanzamientoCard from '$lib/components/LanzamientoCard.svelte';
+  import LanzamientoFila from '$lib/components/LanzamientoFila.svelte';
+  import SearchResultsBar from '$lib/components/SearchResultsBar.svelte';
+  import Pagination from '$lib/ui/Pagination.svelte';
+  import Skeleton from '$lib/ui/Skeleton.svelte';
+  import LoadingIndicator from '$lib/ui/LoadingIndicator.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import ErrorState from '$lib/ui/ErrorState.svelte';
+  import { RELEASES_PER_PAGE } from '$lib/domain/homeSearchView';
+
+  export let loading = true;
+  export let error = false;
+  export let announcement = '';
+  export let page = 1;
+  export let totalPages = 1;
+  export let order;
+  export let orders = [];
+  export let approximateNotice = '';
+  /** Todas las coincidencias, exactas y aproximadas. */
+  export let matches = [];
+  /** Las de la página actual. */
+  export let pageMatches = [];
+  export let onlyApproximate = false;
+  export let separatorAtStart = false;
+  /** Hay criterios: el vacío ofrece quitarlos. */
+  export let hasCriteria = false;
+  /** 'grid' | 'list' */
+  export let view = 'grid';
+  export let gridEl = null;
+
+  const dispatch = createEventDispatcher();
+  const formatter = new Intl.NumberFormat('es-CO');
+  // Seis esqueletos: dos filas de la grilla de tres o seis filas de la lista.
+  const skeletons = Array.from({ length: 6 }, (_, index) => index);
+
+  function s(n) { return n === 1 ? '' : 's'; }
+  const n = (value) => formatter.format(value);
+
+  // Contador: arriba junto a la paginación (desktop) y al pie (móvil). Con
+  // solo aproximados lo sustituye el aviso.
+  $: summary = onlyApproximate || !matches.length
+    ? ''
+    : totalPages > 1
+      ? `${n((page - 1) * RELEASES_PER_PAGE + 1)}–${n(Math.min(page * RELEASES_PER_PAGE, matches.length))} de ${n(matches.length)} lanzamiento${s(matches.length)}`
+      : `${n(matches.length)} lanzamiento${s(matches.length)}`;
+</script>
+
+<section class="resultados l-container l-container--wide" aria-busy={loading}>
+  <p class="sr-only" aria-live="polite" aria-atomic="true">{announcement}</p>
+
+{#if loading}
+  <div class="loader resultados__carga">
+    <LoadingIndicator label="Cargando catálogo" />
+    <div class={view === 'list' ? 'lanzamientos-lista' : 'lanzamientos-grilla'}>
+      {#each skeletons as index (index)}
+        <Skeleton variant={view === 'list' ? 'row' : 'card'} />
+      {/each}
+    </div>
+  </div>
+{:else if error}
+  <ErrorState
+    class="resultados__error"
+    message="No pudimos cargar los lanzamientos."
+    detail="Revisa tu conexión e inténtalo de nuevo."
+    onaction={() => dispatch('retry')}
+  />
+{:else}
+  <SearchResultsBar
+    {page}
+    {totalPages}
+    {order}
+    {orders}
+    {approximateNotice}
+    {view}
+    {summary}
+    on:page
+    on:order
+    on:view
+  />
+
+  {#if !matches.length}
+    <EmptyState
+      class="resultados__vacio"
+      message="No encontramos lanzamientos con estos filtros."
+      detail={hasCriteria ? 'Prueba con menos filtros o con otra palabra.' : undefined}
+      actionLabel={hasCriteria ? 'Quitar filtros' : undefined}
+      onaction={hasCriteria ? () => dispatch('reset') : undefined}
+    />
+  {:else}
+    <div
+      class="resultados__grid"
+      class:lanzamientos-grilla={view !== 'list'}
+      class:lanzamientos-lista={view === 'list'}
+      bind:this={gridEl}
+      tabindex="-1"
+    >
+      {#each pageMatches as coincidencia, index (coincidencia.release.id || coincidencia.release.slug)}
+        {#if coincidencia.group === 'approximate' && ((index === 0 && separatorAtStart) || (index > 0 && pageMatches[index - 1].group === 'exact'))}
+          <p class="resultados__grupo" aria-label="Resultados aproximados">Resultados aproximados</p>
+        {/if}
+        {#if view === 'list'}
+          <LanzamientoFila lanzamiento={coincidencia.release} onabrir={(release) => dispatch('abrir', release)} />
+        {:else}
+          <LanzamientoCard lanzamiento={coincidencia.release} onabrir={(release) => dispatch('abrir', release)} />
+        {/if}
+      {/each}
+    </div>
+
+    <div class="resultados__paginacion-inferior">
+      {#if summary}<p class="resultados__total-pie">{summary}</p>{/if}
+      <Pagination {page} {totalPages} label="Paginación inferior de resultados" onchange={(next) => dispatch('page', next)} />
+    </div>
+  {/if}
+{/if}
+</section>
+
+<style>
+  /* El ritmo vertical lo ponen la barra y la banda de filtros (global: 32 px). */
+  .resultados { margin-top: 0; }
+  /* La grilla y la lista son las compartidas (.lanzamientos-grilla y .lanzamientos-lista, U8). */
+  .resultados__grid { scroll-margin-top: var(--spacing-lg); }
+  .resultados__grupo { grid-column: 1 / -1; margin: var(--spacing-md) 0 0; color: var(--color-texto-secundario); font-size: var(--text-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  .resultados__paginacion-inferior { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); margin: var(--spacing-lg) 0; }
+  /* El contador del pie solo en móvil: en desktop está junto a la paginación superior. */
+  .resultados__total-pie { display: none; margin: 0; color: var(--color-texto-secundario); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+  @media (max-width: 768px) {
+    .resultados__total-pie { display: block; }
+  }
+
+  /* Carga: el indicador en horizontal sobre un esqueleto con la composición de la vista. */
+  .resultados__carga {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-5);
+    margin-top: var(--space-5);
+  }
+  .resultados__carga > div { width: 100%; }
+</style>

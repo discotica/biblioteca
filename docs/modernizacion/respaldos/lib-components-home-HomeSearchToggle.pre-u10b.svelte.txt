@@ -1,0 +1,36 @@
+<script>
+  // Disparador del panel de búsqueda en desktop. En móvil lo sustituye MobileSearchBar.
+  // U10: es un Button del sistema; sin el barrido de luz en bucle (el sitio no
+  // tiene animación ambiental).
+  import { createEventDispatcher } from 'svelte';
+  import Button from '$lib/ui/Button.svelte';
+
+  export let open = false;
+  export let buttonEl = null;
+
+  const dispatch = createEventDispatcher();
+</script>
+
+<div class="boton-buscar-contenedor">
+  <Button
+    class="boton-buscar-toggle"
+    variant={open ? 'secondary' : 'primary'}
+    size="lg"
+    icon={open ? 'cerrar' : 'buscar'}
+    aria-expanded={open}
+    bind:element={buttonEl}
+    onclick={() => dispatch('click')}
+  >{open ? 'Cerrar búsqueda' : 'Buscar'}</Button>
+</div>
+
+<style>
+  .boton-buscar-contenedor {
+    display: flex;
+    justify-content: center;
+    margin: var(--space-5) 0 var(--space-4);
+  }
+
+  @media (max-width: 768px) {
+    .boton-buscar-contenedor { display: none; }
+  }
+</style>

@@ -1,5 +1,10 @@
 <script>
+  // Filtro Radar: cinco ejes con cinco puntos cada uno (E11). U10: acciones con
+  // Button, puntos con nombre accesible y área táctil de 44 con el dedo, y el
+  // título opcional. U10b-2: siempre en dos columnas (ejes | gráfico); con el
+  // dedo en un ancho estrecho se compacta para caber en la hoja móvil.
   import { createEventDispatcher } from 'svelte';
+  import Button from '$lib/ui/Button.svelte';
   import RadarVisual from './RadarVisual.svelte';
 
   const dispatch = createEventDispatcher();
@@ -11,6 +16,8 @@
     bailable: 0,
     rapido: 0
   };
+
+  export let showTitle = true;
 
   let radarInterno = { ...radar };
 
@@ -48,13 +55,13 @@
   }
 </script>
 
-<section class="radar">
+<section class="radar" aria-label={showTitle ? undefined : 'Radar'}>
   <div class="radar-controls">
-    <h3 class="radar-title">Radar</h3>
+    {#if showTitle}<h3 class="radar-title">Radar</h3>{/if}
     <div class="radar-ejes">
       {#each ejes as { key, label }}
-        <div class="eje-row" class:eje-row--active={radarInterno[key] > 0}>
-          <span class="eje-label">{label}</span>
+        <div class="eje-row" class:eje-row--active={radarInterno[key] > 0} role="group" aria-label={label}>
+          <span class="eje-label" aria-hidden="true">{label}</span>
           <div class="pips" style="--n:{radarInterno[key]}">
             {#each [1, 2, 3, 4, 5] as n}
               <button
@@ -62,13 +69,15 @@
                 class="pip"
                 class:pip--active={n <= radarInterno[key]}
                 class:pip--selected={n === radarInterno[key]}
+                aria-label={`${label}: ${n} de 5`}
+                aria-pressed={n === radarInterno[key]}
                 on:click={() => elegir(key, n)}
                 title={String(n)}
               ></button>
             {/each}
           </div>
           {#if radarInterno[key] > 0}
-            <span class="eje-valor">{radarInterno[key]}</span>
+            <span class="eje-valor" aria-hidden="true">{radarInterno[key]}</span>
           {:else}
             <span class="eje-valor eje-valor--vacio"></span>
           {/if}
@@ -76,37 +85,46 @@
       {/each}
     </div>
     <div class="radar-acciones">
-      <button class="btn-accion btn-accion--random" on:click={randomizarRadar}>Randomizar</button>
-      <button class="btn-accion btn-accion--limpiar" on:click={resetRadar}>Limpiar</button>
+      <Button variant="secondary" size="sm" onclick={randomizarRadar}>Aleatorizar</Button>
+      <Button variant="ghost" size="sm" onclick={resetRadar}>Limpiar</Button>
     </div>
   </div>
 
-  <div class="radar-visual">
+  <div class="radar-visual" aria-hidden="true">
     <RadarVisual valores={radarInterno} />
   </div>
 </section>
 
 <style>
 .radar {
+  /* Paso entre puntos: 24 con cursor, 44 con el dedo (objetivo táctil).
+     Ancho y alto por separado: la hoja estrecha usa 40 × 44. */
+  --pip-hit: var(--space-5);
+  --pip-hit-x: var(--pip-hit);
+  --pip-hit-y: var(--pip-hit);
+  --pip-dot: 14px;
+  /* Sangría de la columna vertebral de los ejes. */
+  --radar-spine: 1.1rem;
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-4);
   align-items: start;
 }
 
-@media (max-width: 960px) {
-  .radar { grid-template-columns: 1fr; }
+@media (pointer: coarse) {
+  .radar { --pip-hit: var(--target-touch); }
 }
 
 .radar-controls {
   display: flex;
   flex-direction: column;
-  gap: .6rem;
+  gap: var(--space-3);
+  min-width: 0;
 }
 
 .radar-title {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: var(--text-lg);
   font-weight: 700;
   letter-spacing: .2px;
   color: var(--color-texto);
@@ -116,8 +134,8 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
-  padding-left: 1.1rem;
+  gap: var(--space-2);
+  padding-left: var(--radar-spine);
 }
 
 /* Vertical spine connecting all rows */
@@ -131,8 +149,8 @@
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    rgba(150, 247, 25, .18) 8%,
-    rgba(150, 247, 25, .18) 92%,
+    var(--color-acento-suave) 8%,
+    var(--color-acento-suave) 92%,
     transparent 100%
   );
   pointer-events: none;
@@ -141,35 +159,36 @@
 .eje-row {
   position: relative;
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: .65rem;
+  column-gap: var(--space-3);
 }
 
 /* Dot on the spine for each row */
 .eje-row::before {
   content: '';
   position: absolute;
-  left: calc(-1.1rem + 3px);
-  top: 50%;
+  left: calc(3px - var(--radar-spine));
+  top: calc(100% - var(--pip-hit-y) / 2);
   transform: translate(-50%, -50%);
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, .08);
-  border: 1px solid rgba(255, 255, 255, .18);
+  background: var(--color-superficie-3);
+  border: 1px solid var(--color-linea-fuerte);
   pointer-events: none;
-  transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
 }
 
 .eje-row--active::before {
   background: var(--color-acento);
   border-color: var(--color-acento);
-  box-shadow: 0 0 6px rgba(150, 247, 25, .45);
+  box-shadow: 0 0 6px var(--color-acento-border);
 }
 
 .eje-label {
-  min-width: 90px;
-  font-size: .8rem;
+  flex: 0 0 5.75rem;
+  font-size: var(--text-xs);
   color: var(--color-texto-secundario);
   line-height: 1;
 }
@@ -177,7 +196,6 @@
 .pips {
   position: relative;
   display: flex;
-  gap: .5rem;
   align-items: center;
 }
 
@@ -185,13 +203,13 @@
 .pips::before {
   content: '';
   position: absolute;
-  left: 7px;
-  right: 7px;
+  left: calc(var(--pip-hit-x) / 2);
+  right: calc(var(--pip-hit-x) / 2);
   top: 50%;
   height: 1.5px;
   transform: translateY(-50%);
-  background: rgba(255, 255, 255, .1);
-  border-radius: 1px;
+  background: var(--color-superficie-3);
+  border-radius: var(--radius-xs);
   z-index: 0;
   pointer-events: none;
 }
@@ -200,53 +218,70 @@
 .pips::after {
   content: '';
   position: absolute;
-  left: 7px;
-  right: 7px;
+  left: calc(var(--pip-hit-x) / 2);
+  right: calc(var(--pip-hit-x) / 2);
   top: 50%;
   height: 1.5px;
   transform: translateY(-50%);
   background: linear-gradient(
     to right,
-    rgba(150, 247, 25, .55) max(0%, calc((var(--n, 0) - 1) / 4 * 100%)),
+    var(--color-acento-texto) max(0%, calc((var(--n, 0) - 1) / 4 * 100%)),
     transparent              max(0%, calc((var(--n, 0) - 1) / 4 * 100%))
   );
-  border-radius: 1px;
+  border-radius: var(--radius-xs);
   z-index: 0;
   pointer-events: none;
 }
 
+/* El botón ocupa el paso completo; el punto visible se dibuja en ::before. */
 .pip {
   position: relative;
   z-index: 1;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, .18);
-  background: #131313;
-  cursor: pointer;
-  padding: 0;
-  transition: border-color 100ms ease, background 100ms ease, box-shadow 100ms ease;
+  width: var(--pip-hit-x);
+  height: var(--pip-hit-y);
   flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
 }
 
-.pip:hover {
-  border-color: rgba(150, 247, 25, .55);
-  background: rgba(150, 247, 25, .12);
+.pip::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--pip-dot);
+  height: var(--pip-dot);
+  box-sizing: border-box;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1.5px solid var(--color-linea-fuerte);
+  background: var(--color-panel);
+  transition: border-color var(--motion-instant) ease, background var(--motion-instant) ease, box-shadow var(--motion-instant) ease;
 }
 
-.pip--active {
-  background: rgba(150, 247, 25, .3);
-  border-color: rgba(150, 247, 25, .65);
+.pip:hover::before {
+  border-color: var(--color-acento-texto);
+  background: var(--color-acento-dim);
 }
 
-.pip--selected {
+.pip:focus-visible { outline: none; }
+.pip:focus-visible::before { box-shadow: var(--focus-ring); border-color: var(--focus-ring-color); }
+
+.pip--active::before {
+  background: var(--color-borde-hover);
+  border-color: var(--color-acento-texto);
+}
+
+.pip--selected::before {
   background: var(--color-acento);
   border-color: var(--color-acento);
-  box-shadow: 0 0 5px rgba(150, 247, 25, .6);
+  box-shadow: 0 0 5px var(--color-acento-texto);
 }
 
 .eje-valor {
-  font-size: .75rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   color: var(--color-acento);
   min-width: 1rem;
@@ -259,59 +294,75 @@
 
 .radar-acciones {
   display: flex;
-  gap: .5rem;
-  padding-left: 1.1rem;
-  margin-top: .9rem;
+  gap: var(--space-2);
+  padding-left: var(--radar-spine);
+  margin-top: var(--space-2);
 }
-
-.btn-accion {
-  appearance: none;
-  flex: 1;
-  border-radius: 999px;
-  padding: .5rem .75rem;
-  font-family: var(--font-base);
-  font-size: .72rem;
-  font-weight: 600;
-  cursor: pointer;
-  line-height: 1;
-  transition: transform 120ms ease, filter 120ms ease, border-color 120ms ease, background 120ms ease;
-}
-
-.btn-accion--random {
-  border: 1px solid rgba(150, 247, 25, .45);
-  background: rgba(150, 247, 25, .08);
-  color: var(--color-texto);
-}
-
-.btn-accion--limpiar {
-  border: 1px solid rgba(255, 255, 255, .1);
-  background: rgba(255, 255, 255, .04);
-  color: rgba(248, 255, 238, .45);
-}
-
-.btn-accion:hover {
-  filter: brightness(1.08);
-  transform: translateY(-1px);
-}
-
-.btn-accion--random:hover { border-color: rgba(150, 247, 25, .7); }
-.btn-accion--limpiar:hover { border-color: rgba(255, 255, 255, .2); color: rgba(248, 255, 238, .75); }
-
-.btn-accion:active { transform: translateY(0); }
 
 .radar-visual {
-  width: 230px;
-  height: 230px;
+  width: 180px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-@media (max-width: 960px) {
+/* Estrecho (hoja móvil): las dos columnas se compactan. La etiqueta y el
+   valor van sobre los puntos, hay menos aire entre ejes, el gráfico mide
+   ~115 px y Aleatorizar/Limpiar van bajo él, en su columna. Con etiqueta al
+   lado y gráfico de 180 no caben: hacen falta 566 px con el dedo y la hoja
+   ofrece 432 a 480. */
+@media (max-width: 679px) {
+  .radar {
+    --radar-spine: var(--space-3);
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      "titulo titulo"
+      "ejes visual"
+      "ejes acciones";
+    gap: var(--space-3);
+  }
+  .radar:not(:has(.radar-title)) {
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "ejes visual"
+      "ejes acciones";
+  }
+  .radar-controls { display: contents; }
+  .radar-title { grid-area: titulo; }
+  .radar-ejes { grid-area: ejes; gap: var(--space-1); }
+  .eje-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "label valor"
+      "pips pips";
+    row-gap: var(--space-1);
+  }
+  .eje-label { grid-area: label; }
+  .eje-valor { grid-area: valor; text-align: right; }
+  .pips { grid-area: pips; }
   .radar-visual {
+    grid-area: visual;
     width: 100%;
-    max-width: 320px;
-    margin: 0 auto;
+    max-width: 115px;
+    justify-self: center;
+  }
+  .radar-acciones {
+    grid-area: acciones;
+    flex-direction: column;
+    align-self: start;
+    padding-left: 0;
+    margin-top: 0;
+  }
+}
+
+/* Con el dedo bajo 480: puntos de 40 × 44, para que 5 × 40 quepan junto al
+   gráfico a 360. */
+@media (pointer: coarse) and (max-width: 479px) {
+  .radar {
+    --pip-hit-x: 40px;
+    --pip-hit-y: var(--target-touch);
   }
 }
 </style>

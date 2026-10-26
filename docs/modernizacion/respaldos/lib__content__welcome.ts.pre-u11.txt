@@ -1,0 +1,20 @@
+/**
+ * Provisional E20 content. Product can replace this object (or pass a new one
+ * to WelcomeBanner) without changing the session or navigation behaviour.
+ */
+export interface WelcomeContent {
+  title: string;
+  description: string;
+  cta: string;
+  closeLabel: string;
+  visualLabel: string;
+}
+
+export const WELCOME_CONTENT: WelcomeContent = {
+  title: 'Explora la biblioteca de Discótica',
+  description: 'Descubre lanzamientos por género, país, año y perfil sonoro.',
+  cta: 'Explorar',
+  closeLabel: 'Cerrar bienvenida',
+  // This intentionally describes a replaceable local placeholder, not art.
+  visualLabel: 'Espacio reservado para ilustración de bienvenida'
+};
