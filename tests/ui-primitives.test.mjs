@@ -166,3 +166,12 @@ test('U20 barra lateral: almacenamiento bloqueado o ausente la deja desplegada s
   assert.equal(writeToolSidebarCollapsed(true, null), false);
   assert.equal(readToolSidebarCollapsed(), false, 'sin localStorage global (Node)');
 });
+
+// ---- U21: Catálogo y Diccionarios -----------------------------------------------
+
+test('U21 iconos: señales del catálogo y bandeja vacía', () => {
+  for (const name of ['imagen-off', 'aviso', 'bandeja']) {
+    assert.ok(ICON_NAMES.includes(name), name);
+    assert.ok(!ICONS[name].filled, `${name}: trazo, sin relleno`);
+  }
+});

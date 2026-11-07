@@ -77,11 +77,15 @@ export function legacyStudioHref(pathname: string, search = '', hash = ''): stri
 
 export type StudioQuickView = 'draft' | 'incomplete' | 'missing_cover' | 'open_reports';
 
-export const STUDIO_QUICK_VIEWS: ReadonlyArray<{ value: StudioQuickView; slug: string; label: string }> = [
-  { value: 'draft', slug: 'borradores', label: 'Borradores' },
-  { value: 'incomplete', slug: 'incompletos', label: 'Incompletos' },
-  { value: 'missing_cover', slug: 'sin-portada', label: 'Sin portada' },
-  { value: 'open_reports', slug: 'con-reportes', label: 'Con reportes' }
+/**
+ * `description` es lo que la vista incluye: va en el tooltip del enlace de la
+ * barra lateral y no como subtítulo (guía de voz del rediseño, U21).
+ */
+export const STUDIO_QUICK_VIEWS: ReadonlyArray<{ value: StudioQuickView; slug: string; label: string; description: string }> = [
+  { value: 'draft', slug: 'borradores', label: 'Borradores', description: 'Lanzamientos en borrador.' },
+  { value: 'incomplete', slug: 'incompletos', label: 'Incompletos', description: 'No se podrían publicar hoy por falta de datos, en cualquier estado.' },
+  { value: 'missing_cover', slug: 'sin-portada', label: 'Sin portada', description: 'Sin portada, o con una que no usa HTTPS.' },
+  { value: 'open_reports', slug: 'con-reportes', label: 'Con reportes', description: 'Con al menos un reporte sin resolver.' }
 ];
 
 export function quickViewFromSlug(slug: string | null | undefined): StudioQuickView | null {

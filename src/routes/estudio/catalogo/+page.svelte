@@ -18,21 +18,25 @@
     withParams,
     type StudioQuickView
   } from '$lib/domain/studio';
+  import SelectionBar from '$lib/components/estudio/SelectionBar.svelte';
   import { ToolHeader } from '$lib/layouts';
   import {
     Button,
     Checkbox,
-    Chip,
     Dialog,
     EmptyState,
     ErrorState,
     Field,
+    Icon,
     IconButton,
     LoadingIndicator,
     Notice,
     Pagination,
     Select,
-    Textarea
+    StatusDot,
+    Textarea,
+    type IconName,
+    type StatusTone
   } from '$lib/ui';
   import { BELOW_MOBILE_QUERY } from '$lib/ui/breakpoints';
   import {
@@ -61,17 +65,21 @@
     published: 'Publicado',
     archived: 'Archivado'
   };
-  const statusTones: Record<CatalogStatus, 'neutral' | 'accent' | 'danger'> = {
-    draft: 'neutral',
-    published: 'accent',
+  // Verde = publicado · contorno = borrador · rojo = archivado (guía de voz, regla 4).
+  const statusTones: Record<CatalogStatus, StatusTone> = {
+    draft: 'draft',
+    published: 'ok',
     archived: 'danger'
   };
-  const viewDescriptions: Record<StudioQuickView | 'all', string> = {
-    all: 'Todos los lanzamientos, del más reciente al más antiguo.',
-    draft: 'Lanzamientos en borrador.',
-    incomplete: 'No se podrían publicar hoy por falta de datos, en cualquier estado.',
-    missing_cover: 'Sin portada, o con una que no usa HTTPS.',
-    open_reports: 'Con al menos un reporte sin resolver.'
+  /**
+   * Vacío por vista (guía de voz, regla 5): título de dos o tres palabras, una
+   * línea de contexto y, si hay a dónde ir, una acción.
+   */
+  const emptyByView: Record<StudioQuickView, { icon: IconName; message: string; detail: string }> = {
+    draft: { icon: 'bandeja', message: 'Sin borradores', detail: 'Todo lo que entra al catálogo está publicado o archivado.' },
+    incomplete: { icon: 'check', message: 'Nada incompleto', detail: 'Todos se podrían publicar hoy.' },
+    missing_cover: { icon: 'check', message: 'Todo con portada', detail: 'Ninguno está sin portada ni con una que no use HTTPS.' },
+    open_reports: { icon: 'check', message: 'Sin reportes abiertos', detail: 'Ningún lanzamiento tiene reportes por resolver.' }
   };
 
   let ready = false;
@@ -123,14 +131,20 @@
   $: blockedForPublish = pickedList.filter((item) => item.missing.length > 0);
   $: hasFilters = Boolean(query.trim() || statusFilter || typeFilter);
   $: viewLabel = STUDIO_QUICK_VIEWS.find((view) => view.value === quickView)?.label ?? '';
-  $: viewDescription = quickView ? `${viewLabel} · ${viewDescriptions[quickView]}` : viewDescriptions.all;
+  $: empty = hasFilters
+    ? { icon: 'buscar' as IconName, message: 'Sin resultados', detail: 'Prueba otra búsqueda o quita los filtros.', action: 'Quitar filtros' }
+    : quickView
+      ? { ...emptyByView[quickView], action: 'Ver todo el catálogo' }
+      : { icon: 'bandeja' as IconName, message: 'Sin lanzamientos', detail: undefined, action: undefined };
+  $: from = (page - 1) * PAGE_SIZE + 1;
+  $: to = Math.min(page * PAGE_SIZE, total);
   $: statusOptions = [
     { value: '', label: 'Todos' },
     ...(Object.entries(statusLabels) as [CatalogStatus, string][]).map(([value, label]) => ({ value, label }))
   ];
   $: typeOptions = [{ value: '', label: 'Todos' }, ...types.map((type) => ({ value: type.id, label: type.name }))];
   $: viewOptions = [
-    { value: '', label: 'Todos los lanzamientos' },
+    { value: '', label: 'Todos' },
     ...STUDIO_QUICK_VIEWS.map((view) => ({ value: view.slug, label: view.label }))
   ];
   $: batchTitle = batchResult
@@ -380,64 +394,55 @@
       onsaved={editorSaved}
     />
   {:else}
-    <ToolHeader title="Catálogo" description={viewDescription}>
+    <ToolHeader
+      title={viewLabel || 'Catálogo'}
+      crumb={viewLabel ? 'Catálogo' : undefined}
+      count={listLoaded && !listError ? total : undefined}
+    >
       {#snippet actions()}
-        {#if !mobile}<Button icon="agregar" href={NEW_RELEASE_HREF}>Nuevo lanzamiento</Button>{/if}
+        <!-- El nombre accesible conserva «lanzamiento»: la etiqueta visible es «Nuevo». -->
+        {#if !mobile}<Button icon="agregar" href={NEW_RELEASE_HREF} aria-label="Nuevo lanzamiento">Nuevo</Button>{/if}
       {/snippet}
     </ToolHeader>
 
     {#if notice}<Notice tone="success" class="catalogo__notice">{notice}</Notice>{/if}
 
-    <div class="catalogo__toolbar" role="search" aria-label="Buscar y filtrar el catálogo">
-      <Field
-        class="catalogo__search"
-        type="search"
-        icon="buscar"
-        label="Buscar en el catálogo"
-        hideLabel
-        placeholder="Buscar por título, artista, sello o ID"
-        bind:value={query}
-        oninput={scheduleListSearch}
-        onkeydown={(event: KeyboardEvent) => { if (event.key === 'Enter') { clearTimeout(searchTimer); applyFilters(); } }}
-      />
-      <div class="catalogo__vista">
-        <Select label="Vista" inline options={viewOptions} value={quickViewSlug(quickView) ?? ''} onchange={chooseView} />
-      </div>
-      <Select label="Estado" inline options={statusOptions} bind:value={statusFilter} onchange={applyFilters} />
-      <Select label="Tipo" inline options={typeOptions} bind:value={typeFilter} onchange={applyFilters} />
-    </div>
-
     {#if pickedCount && !mobile}
-      <div class="catalogo__batch" role="region" aria-label="Selección">
-        <p class="catalogo__batch-count" role="status">
-          <strong>{pickedCount}</strong> {pickedCount === 1 ? 'seleccionado' : 'seleccionados'}
-          {#if overLimit}<span class="catalogo__batch-limit">· Un lote admite hasta {CATALOG_BATCH_MAX}. Quita {pickedCount - CATALOG_BATCH_MAX} para continuar.</span>{/if}
-        </p>
-        <div class="catalogo__batch-actions">
-          <Button size="sm" variant="secondary" icon="check" disabled={overLimit} onclick={() => openBatch('publish')}>Publicar</Button>
-          <Button size="sm" variant="secondary" disabled={overLimit} onclick={() => openBatch('archive')}>Archivar</Button>
-          <Button size="sm" variant="ghost" onclick={clearPicked}>Quitar selección</Button>
+      <SelectionBar
+        class="catalogo__selection"
+        count={pickedCount}
+        note={overLimit ? `Un lote admite hasta ${CATALOG_BATCH_MAX}. Quita ${pickedCount - CATALOG_BATCH_MAX} para continuar.` : undefined}
+        onclear={clearPicked}
+      >
+        <Button size="sm" variant="secondary" icon="check" disabled={overLimit} onclick={() => openBatch('publish')}>Publicar</Button>
+        <Button size="sm" variant="secondary" disabled={overLimit} onclick={() => openBatch('archive')}>Archivar</Button>
+      </SelectionBar>
+    {:else}
+      <div class="catalogo__toolbar" role="search" aria-label="Buscar y filtrar el catálogo">
+        <Field
+          class="catalogo__search"
+          type="search"
+          icon="buscar"
+          label="Buscar en el catálogo"
+          hideLabel
+          placeholder="Título, artista, sello o ID"
+          bind:value={query}
+          oninput={scheduleListSearch}
+          onkeydown={(event: KeyboardEvent) => { if (event.key === 'Enter') { clearTimeout(searchTimer); applyFilters(); } }}
+        />
+        <div class="catalogo__vista">
+          <Select label="Vista" inline options={viewOptions} value={quickViewSlug(quickView) ?? ''} onchange={chooseView} />
         </div>
+        <Select label="Estado" inline options={statusOptions} bind:value={statusFilter} onchange={applyFilters} />
+        <Select label="Tipo" inline options={typeOptions} bind:value={typeFilter} onchange={applyFilters} />
       </div>
     {/if}
 
-    <section class="catalogo__table-card" aria-labelledby="catalogo-tabla">
-      <header class="catalogo__table-head">
-        <h2 id="catalogo-tabla">{viewLabel || 'Todos los lanzamientos'}</h2>
-        <span>{total.toLocaleString('es-CO')} {total === 1 ? 'lanzamiento' : 'lanzamientos'}</span>
-      </header>
+    <section class="catalogo__table-card" aria-label="Lanzamientos">
       {#if loading && !items.length}
         <div class="catalogo__state"><LoadingIndicator label="Cargando lanzamientos" /></div>
       {:else if listError}
         <ErrorState size="inline" message={listError} onaction={loadList} retrying={loading} />
-      {:else if !items.length}
-        <EmptyState
-          size="inline"
-          message={quickView && !hasFilters ? `No hay lanzamientos en «${viewLabel}»` : 'No encontramos lanzamientos'}
-          detail={hasFilters || quickView ? 'Prueba otra búsqueda o quita los filtros.' : undefined}
-          actionLabel={hasFilters || quickView ? 'Quitar filtros' : undefined}
-          onaction={hasFilters || quickView ? clearFilters : undefined}
-        />
       {:else}
         <div class="catalogo__scroll" class:is-loading={loading}>
           <table class="catalogo__table">
@@ -445,66 +450,86 @@
               <tr>
                 {#if !mobile}
                   <th class="col-check" scope="col">
-                    <Checkbox hideLabel checked={pageAllPicked} onchange={togglePage}>Seleccionar los {items.length} de esta página</Checkbox>
+                    {#if items.length}<Checkbox hideLabel checked={pageAllPicked} onchange={togglePage}>Seleccionar los {items.length} de esta página</Checkbox>{/if}
                   </th>
                 {/if}
                 <th scope="col" class="col-release">Lanzamiento</th>
                 <th scope="col" class="col-artists">Artistas</th>
                 <th scope="col" class="col-type">Tipo</th>
                 <th scope="col" class="col-label">Sello</th>
-                <th scope="col" class="col-date">Fecha / edición</th>
+                <th scope="col" class="col-date">Fecha</th>
                 <th scope="col" class="col-status">Estado</th>
+                <th scope="col" class="col-signals"><span class="sr-only">Señales</span></th>
                 <th scope="col" class="col-action"><span class="sr-only">Abrir</span></th>
               </tr>
             </thead>
-            <tbody>
-              {#each items as item (item.id)}
-                {@const missing = missingOf(item)}
-                {@const reports = item.signals?.open_report_count ?? 0}
-                {@const href = withParams($pageStore.url, { lanzamiento: item.id, nuevo: null })}
-                <tr class:is-picked={!!picked[item.id]}>
-                  {#if !mobile}
-                    <td class="col-check">
-                      <Checkbox hideLabel checked={!!picked[item.id]} onchange={() => togglePicked(item)}>Seleccionar {item.title || 'lanzamiento sin título'}</Checkbox>
-                    </td>
-                  {/if}
-                  <td class="col-release">
-                    <a class="release-cell" {href}>
-                      {#if item.cover_url}<img src={item.cover_url} alt="" loading="lazy" />{:else}<span class="release-cell__nocover" aria-hidden="true"></span>{/if}
-                      <span class="release-cell__text">
-                        <strong>{item.title || 'Sin título'}</strong>
-                        <small>{item.slug}</small>
-                      </span>
-                    </a>
-                  </td>
-                  <td class="col-artists">{item.artist_ids.map((id) => artistNames.get(id) ?? 'Artista sin resolver').join(', ') || 'Sin artista'}</td>
-                  <td class="col-type">{nameOf(types, item.release_type_id)}</td>
-                  <td class="col-label">{nameOf(labels, item.label_id)}</td>
-                  <td class="col-date">
-                    <span>{formatDate(item.release_date)}</span>
-                    <small>Editado {formatDate(item.updated_at, true)}</small>
-                  </td>
-                  <td class="col-status">
-                    <Chip kind="status" tone={statusTones[item.status]} label={statusLabels[item.status]} />
-                    {#if missing.length || reports}
-                      <span class="signals">
-                        {#if missing.length}<span class="signal signal--missing" title={`Falta: ${missing.join(', ')}`}>Falta: {missing.join(', ')}</span>{/if}
-                        {#if reports}<a class="signal signal--reports" href={studioReportsHref(item.id)}>{reports === 1 ? '1 reporte' : `${reports} reportes`}</a>{/if}
-                      </span>
+            {#if items.length}
+              <tbody>
+                {#each items as item (item.id)}
+                  {@const missing = missingOf(item)}
+                  {@const lacksCover = missing.includes('Portada')}
+                  {@const lacksData = missing.filter((field) => field !== 'Portada')}
+                  {@const reports = item.signals?.open_report_count ?? 0}
+                  {@const href = withParams($pageStore.url, { lanzamiento: item.id, nuevo: null })}
+                  <tr class:is-picked={!!picked[item.id]}>
+                    {#if !mobile}
+                      <td class="col-check">
+                        <Checkbox hideLabel checked={!!picked[item.id]} onchange={() => togglePicked(item)}>Seleccionar {item.title || 'lanzamiento sin título'}</Checkbox>
+                      </td>
                     {/if}
-                  </td>
-                  <td class="col-action">
-                    <IconButton icon="chevron-derecha" size="sm" label={`Editar ${item.title}`} {href} tooltipAlign="end" />
-                  </td>
-                </tr>
-              {/each}
-            </tbody>
+                    <td class="col-release">
+                      <!-- D3: el slug y la última edición salen de la fila y quedan en el tooltip del título. -->
+                      <a class="release-cell" {href} title={`${item.slug} · Editado ${formatDate(item.updated_at, true)}`}>
+                        {#if item.cover_url}<img src={item.cover_url} alt="" loading="lazy" />{:else}<span class="release-cell__nocover" aria-hidden="true"></span>{/if}
+                        <strong>{item.title || 'Sin título'}</strong>
+                      </a>
+                    </td>
+                    <td class="col-artists">{item.artist_ids.map((id) => artistNames.get(id) ?? 'Artista sin resolver').join(', ') || 'Sin artista'}</td>
+                    <td class="col-type">{nameOf(types, item.release_type_id)}</td>
+                    <td class="col-label">{nameOf(labels, item.label_id)}</td>
+                    <td class="col-date">{formatDate(item.release_date)}</td>
+                    <td class="col-status"><StatusDot tone={statusTones[item.status]} label={statusLabels[item.status]} /></td>
+                    <td class="col-signals">
+                      {#if lacksCover}
+                        <span class="signal signal--missing" role="img" aria-label="Falta: Portada" title="Falta: Portada"><Icon name="imagen-off" size="sm" /></span>
+                      {/if}
+                      {#if lacksData.length}
+                        <span class="signal signal--missing" role="img" aria-label={`Falta: ${lacksData.join(', ')}`} title={`Falta: ${lacksData.join(', ')}`}><Icon name="aviso" size="sm" /></span>
+                      {/if}
+                      {#if reports}
+                        <a
+                          class="signal signal--reports"
+                          href={studioReportsHref(item.id)}
+                          aria-label={reports === 1 ? '1 reporte abierto' : `${reports} reportes abiertos`}
+                          title={reports === 1 ? '1 reporte abierto' : `${reports} reportes abiertos`}
+                        ><Icon name="reportar" size="sm" />{reports}</a>
+                      {/if}
+                    </td>
+                    <td class="col-action">
+                      <IconButton icon="chevron-derecha" size="sm" label={`Editar ${item.title}`} {href} tooltipAlign="end" />
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            {/if}
           </table>
         </div>
-        <footer class="catalogo__table-foot">
-          <span>Mostrando {((page - 1) * PAGE_SIZE + 1).toLocaleString('es-CO')}–{Math.min(page * PAGE_SIZE, total).toLocaleString('es-CO')} de {total.toLocaleString('es-CO')}</span>
-          <Pagination {page} {totalPages} size="sm" label="Páginas del catálogo" onchange={goToPage} />
-        </footer>
+        {#if items.length}
+          <footer class="catalogo__table-foot">
+            <span>{from.toLocaleString('es-CO')}–{to.toLocaleString('es-CO')} de {total.toLocaleString('es-CO')}</span>
+            <Pagination {page} {totalPages} size="sm" label="Páginas del catálogo" onchange={goToPage} />
+          </footer>
+        {:else}
+          <EmptyState
+            size="inline"
+            class="catalogo__empty"
+            icon={empty.icon}
+            message={empty.message}
+            detail={empty.detail}
+            actionLabel={empty.action}
+            onaction={empty.action ? clearFilters : undefined}
+          />
+        {/if}
       {/if}
     </section>
   {/if}
@@ -584,37 +609,23 @@
 </Dialog>
 
 <style>
-  /* ---- Lista del Estudio (U15). Primitivas y tokens; densidad de E07. ---- */
+  /* ---- Lista del Estudio (U15, rediseño U21). Primitivas y tokens; ritmo --tool-*. ---- */
   .catalogo { color: var(--color-texto); }
   .catalogo__state { display: grid; place-items: center; min-height: 16rem; }
   .catalogo > :global(.catalogo__notice) { margin-bottom: var(--density-pad); }
 
+  /* Búsqueda, filtros y, mientras hay selección, la barra de lote: una sola fila. */
   .catalogo__toolbar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-2) var(--space-4);
-    margin-bottom: var(--space-3);
+    gap: var(--space-2) var(--tool-gap-row);
   }
   .catalogo__toolbar :global(.catalogo__search) { flex: 1 1 22rem; min-width: 0; }
   .catalogo__vista { display: none; }
-
-  .catalogo__batch {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2) var(--space-4);
-    margin-bottom: var(--space-3);
-    padding: var(--space-2) var(--space-4);
-    border: 1px solid var(--color-acento-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-acento-tinte);
-  }
-  .catalogo__batch-count { margin: 0; color: var(--color-texto-medio); font-size: var(--density-text); }
-  .catalogo__batch-count strong { color: var(--color-acento); }
-  .catalogo__batch-limit { color: var(--color-aviso); }
-  .catalogo__batch-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .catalogo > :global(.catalogo__selection) { min-height: var(--density-control-h); }
+  .catalogo__toolbar,
+  .catalogo > :global(.catalogo__selection) { margin-bottom: var(--tool-gap-header); }
 
   .catalogo__table-card {
     overflow: hidden;
@@ -622,16 +633,6 @@
     border-radius: var(--radius-sm);
     background: var(--color-panel);
   }
-  .catalogo__table-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    border-bottom: 1px solid var(--color-borde);
-  }
-  .catalogo__table-head h2 { margin: 0; font-size: var(--text-sm); font-weight: 700; }
-  .catalogo__table-head span { color: var(--color-texto-tenue); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
 
   /* Posicionado: los textos solo para lectores (absolutos) de las celdas se
      quedan dentro del desplazamiento horizontal y no ensanchan la página. */
@@ -640,7 +641,7 @@
   .catalogo__table { width: 100%; min-width: var(--tool-table-min-w); border-collapse: collapse; table-layout: fixed; }
   .catalogo__table th {
     height: var(--density-row-h);
-    padding: 0 var(--space-3);
+    padding: 0 var(--tool-pad-cell);
     color: var(--color-texto-tenue);
     font-size: var(--text-2xs);
     font-weight: 700;
@@ -652,11 +653,11 @@
     text-overflow: ellipsis;
   }
   .catalogo__table td {
-    height: var(--tool-row-h);
-    padding: 0 var(--space-3);
+    height: var(--tool-table-row-h);
+    padding: 0 var(--tool-pad-cell);
     border-top: 1px solid var(--color-borde);
     color: var(--color-texto-alto);
-    font-size: var(--text-2xs);
+    font-size: var(--text-xs);
     vertical-align: middle;
     overflow: hidden;
     white-space: nowrap;
@@ -666,48 +667,41 @@
   .catalogo__table tbody tr.is-picked { background: var(--color-acento-tinte); }
 
   .catalogo__table .col-check { width: calc(var(--target-touch) + var(--space-2)); padding: 0 0 0 var(--space-2); }
-  .catalogo__table .col-release { width: 27%; }
-  .catalogo__table .col-artists { width: 17%; }
-  .catalogo__table .col-type { width: 8%; }
-  .catalogo__table .col-label { width: 12%; }
-  .catalogo__table .col-date { width: 14%; }
-  .catalogo__table .col-status { width: 14%; }
+  .catalogo__table .col-release { width: 24%; }
+  .catalogo__table .col-artists { width: 15%; }
+  .catalogo__table .col-type { width: 7%; }
+  .catalogo__table .col-label { width: 11%; }
+  .catalogo__table .col-date { width: 14%; font-variant-numeric: tabular-nums; }
+  .catalogo__table .col-status { width: 10%; }
+  .catalogo__table .col-signals { width: 6rem; padding-inline: 0; }
   .catalogo__table .col-action { width: calc(var(--target-touch) + var(--space-2)); padding: 0 var(--space-1); text-align: right; }
 
   .release-cell {
     display: flex;
     align-items: center;
-    gap: var(--space-3);
+    gap: var(--tool-pad-control);
     min-width: 0;
     color: inherit;
     text-decoration: none;
   }
   .release-cell img,
   .release-cell__nocover {
-    flex: 0 0 var(--tool-thumb);
-    width: var(--tool-thumb);
-    height: var(--tool-thumb);
+    flex: 0 0 var(--tool-table-thumb);
+    width: var(--tool-table-thumb);
+    height: var(--tool-table-thumb);
     border-radius: var(--radius-xs);
     object-fit: cover;
     background: var(--color-superficie-2);
   }
   .release-cell__nocover { border: 1px dashed var(--color-linea-fuerte); box-sizing: border-box; }
-  .release-cell__text { display: grid; min-width: 0; }
-  .release-cell strong,
-  .release-cell small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .release-cell strong { color: var(--color-texto); font-size: var(--text-xs); }
-  .release-cell small { color: var(--color-texto-tenue); font-size: var(--text-2xs); }
+  .release-cell strong { min-width: 0; overflow: hidden; color: var(--color-texto); font-size: var(--text-sm); font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
   .release-cell:hover strong { color: var(--color-acento); }
 
-  .col-date span,
-  .col-date small { display: block; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
-  .col-date small { margin-top: var(--space-1); color: var(--color-texto-tenue); }
-
-  .col-status { line-height: 1.3; }
-  .signals { display: flex; gap: var(--space-2); min-width: 0; margin-top: var(--space-1); }
-  .signal { min-width: 0; overflow: hidden; font-size: var(--text-2xs); white-space: nowrap; text-overflow: ellipsis; }
+  /* Señales: un icono con tooltip por cosa que falta, y los reportes abiertos con su número. */
+  .col-signals { line-height: 1; }
+  .signal { display: inline-flex; align-items: center; gap: var(--space-1); margin-right: var(--space-3); font-size: var(--text-2xs); font-weight: 600; vertical-align: middle; }
   .signal--missing { color: var(--color-aviso); }
-  .signal--reports { flex-shrink: 0; color: var(--color-danger-texto); }
+  .signal--reports { min-height: var(--target-touch); color: var(--color-danger-texto); text-decoration: none; font-variant-numeric: tabular-nums; }
   .signal--reports:hover { color: var(--color-texto); }
 
   .catalogo__table-foot {
@@ -716,11 +710,19 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-2);
-    padding: var(--space-2) var(--space-4);
+    padding: var(--space-2) var(--tool-pad-cell);
     border-top: 1px solid var(--color-borde);
     color: var(--color-texto-tenue);
     font-size: var(--text-2xs);
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Vacío bajo la cabecera de la tabla, centrado como en el tablero 2 del lienzo. */
+  .catalogo__table-card > :global(.catalogo__empty) {
+    align-items: center;
+    padding-block: var(--space-8);
+    border-top: 1px solid var(--color-borde);
+    text-align: center;
   }
 
   /* Lote */
@@ -757,15 +759,16 @@
     .catalogo__vista { display: block; }
     /* El tipo cede su sitio para que estado y señales no se corten. */
     .catalogo__table .col-type { display: none; }
-    .catalogo__table .col-release { width: 30%; }
-    .catalogo__table .col-artists { width: 18%; }
-    .catalogo__table .col-status { width: 17%; }
+    .catalogo__table .col-release { width: 28%; }
+    .catalogo__table .col-artists { width: 17%; }
+    .catalogo__table .col-label { width: 12%; }
+    .catalogo__table .col-status { width: 12%; }
   }
 
   /* Móvil: consulta, como el editor de E07. Sin selección ni lote; la vista
      rápida pasa a un selector porque la barra lateral solo muestra secciones. */
   @media (max-width: 767px) {
-    .catalogo__toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-2) var(--space-3); }
+    .catalogo__toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-2) var(--tool-pad-control); }
     .catalogo__toolbar :global(.catalogo__search),
     .catalogo__vista { display: block; grid-column: 1 / -1; }
     .catalogo__toolbar :global(.ui-select__control) { flex: 1; }
@@ -778,18 +781,20 @@
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       gap: var(--space-1) var(--space-2);
-      padding: var(--space-3) var(--space-4);
+      align-items: center;
+      padding: var(--tool-pad-item-y) var(--tool-pad-item-x);
       border-top: 1px solid var(--color-borde);
     }
     .catalogo__table td { display: block; height: auto; padding: 0; border: 0; white-space: normal; }
     .catalogo__table .col-release { grid-column: 1; width: auto; }
     .catalogo__table .col-action { grid-column: 2; grid-row: 1; width: auto; }
-    .catalogo__table .col-artists,
-    .catalogo__table .col-status { grid-column: 1 / -1; width: auto; padding-left: calc(var(--tool-thumb) + var(--space-3)); }
+    .catalogo__table .col-artists { grid-column: 1 / -1; width: auto; padding-left: calc(var(--tool-table-thumb) + var(--tool-pad-control)); }
+    .catalogo__table .col-status { grid-column: 1; width: auto; padding-left: calc(var(--tool-table-thumb) + var(--tool-pad-control)); }
+    .catalogo__table .col-signals { grid-column: 2; width: auto; white-space: nowrap; }
+    .catalogo__table .col-signals .signal { margin-right: 0; margin-left: var(--space-3); }
     .catalogo__table .col-artists { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
     .catalogo__table .col-type,
     .catalogo__table .col-label,
     .catalogo__table .col-date { display: none; }
-    .signals { flex-wrap: wrap; }
   }
 </style>

@@ -120,7 +120,7 @@ test('E07 muestra una tabla amplia y un editor simplificado', async ({ page }) =
   await expect(page.getByText(snapshot.title, { exact: true })).toBeVisible();
   expect(listPayload).toMatchObject({ p_page: 1, p_page_size: 25, p_order_key: 'release_date', p_order_direction: 'desc' });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.getByPlaceholder('Buscar por título, artista, sello o ID').fill('densidad');
+  await page.getByPlaceholder('Título, artista, sello o ID').fill('densidad');
   await expect.poll(() => lastSearch).toBe('densidad');
 
   await page.getByRole('link', { name: `Editar ${snapshot.title}`, exact: true }).click();

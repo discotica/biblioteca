@@ -230,6 +230,10 @@
   --tool-row-h: 3.5rem;
   --tool-thumb: 2.5rem;
   --tool-table-min-w: 48rem;
+  /* Tablas del Estudio en el rediseño (U21): fila de 48 con portada de 32 (Catálogo) y de 44 (Diccionarios). */
+  --tool-table-row-h: 3rem;
+  --tool-table-row-h-dense: 2.75rem;
+  --tool-table-thumb: 2rem;
   --tool-dialog-list-max-h: 16rem;
   /* Editor del Estudio (U16): índice lateral fijo, portada de la sección
      Medios y radar junto a sus cinco controles. */

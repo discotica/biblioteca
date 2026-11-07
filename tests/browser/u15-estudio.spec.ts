@@ -160,7 +160,8 @@ test.describe('U15 rutas', () => {
     await mockStudio(page, 'admin');
     await page.goto('/admin/catalogo?vista=incompletos');
     await expect(page).toHaveURL(/\/estudio\/catalogo\?vista=incompletos$/);
-    await expect(page.getByRole('heading', { name: 'Incompletos', level: 2 })).toBeVisible();
+    // U21: sin cabecera de tabla; la vista es el h1 («Catálogo / Incompletos»).
+    await expect(page.getByRole('heading', { level: 1, name: /^Catálogo \/ Incompletos/ })).toBeVisible();
     await page.goto('/editorial?origen=correo');
     await expect(page).toHaveURL(/\/estudio\/propuestas\?origen=correo$/);
     await expect(page.getByRole('heading', { name: 'Propuestas', level: 1 })).toBeVisible();
@@ -269,7 +270,8 @@ test.describe('U15 catálogo', () => {
     await studioNav(page).getByRole('link', { name: /^Incompletos/ }).click();
     await expect(page).toHaveURL(/\?vista=incompletos$/);
     await expect(studioNav(page).getByRole('link', { name: /^Incompletos/ })).toHaveAttribute('aria-current', 'page');
-    await expect(page.getByRole('heading', { name: 'Incompletos', level: 2 })).toBeVisible();
+    // U21: sin cabecera de tabla; la vista es el h1 («Catálogo / Incompletos»).
+    await expect(page.getByRole('heading', { level: 1, name: /^Catálogo \/ Incompletos/ })).toBeVisible();
     await expect.poll(() => listCalls(calls).at(-1)?.body.p_quick_view).toBe('incomplete');
     await expect(page.getByRole('cell', { name: /Falta: Portada/ })).toBeVisible();
 
@@ -351,7 +353,7 @@ test.describe('U15 catálogo', () => {
     await expect(rows.nth(1).getByRole('link', { name: 'Abrir en el editor' })).toHaveAttribute('href', `/estudio/catalogo?lanzamiento=${idFor(4)}`);
     await expect(result).not.toContainText('40001');
     // Detrás del diálogo la selección sigue intacta (el diálogo deja el resto inerte).
-    await expect(page.locator('.catalogo__batch-count')).toContainText('2 seleccionados');
+    await expect(page.locator('.selection-bar__count')).toContainText('2 seleccionados');
 
     await result.getByRole('button', { name: 'Quitar los rechazados' }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -434,7 +436,7 @@ test.describe('U15 catálogo', () => {
     await expect(page.locator('.editor__head')).toContainText('Lanzamiento 2');
     await page.getByRole('button', { name: 'Volver al catálogo' }).click();
     await expect(page).toHaveURL(/\/estudio\/catalogo\?vista=borradores$/);
-    await expect(page.getByRole('heading', { name: 'Borradores', level: 2 })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: /^Catálogo \/ Borradores/ })).toBeVisible();
   });
 });
 

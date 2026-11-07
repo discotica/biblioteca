@@ -474,7 +474,7 @@ const pickRows = async (page: Page, rows: number[]) => {
 // La fila 25 es el borrador sin portada: el lote de publicar lo marca como incompleto.
 const openBatch = (rows: number[], button: 'Publicar' | 'Archivar') => async (page: Page) => {
   await pickRows(page, rows);
-  await page.locator('.catalogo__batch').getByRole('button', { name: button }).click();
+  await page.locator('.selection-bar').getByRole('button', { name: button }).click();
   await page.waitForSelector('[role=dialog]');
   await settle(page);
 };

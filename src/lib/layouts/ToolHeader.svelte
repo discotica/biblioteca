@@ -5,6 +5,11 @@
     /** h1 de la vista. */
     title: string;
     /**
+     * Sección madre, antes del título y en tenue: «Catálogo / Borradores» (U21).
+     * Va dentro del h1, así que el nombre accesible la incluye.
+     */
+    crumb?: string;
+    /**
      * Conteo junto al título (U20, guía de voz: «Catálogo 2.790»). Se formatea
      * con separador de miles; 0 también se muestra.
      */
@@ -21,7 +26,7 @@
     class?: string;
   };
 
-  let { title, count, description, actions, class: className = '' }: Props = $props();
+  let { title, crumb, count, description, actions, class: className = '' }: Props = $props();
 </script>
 
 <!-- Cabecera de una sección del Estudio (U15). La usan ToolLayout con `title` y
@@ -30,7 +35,7 @@
 <header class="l-tool-header {className}">
   <div class="l-tool-header__text">
     <h1 class="l-tool-header__title">
-      {title}{#if count !== undefined}{' '}<span class="l-tool-header__count">{count.toLocaleString('es-CO')}</span>{/if}
+      {#if crumb}<span class="l-tool-header__crumb">{crumb} /</span>{' '}{/if}{title}{#if count !== undefined}{' '}<span class="l-tool-header__count">{count.toLocaleString('es-CO')}</span>{/if}
     </h1>
     {#if description}<p class="l-tool-header__description">{description}</p>{/if}
   </div>
@@ -57,6 +62,8 @@
     letter-spacing: -0.015em;
     line-height: var(--leading-heading);
   }
+
+  .l-tool-header__crumb { color: var(--color-texto-tenue); font-weight: 600; }
 
   /* El conteo acompaña al título sin competir: tenue, más pequeño, en la base. */
   .l-tool-header__count {

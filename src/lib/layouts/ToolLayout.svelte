@@ -13,6 +13,8 @@
      * selector. Con la barra plegada tampoco: queda la sección.
      */
     items?: ToolSection[];
+    /** Qué incluye la vista: tooltip del enlace (U21), no un subtítulo. */
+    description?: string;
   };
 </script>
 
@@ -101,7 +103,7 @@
                 <ul class="l-tool__items" aria-label={section.label}>
                   {#each section.items as item}
                     <li>
-                      <a class="l-tool__link l-tool__link--item" href={item.href} aria-current={item.href === current ? 'page' : undefined}>
+                      <a class="l-tool__link l-tool__link--item" href={item.href} title={item.description} aria-current={item.href === current ? 'page' : undefined}>
                         <span class="l-tool__label">{item.label}</span>
                         {#if item.count !== undefined}<span class="l-tool__tally">{format(item.count)}</span>{/if}
                       </a>

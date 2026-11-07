@@ -88,7 +88,7 @@ const FILTER_SLUGS: Record<DictionaryFilter, string | null> = {
 
 const FILTER_LABELS: Record<DictionaryFilter, string> = {
   all: 'Todos',
-  orphans: 'Sin lanzamientos',
+  orphans: 'Sin uso',
   selectable: 'Seleccionables',
   legacy: 'Legado',
   retired: 'Retirados'
@@ -130,12 +130,19 @@ export const STATUS_LABELS: Record<DictionaryStatus, string> = {
   retired: 'Retirado'
 };
 
-/** El estado normal no se resalta: la mayoría de la lista es seleccionable. */
-export const STATUS_TONES: Record<DictionaryStatus, 'neutral' | 'warning' | 'danger'> = {
-  selectable: 'neutral',
-  legacy: 'warning',
+/**
+ * Tono del punto de estado (StatusDot, U21): verde = se ofrece · contorno =
+ * legado, se conserva donde ya está · rojo = retirado. Son los nombres de
+ * `StatusTone`, sin importar Svelte aquí.
+ */
+export const STATUS_TONES: Record<DictionaryStatus, 'ok' | 'draft' | 'danger'> = {
+  selectable: 'ok',
+  legacy: 'draft',
   retired: 'danger'
 };
+
+/** Lo que el filtro «Sin uso» significa, para su tooltip. */
+export const ORPHANS_FILTER_TITLE = 'Sin lanzamientos';
 
 /** Qué significa cada estado, en la ayuda de la pestaña y del diálogo. */
 export const STATUS_HELP: Record<DictionaryStatus, string> = {

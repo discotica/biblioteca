@@ -90,6 +90,10 @@ export const ICONS = {
   // Barra lateral del Estudio (U20): plegar (flecha hacia el borde) y desplegar.
   'barra-plegar': { paths: ['M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z', 'M9 4v16', 'M15.5 10l-2 2 2 2'] },
   'barra-desplegar': { paths: ['M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z', 'M9 4v16', 'M13.5 10l2 2-2 2'] },
+  // Señales y vacíos del Estudio (U21): portada que falta, datos que faltan, bandeja vacía.
+  'imagen-off': { paths: ['M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z', 'M3 3l18 18'] },
+  aviso: { paths: ['M12 4 2.8 19.5h18.4Z', 'M12 10v4.5', 'M12 17.2h.01'] },
+  bandeja: { paths: ['M3 13h5l1 3h6l1-3h5', 'M5 5h14l2 8v6H3v-6Z'] },
   // Diccionarios del Estudio (U19): géneros, países, sellos y artistas son etiquetas.
   etiqueta: { paths: ['M4 4h7.2l8.8 8.8-7.2 7.2L4 11.2Z', circle(8.5, 8.5, 1.5)] },
 

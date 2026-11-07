@@ -132,16 +132,17 @@ test.describe('U19 G4 diccionarios', () => {
     await page.goto('/estudio/diccionarios');
     await expect(page.getByRole('navigation', { name: 'Estudio' }).getByRole('link', { name: 'Diccionarios' })).toHaveAttribute('aria-current', 'page');
     const tabs = page.getByRole('navigation', { name: 'Diccionarios' });
-    await expect(tabs.getByRole('link')).toHaveText(['Géneros', 'Países', 'Sellos', 'Artistas']);
+    // U21: cada pestaña lleva su conteo (la activa, de su lista; las otras, de una lectura al entrar).
+    await expect(tabs.getByRole('link')).toHaveText([/^Géneros\s*3$/, /^Países\s*3$/, /^Sellos\s*3$/, /^Artistas\s*2$/]);
     await expect(tabs.getByRole('link', { name: 'Géneros' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByRole('row', { name: /Techno/ })).toContainText('40 lanzamientos · 38 publicados');
     await expect(page.getByRole('button', { name: 'Nuevo género' })).toBeVisible();
 
     await tabs.getByRole('link', { name: 'Países' }).click();
     await expect(page).toHaveURL(/\?tipo=paises$/);
-    await expect(page.getByRole('row', { name: /Estados Unidos/ })).toContainText('También: EE.UU, EEUU, USA');
+    await expect(page.getByRole('row', { name: /Estados Unidos/ })).toContainText('alias: EE.UU, EEUU, USA');
     await expect(page.getByRole('row', { name: /WORLD/ })).toContainText('Retirado');
-    await page.getByLabel('Mostrar').selectOption('legacy');
+    await page.getByRole('radiogroup', { name: 'Mostrar' }).getByRole('radio', { name: 'Legado' }).check();
     await expect(page).toHaveURL(/\?tipo=paises&filtro=legado$/);
     await expect.poll(() => last(calls, 'admin_list_catalog_dictionary')).toMatchObject({ p_kind: 'country', p_filter: 'legacy' });
     await page.getByRole('searchbox', { name: 'Buscar en países' }).fill('eeuu');

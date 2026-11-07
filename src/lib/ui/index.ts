@@ -31,6 +31,7 @@ export { default as Cover } from './Cover.svelte';
 export { default as CreditLine } from './CreditLine.svelte';
 export { default as SocialLinks } from './SocialLinks.svelte';
 export { default as StatusDot, type StatusTone } from './StatusDot.svelte';
+export { default as SegmentedControl, type SegmentedOption } from './SegmentedControl.svelte';
 export { default as SplitButton } from './SplitButton.svelte';
 export { default as SourceLink, SOURCE_PROVIDER_NAMES } from './SourceLink.svelte';
 export { ICONS, ICON_NAMES, SOCIAL_ICONS, type IconName } from './icons';

@@ -53,7 +53,7 @@
       count: section.id === 'propuestas' ? proposalCount : section.id === 'reportes' ? reportCount : undefined,
       items:
         section.id === 'catalogo'
-          ? STUDIO_QUICK_VIEWS.map((view) => ({ label: view.label, href: catalogHref(view.value), count: quickCounts[view.value] }))
+          ? STUDIO_QUICK_VIEWS.map((view) => ({ label: view.label, href: catalogHref(view.value), count: quickCounts[view.value], description: view.description }))
           : undefined
     }))
   );

@@ -7,11 +7,11 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
+  import SelectionBar from '$lib/components/estudio/SelectionBar.svelte';
   import { ToolHeader } from '$lib/layouts';
   import {
     Button,
     Checkbox,
-    Chip,
     Combobox,
     Dialog,
     EmptyState,
@@ -21,7 +21,9 @@
     Menu,
     Notice,
     Pagination,
+    SegmentedControl,
     Select,
+    StatusDot,
     Textarea,
     type ComboboxOption,
     type MenuItem
@@ -29,6 +31,7 @@
   import { BELOW_MOBILE_QUERY } from '$lib/ui/breakpoints';
   import {
     DICTIONARY_TABS,
+    ORPHANS_FILTER_TITLE,
     STATUS_HELP,
     STATUS_LABELS,
     STATUS_TONES,
@@ -66,13 +69,6 @@
   type Mode = 'create' | 'rename' | 'merge' | 'status' | 'delete';
   type Status = 'selectable' | 'legacy';
 
-  const DESCRIPTIONS: Record<DictionaryKind, string> = {
-    genre: 'Lista cerrada: solo los seleccionables se ofrecen en Sugerir y en el editor.',
-    country: 'Lista cerrada: solo los seleccionables se ofrecen en Sugerir y en el editor. Los de legado se conservan donde ya están.',
-    label: 'Se crean al guardar o aceptar un lanzamiento. Aquí se corrigen, se fusionan y se borran los que no tienen lanzamientos.',
-    artist: 'Se crean al guardar o aceptar un lanzamiento. Aquí se corrigen, se fusionan y se borran los que no tienen lanzamientos.'
-  };
-
   // Estado de la URL: ?tipo=, ?filtro=, ?q= y ?p=.
   const kind = $derived(dictionaryKindFromSlug(page.url.searchParams.get('tipo')));
   const filter = $derived(dictionaryFilterFromSlug(kind, page.url.searchParams.get('filtro')));
@@ -100,16 +96,38 @@
   const orphansOnPage = $derived(items.filter((item) => item.release_count === 0));
   const pageAllPicked = $derived(orphansOnPage.length > 0 && orphansOnPage.every((item) => picked[item.id]));
   const hasFilters = $derived(filter !== 'all' || Boolean(urlQuery));
+  // Filtro segmentado: el conteo de cada opción y la regla de «Sin uso» van en el tooltip.
   const filterOptions = $derived(dictionaryFilters(kind).map((value) => {
     const count = result?.kind === kind ? result.counts[value] : undefined;
-    return { value, label: count === undefined ? dictionaryFilterLabel(value) : `${dictionaryFilterLabel(value)} (${count.toLocaleString('es-CO')})` };
+    const name = value === 'orphans' ? ORPHANS_FILTER_TITLE : dictionaryFilterLabel(value);
+    return { value, label: dictionaryFilterLabel(value), title: count === undefined ? name : `${name} · ${count.toLocaleString('es-CO')}` };
   }));
+  const empty = $derived(
+    hasFilters
+      ? { message: 'Sin resultados', detail: 'Prueba otra búsqueda o quita los filtros.', action: 'Quitar filtros' }
+      : { message: `Sin ${dictionaryLabel(kind).toLowerCase()}`, detail: undefined, action: undefined }
+  );
+
+  // Conteo de cada pestaña. La activa lo toma de su propia lista; las otras se piden una
+  // vez al entrar, con la misma RPC y una página de un elemento.
+  let tabCounts = $state<Partial<Record<DictionaryKind, number>>>({});
+  const tabCount = (entry: DictionaryKind) => (result?.kind === entry ? result.counts.all : tabCounts[entry]);
+
+  async function loadTabCounts(except: DictionaryKind) {
+    for (const entry of DICTIONARY_TABS) {
+      if (entry.kind === except) continue;
+      listDictionary({ kind: entry.kind, pageSize: 1 })
+        .then((found) => (tabCounts = { ...tabCounts, [entry.kind]: found.counts.all }))
+        .catch(() => { /* la pestaña se ve sin número */ });
+    }
+  }
 
   onMount(() => {
     const media = window.matchMedia(BELOW_MOBILE_QUERY);
     const sync = () => (mobile = media.matches);
     sync();
     media.addEventListener('change', sync);
+    void loadTabCounts(kind);
     return () => media.removeEventListener('change', sync);
   });
 
@@ -359,68 +377,60 @@
 <svelte:head><title>Diccionarios · Estudio — Discótica</title></svelte:head>
 
 <div class="dic">
-  <ToolHeader title="Diccionarios" description={DESCRIPTIONS[kind]}>
+  <ToolHeader title="Diccionarios">
     {#snippet actions()}
       {#if can.create}
         <Button icon="agregar" onclick={() => openDialog('create')}>{kind === 'genre' ? 'Nuevo género' : 'Nuevo país'}</Button>
+      {:else}
+        <!-- Sellos y artistas no se crean aquí (U21, guía de voz: marca corta + tooltip). -->
+        <span class="dic__create-hint" title="Se crean al guardar o aceptar un lanzamiento.">Se crean en el editor</span>
       {/if}
     {/snippet}
   </ToolHeader>
 
   <nav class="dic__tabs" aria-label="Diccionarios">
     {#each DICTIONARY_TABS as entry (entry.kind)}
-      <a class="dic__tab" href={dictionariesHref(entry.kind)} aria-current={entry.kind === kind ? 'page' : undefined}>{entry.label}</a>
+      {@const count = tabCount(entry.kind)}
+      <a class="dic__tab" href={dictionariesHref(entry.kind)} aria-current={entry.kind === kind ? 'page' : undefined}>
+        {entry.label}{#if count !== undefined} <span class="dic__tab-count">{count.toLocaleString('es-CO')}</span>{/if}
+      </a>
     {/each}
   </nav>
 
   {#if flash}<Notice tone="success" class="dic__notice">{flash}</Notice>{/if}
 
-  <div class="dic__toolbar" role="search" aria-label={`Buscar en ${dictionaryLabel(kind).toLowerCase()}`}>
-    <Field
-      class="dic__search"
-      type="search"
-      icon="buscar"
-      label={`Buscar en ${dictionaryLabel(kind).toLowerCase()}`}
-      hideLabel
-      placeholder="Buscar por nombre o alias"
-      bind:value={query}
-      oninput={scheduleSearch}
-      onkeydown={(event: KeyboardEvent) => { if (event.key === 'Enter') search(); }}
-    />
-    <Select label="Mostrar" inline options={filterOptions} value={filter} onchange={chooseFilter} />
-  </div>
-
   {#if can.deleteOrphans && pickedIds.length && !mobile}
-    <div class="dic__batch" role="region" aria-label="Selección">
-      <p class="dic__batch-count" role="status">
-        <strong>{pickedIds.length}</strong> {pickedIds.length === 1 ? 'seleccionado' : 'seleccionados'}
-        {#if pickedIds.length > DICTIONARY_DELETE_MAX}<span class="dic__batch-limit">· Se borran hasta {DICTIONARY_DELETE_MAX} a la vez.</span>{/if}
-      </p>
-      <div class="dic__batch-actions">
-        <Button size="sm" variant="destructive" disabled={pickedIds.length > DICTIONARY_DELETE_MAX}
-          onclick={() => openDialog('delete', null, { targets: pickedIds.map((id) => ({ id, name: picked[id] })) })}>Borrar</Button>
-        <Button size="sm" variant="ghost" onclick={() => (picked = {})}>Quitar selección</Button>
-      </div>
+    <SelectionBar
+      class="dic__selection"
+      count={pickedIds.length}
+      note={pickedIds.length > DICTIONARY_DELETE_MAX ? `Se borran hasta ${DICTIONARY_DELETE_MAX} a la vez.` : undefined}
+      onclear={() => (picked = {})}
+    >
+      <Button size="sm" variant="destructive" disabled={pickedIds.length > DICTIONARY_DELETE_MAX}
+        onclick={() => openDialog('delete', null, { targets: pickedIds.map((id) => ({ id, name: picked[id] })) })}>Borrar</Button>
+    </SelectionBar>
+  {:else}
+    <div class="dic__toolbar" role="search" aria-label={`Buscar en ${dictionaryLabel(kind).toLowerCase()}`}>
+      <Field
+        class="dic__search"
+        type="search"
+        icon="buscar"
+        label={`Buscar en ${dictionaryLabel(kind).toLowerCase()}`}
+        hideLabel
+        placeholder="Nombre o alias"
+        bind:value={query}
+        oninput={scheduleSearch}
+        onkeydown={(event: KeyboardEvent) => { if (event.key === 'Enter') search(); }}
+      />
+      <SegmentedControl label="Mostrar" options={filterOptions} value={filter} onchange={chooseFilter} />
     </div>
   {/if}
 
-  <section class="dic__card" aria-labelledby="dic-tabla">
-    <header class="dic__card-head">
-      <h2 id="dic-tabla">{filter === 'all' ? dictionaryLabel(kind) : `${dictionaryLabel(kind)} · ${dictionaryFilterLabel(filter)}`}</h2>
-      <span>{total.toLocaleString('es-CO')} {total === 1 ? singular : dictionaryLabel(kind).toLowerCase()}</span>
-    </header>
+  <section class="dic__card" aria-label={dictionaryLabel(kind)}>
     {#if loading && !items.length}
       <div class="dic__state"><LoadingIndicator label={`Cargando ${dictionaryLabel(kind).toLowerCase()}`} /></div>
     {:else if listError}
       <ErrorState size="inline" message={listError} onaction={reload} retrying={loading} />
-    {:else if !items.length}
-      <EmptyState
-        size="inline"
-        message={hasFilters ? `No encontramos ${dictionaryLabel(kind).toLowerCase()}` : `Aún no hay ${dictionaryLabel(kind).toLowerCase()}`}
-        detail={hasFilters ? 'Prueba otra búsqueda o quita los filtros.' : undefined}
-        actionLabel={hasFilters ? 'Quitar filtros' : undefined}
-        onaction={hasFilters ? clearFilters : undefined}
-      />
     {:else}
       <div class="dic__scroll" class:is-loading={loading}>
         <table class="dic__table dic__table--{kind}">
@@ -440,43 +450,61 @@
               <th scope="col" class="col-action"><span class="sr-only">Acciones</span></th>
             </tr>
           </thead>
-          <tbody>
-            {#each items as item (item.id)}
-              {@const publicHref = item.published_count ? dictionaryPublicHref(kind, item) : null}
-              <tr class:is-picked={!!picked[item.id]}>
-                {#if can.deleteOrphans && !mobile}
-                  <td class="col-check">
-                    {#if item.release_count === 0}
-                      <Checkbox hideLabel checked={!!picked[item.id]} onchange={() => togglePicked(item)}>Seleccionar {item.name}</Checkbox>
-                    {/if}
+          {#if items.length}
+            <tbody>
+              {#each items as item (item.id)}
+                {@const publicHref = item.published_count ? dictionaryPublicHref(kind, item) : null}
+                {@const tally = releaseTally(item)}
+                <tr class:is-picked={!!picked[item.id]}>
+                  {#if can.deleteOrphans && !mobile}
+                    <td class="col-check">
+                      {#if item.release_count === 0}
+                        <Checkbox hideLabel checked={!!picked[item.id]} onchange={() => togglePicked(item)}>Seleccionar {item.name}</Checkbox>
+                      {/if}
+                    </td>
+                  {/if}
+                  <td class="col-name">
+                    <strong>{item.name}</strong>
+                    {#if item.aliases.length}<span class="dic__alias" title={`alias: ${item.aliases.join(', ')}`}>alias: {item.aliases.join(', ')}</span>{/if}
                   </td>
-                {/if}
-                <td class="col-name">
-                  <strong>{item.name}</strong>
-                  {#if item.aliases.length}<small>También: {item.aliases.join(', ')}</small>{/if}
-                </td>
-                {#if can.status && item.status}
-                  <td class="col-status"><Chip kind="status" tone={STATUS_TONES[item.status]} label={STATUS_LABELS[item.status]} /></td>
-                {/if}
-                <td class="col-count" class:is-empty={!item.release_count}>{releaseTally(item)}</td>
-                {#if !can.status}
-                  <td class="col-url">
-                    {#if publicHref}<a href={publicHref}>{publicHref}</a>{:else}<span class="dic__muted">Sin página pública</span>{/if}
-                    {#if item.slug_aliases.length}<small>Redirigen: {item.slug_aliases.join(', ')}</small>{/if}
+                  {#if can.status && item.status}
+                    <td class="col-status"><StatusDot tone={STATUS_TONES[item.status]} label={STATUS_LABELS[item.status]} /></td>
+                  {/if}
+                  <!-- El número; «n publicados» en el tooltip y, para lectores, el texto completo de siempre. -->
+                  <td class="col-count" class:is-empty={!item.release_count}>
+                    <span title={`${item.published_count.toLocaleString('es-CO')} ${item.published_count === 1 ? 'publicado' : 'publicados'}`}>{item.release_count.toLocaleString('es-CO')}<span class="sr-only">{item.release_count ? tally.replace(/^[\d.,]+/, '') : ' lanzamientos'}</span></span>
                   </td>
-                {/if}
-                <td class="col-action">
-                  <Menu label={`Acciones de ${item.name}`} icon="mas-opciones" size="sm" variant="ghost" align="end" items={rowActions(item)} />
-                </td>
-              </tr>
-            {/each}
-          </tbody>
+                  {#if !can.status}
+                    <td class="col-url">
+                      {#if publicHref}<a href={publicHref}>{publicHref}</a>{:else}<span class="dic__muted">Sin página pública</span>{/if}
+                      {#if item.slug_aliases.length}<small>Redirigen: {item.slug_aliases.join(', ')}</small>{/if}
+                    </td>
+                  {/if}
+                  <td class="col-action">
+                    <Menu label={`Acciones de ${item.name}`} icon="mas-opciones" size="sm" variant="ghost" align="end" items={rowActions(item)} />
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          {/if}
         </table>
       </div>
-      <footer class="dic__card-foot">
-        <span>Mostrando {((pageNumber - 1) * DICTIONARY_PAGE_SIZE + 1).toLocaleString('es-CO')}–{Math.min(pageNumber * DICTIONARY_PAGE_SIZE, total).toLocaleString('es-CO')} de {total.toLocaleString('es-CO')}</span>
-        <Pagination page={pageNumber} {totalPages} size="sm" label={`Páginas de ${dictionaryLabel(kind).toLowerCase()}`} onchange={(next) => go(withPage(dictionariesHref(kind, filter, urlQuery), next))} />
-      </footer>
+      {#if items.length}
+        <footer class="dic__card-foot">
+          <span>{((pageNumber - 1) * DICTIONARY_PAGE_SIZE + 1).toLocaleString('es-CO')}–{Math.min(pageNumber * DICTIONARY_PAGE_SIZE, total).toLocaleString('es-CO')} de {total.toLocaleString('es-CO')}</span>
+          <Pagination page={pageNumber} {totalPages} size="sm" label={`Páginas de ${dictionaryLabel(kind).toLowerCase()}`} onchange={(next) => go(withPage(dictionariesHref(kind, filter, urlQuery), next))} />
+        </footer>
+      {:else}
+        <EmptyState
+          size="inline"
+          class="dic__empty"
+          icon={hasFilters ? 'buscar' : 'etiqueta'}
+          message={empty.message}
+          detail={empty.detail}
+          actionLabel={empty.action}
+          onaction={empty.action ? clearFilters : undefined}
+        />
+      {/if}
     {/if}
   </section>
 </div>
@@ -532,15 +560,16 @@
 </Dialog>
 
 <style>
-  /* ---- Diccionarios (U19). Misma tabla y densidad que el Catálogo (U15). ---- */
+  /* ---- Diccionarios (U19, rediseño U21). Misma tabla y ritmo que el Catálogo. ---- */
   .dic { color: var(--color-texto); }
   .dic > :global(.dic__notice) { margin-bottom: var(--density-pad); }
   .dic__state { display: grid; place-items: center; min-height: 16rem; }
+  .dic__create-hint { color: var(--color-texto-tenue); font-size: var(--text-sm); cursor: help; }
 
   .dic__tabs {
     display: flex;
     gap: var(--space-1);
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--tool-gap-header);
     overflow-x: auto;
     border-bottom: 1px solid var(--color-borde);
     scrollbar-width: none;
@@ -549,9 +578,10 @@
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
+    gap: var(--space-2);
     min-height: var(--target-touch);
     margin-bottom: -1px;
-    padding: 0 var(--space-3);
+    padding: 0 var(--tool-pad-control);
     border-bottom: 2px solid transparent;
     color: var(--color-texto-medio);
     font-size: var(--text-sm);
@@ -561,32 +591,18 @@
   .dic__tab:hover { color: var(--color-texto); }
   .dic__tab[aria-current='page'] { border-bottom-color: var(--color-acento); color: var(--color-texto); }
   .dic__tab:focus-visible { outline: 2px solid var(--color-acento); outline-offset: -2px; }
+  .dic__tab-count { color: var(--color-texto-tenue); font-size: var(--text-2xs); font-weight: 500; font-variant-numeric: tabular-nums; }
 
+  /* Búsqueda y filtro segmentado; mientras hay selección, la barra de lote ocupa esta fila. */
   .dic__toolbar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-2) var(--space-4);
-    margin-bottom: var(--space-3);
+    gap: var(--space-2) var(--tool-gap-row);
   }
   .dic__toolbar :global(.dic__search) { flex: 1 1 22rem; min-width: 0; }
-
-  .dic__batch {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2) var(--space-4);
-    margin-bottom: var(--space-3);
-    padding: var(--space-2) var(--space-4);
-    border: 1px solid var(--color-acento-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-acento-tinte);
-  }
-  .dic__batch-count { margin: 0; color: var(--color-texto-medio); font-size: var(--density-text); }
-  .dic__batch-count strong { color: var(--color-acento); }
-  .dic__batch-limit { color: var(--color-aviso); }
-  .dic__batch-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .dic__toolbar,
+  .dic > :global(.dic__selection) { margin-bottom: var(--tool-gap-header); }
 
   .dic__card {
     overflow: hidden;
@@ -594,27 +610,25 @@
     border-radius: var(--radius-sm);
     background: var(--color-panel);
   }
-  .dic__card-head,
   .dic__card-foot {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-2) var(--space-3);
-    padding: var(--space-3) var(--space-4);
+    padding: var(--space-2) var(--tool-pad-cell);
+    border-top: 1px solid var(--color-borde);
+    color: var(--color-texto-tenue);
+    font-size: var(--text-2xs);
+    font-variant-numeric: tabular-nums;
   }
-  .dic__card-head { align-items: baseline; border-bottom: 1px solid var(--color-borde); }
-  .dic__card-head h2 { margin: 0; font-size: var(--text-sm); font-weight: 700; }
-  .dic__card-head span,
-  .dic__card-foot { color: var(--color-texto-tenue); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
-  .dic__card-foot { padding-block: var(--space-2); border-top: 1px solid var(--color-borde); }
 
   .dic__scroll { position: relative; overflow-x: auto; transition: opacity var(--motion-fast) var(--ease-standard); }
   .dic__scroll.is-loading { opacity: 0.55; }
   .dic__table { width: 100%; border-collapse: collapse; table-layout: fixed; }
   .dic__table th {
     height: var(--density-row-h);
-    padding: 0 var(--space-3);
+    padding: 0 var(--tool-pad-cell);
     color: var(--color-texto-tenue);
     font-size: var(--text-2xs);
     font-weight: 700;
@@ -624,11 +638,11 @@
     white-space: nowrap;
   }
   .dic__table td {
-    height: var(--tool-row-h);
-    padding: 0 var(--space-3);
+    height: var(--tool-table-row-h-dense);
+    padding: 0 var(--tool-pad-cell);
     border-top: 1px solid var(--color-borde);
     color: var(--color-texto-alto);
-    font-size: var(--text-2xs);
+    font-size: var(--text-xs);
     vertical-align: middle;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -637,25 +651,32 @@
   .dic__table tbody tr.is-picked { background: var(--color-acento-tinte); }
 
   .dic__table .col-check { width: calc(var(--target-touch) + var(--space-2)); padding: 0 0 0 var(--space-2); }
-  .dic__table .col-status { width: 9rem; }
-  .dic__table .col-count { width: 13rem; font-variant-numeric: tabular-nums; }
+  .dic__table .col-status { width: 10rem; }
+  /* Número alineado a la derecha, como en el tablero 3. */
+  .dic__table .col-count { width: 9rem; text-align: right; font-variant-numeric: tabular-nums; }
   .dic__table .col-url { width: 34%; }
   /* Sin recorte: el área táctil de 44 del disparador sm sale de su caja (::after). */
   .dic__table .col-action { width: calc(var(--target-touch) + var(--space-2)); padding: 0 var(--space-1); overflow: visible; text-align: right; }
   .col-count.is-empty { color: var(--color-texto-tenue); }
 
-  .col-name strong,
-  .col-name small,
-  .col-url small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  /* El nombre y su alias, en la misma línea; el alias cede con puntos suspensivos. */
+  .col-name { white-space: nowrap; }
+  .col-name strong { color: var(--color-texto); font-size: var(--text-sm); font-weight: 600; }
+  .dic__alias { margin-left: var(--space-2); color: var(--color-texto-tenue); font-size: var(--text-2xs); font-weight: 500; }
+  .col-url small { display: block; overflow: hidden; margin-top: var(--space-1); color: var(--color-texto-tenue); white-space: nowrap; text-overflow: ellipsis; }
   /* El enlace ocupa los 44 de alto de la fila: es un objetivo, no texto dentro de una frase. */
   .col-url a { display: flex; align-items: center; min-height: var(--target-touch); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .col-url a + small { margin-top: 0; }
-  .col-name strong { color: var(--color-texto); font-size: var(--text-xs); }
-  .col-name small,
-  .col-url small { margin-top: var(--space-1); color: var(--color-texto-tenue); }
   .col-url a { color: var(--color-texto-alto); }
   .col-url a:hover { color: var(--color-acento); }
   .dic__muted { color: var(--color-texto-tenue); }
+
+  .dic__card > :global(.dic__empty) {
+    align-items: center;
+    padding-block: var(--space-8);
+    border-top: 1px solid var(--color-borde);
+    text-align: center;
+  }
 
   .dic__lead { margin: 0 0 var(--space-3); color: var(--color-texto-medio); font-size: var(--text-sm); line-height: 1.5; }
   .dic__consequences,
@@ -675,7 +696,6 @@
   /* Móvil: consulta y acciones de a una, como el Catálogo. Sin selección en lote. */
   @media (max-width: 767px) {
     .dic__toolbar { display: grid; grid-template-columns: minmax(0, 1fr); }
-    .dic__toolbar :global(.ui-select__control) { flex: 1; }
     .dic__scroll { overflow: visible; }
     .dic__table { table-layout: auto; }
     .dic__table thead { display: none; }
@@ -685,7 +705,7 @@
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       gap: var(--space-1) var(--space-2);
-      padding: var(--space-3) var(--space-4);
+      padding: var(--tool-pad-item-y) var(--tool-pad-item-x);
       border-top: 1px solid var(--color-borde);
     }
     .dic__table td { display: block; height: auto; padding: 0; border: 0; }
@@ -693,7 +713,7 @@
     .dic__table .col-action { grid-column: 2; grid-row: 1 / span 2; width: var(--target-touch); text-align: center; }
     .dic__table .col-status,
     .dic__table .col-count,
-    .dic__table .col-url { grid-column: 1; width: auto; }
+    .dic__table .col-url { grid-column: 1; width: auto; text-align: left; }
     .dic__table--genre .col-status,
     .dic__table--country .col-status { justify-self: start; }
   }
