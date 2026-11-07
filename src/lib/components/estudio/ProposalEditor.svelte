@@ -280,12 +280,10 @@
     {countries}
     {types}
     sections={PROPOSAL_EDITOR_SECTIONS}
-    eyebrow="Corregir propuesta"
     backLabel="Volver a las propuestas"
     {onclose}
     createdWhen="al aceptar"
-    lockedNote={role === 'admin' ? '' : 'Solo admin cambia la reseña y la portada.'}
-    reviewHint={role === 'admin' && item.payload.team_note?.trim() ? 'Empieza con la nota de quien propone. Si la dejas vacía, se publica esa nota.' : undefined}
+    lockedNote={role === 'admin' ? '' : 'Solo admin cambia la portada.'}
     {feedback}
     statusText={dirty ? 'Cambios sin guardar.' : item.taken_at ? 'Sin cambios.' : 'Sin cambios. Abrirla no la toma.'}
     clean={!dirty}

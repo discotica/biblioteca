@@ -79,6 +79,8 @@ export const ICONS = {
   intercambiar: { paths: ['M4 8h15', 'M15 4l4 4-4 4', 'M20 16H5', 'M9 12l-4 4 4 4'] },
   // Reiniciar filtros (U10): flecha circular.
   reiniciar: { paths: ['M4 12a8 8 0 1 0 2.4-5.7', 'M4 4v4.5h4.5'] },
+  // Historial del editor (U22): el reloj con la flecha de reiniciar.
+  historial: { paths: ['M4 12a8 8 0 1 0 2.4-5.7', 'M4 4v4.5h4.5', 'M12 8v4l2.5 1.5'] },
   // Filtros de la barra móvil (U10b): tres deslizadores con su mando.
   filtros: {
     paths: [

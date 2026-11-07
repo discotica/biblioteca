@@ -1,10 +1,11 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import RadarControls from '$lib/components/RadarControls.svelte';
+  import RadarPips from '$lib/components/RadarPips.svelte';
+  import RadarVisual from '$lib/components/RadarVisual.svelte';
   import { normalizeSearch } from '$lib/ui/combobox';
   import EditorCredits from './EditorCredits.svelte';
   import { SimilarEntries } from './similarEntries.svelte';
-  import { completeRadar } from '$lib/domain/contributionContract';
+  import { RADAR_AXES, completeRadar } from '$lib/domain/contributionContract';
   import { INDEPENDENT_LABEL } from '$lib/domain/suggestFlow';
   import {
     editorSectionAnchor,
@@ -19,12 +20,15 @@
     type EditorSection,
     type EditorSectionId
   } from '$lib/domain/releaseEditor';
-  import { Button, Combobox, Cover, Field, Icon, IconButton, Notice, Select, Textarea, type ComboboxOption } from '$lib/ui';
+  import { Button, Combobox, Cover, Field, Icon, IconButton, Notice, Select, type ComboboxOption } from '$lib/ui';
   import type { Artist, CatalogSnapshot, DictionaryEntry } from '$lib/services/adminCatalog';
 
   // Formulario del editor del Estudio (U16), compartido desde U19 por el editor del catálogo y el de
-  // propuestas: cabecera, índice, las secciones del lanzamiento y la barra de guardar. Quien lo usa
-  // pone la última sección (historial o propuesta), las acciones y lo que pasa al guardar.
+  // propuestas. U22 (tablero 7 del rediseño): una página sin tarjetas, con la etiqueta de cada
+  // sección en el margen; sin índice (D1); lo que falta para publicar, en la cabecera; la reseña
+  // fuera de la interfaz (el campo `review` viaja en el payload tal como llegó, nunca se escribe);
+  // y la barra fija con el resumen de cambios, la observación y las acciones. Quien lo usa pone la
+  // línea de estado, los iconos de la cabecera, las acciones y, si hace falta, una última sección.
 
   type Feedback = { tone: 'error' | 'success'; text: string } | null;
 
@@ -36,27 +40,34 @@
     types: DictionaryEntry[];
     /** Nombres de artistas conocidos, compartidos con la lista. */
     artists: Artist[];
+    /**
+     * Las secciones de la página, con su nombre. Si la última no es del formulario (Propuesta),
+     * se pinta con `tail`.
+     */
     sections: ReadonlyArray<EditorSection>;
-    eyebrow: string;
     backLabel: string;
     onclose: () => void;
     /** Cuándo se crea un artista o sello nuevo: «al guardar» (catálogo) o «al aceptar» (propuesta). */
     createdWhen: string;
     titleError?: string;
-    /** Reseña y portada en solo lectura, con el porqué (el colaborador no las cambia). */
+    /** Portada en solo lectura, con el porqué (el colaborador no la cambia). */
     lockedNote?: string;
-    reviewHint?: string;
-    /** Número junto a la última sección del índice (las entradas del historial). */
-    tally?: number;
-    tailNote?: string;
     technical?: boolean;
+    /** Lo que va antes de los artistas en la línea bajo el título (estado y versión). */
+    status?: Snippet;
+    /** Iconos de la cabecera, a la derecha (fuente, historial, más acciones). */
     meta?: Snippet;
     /** Avisos sobre lo que se abrió, encima de las secciones. */
     intro?: Snippet;
-    tail: Snippet;
+    tail?: Snippet;
     feedback: Feedback;
-    /** Texto de la barra cuando no hay aviso, y si es «sin cambios» (en móvil se oculta). */
-    statusText: string;
+    /**
+     * Campos cambiados desde la última carga o guardado, con su nombre. Con ellos la barra dice
+     * «n cambios · campos»; sin ellos, `statusText`.
+     */
+    changes?: string[];
+    /** Texto de la barra cuando no hay aviso ni `changes`, y si es «sin cambios» (en móvil se oculta). */
+    statusText?: string;
     clean: boolean;
     note: string;
     noteLabel: string;
@@ -78,21 +89,19 @@
     types,
     artists = $bindable(),
     sections,
-    eyebrow,
     backLabel,
     onclose,
     createdWhen,
     titleError = $bindable(''),
     lockedNote = '',
-    reviewHint,
-    tally = 0,
-    tailNote = '',
     technical = false,
+    status,
     meta,
     intro,
     tail,
     feedback,
-    statusText,
+    changes,
+    statusText = '',
     clean,
     note = $bindable(''),
     noteLabel,
@@ -105,10 +114,16 @@
     onmessage
   }: Props = $props();
 
-  let activeSection = $state<EditorSectionId>('datos');
-  const labelSimilar = new SimilarEntries('labels');
+  const FORM_IDS: ReadonlyArray<EditorSectionId> = ['datos', 'creditos', 'clasificacion', 'medios'];
 
-  const tailSection = $derived(sections[sections.length - 1]);
+  const labelSimilar = new SimilarEntries('labels');
+  let techOpen = $state(false);
+
+  const sectionName = (id: EditorSectionId) => sections.find((section) => section.id === id)?.label ?? id;
+  const tailSection = $derived.by(() => {
+    const last = sections[sections.length - 1];
+    return last && !FORM_IDS.includes(last.id) ? last : null;
+  });
   const missing = $derived(missingFields(release));
   const missingIn = $derived(missingBySection(release));
   const nameOf = (id: string) => (isPendingId(id) ? pendingName(id) : artists.find((artist) => artist.id === id)?.name ?? 'Artista sin resolver');
@@ -125,6 +140,7 @@
   const genreOptions = $derived(offered(genres, release.genre_ids));
   const countryOptions = $derived(offered(countries, release.country_ids));
   const newHint = $derived(`Nuevo · se crea ${createdWhen}`);
+  const newRule = $derived(`No está en el catálogo: se crea ${createdWhen}.`);
   const independent = $derived(labels.find((label) => normalizeSearch(label.name) === normalizeSearch(INDEPENDENT_LABEL)) ?? null);
   // «Independiente» fijo arriba, también si todavía no existe (se crearía como cualquier sello nuevo).
   const labelOptions = $derived.by<ComboboxOption[]>(() => {
@@ -133,14 +149,13 @@
     return [pinned, ...pending, ...labels.filter((label) => label.id !== independent?.id).map((label) => ({ value: label.id, label: label.name }))];
   });
   const pendingLabel = $derived(isPendingId(release.label_id) ? pendingName(release.label_id) : '');
-  const sectionOptions = $derived(sections.map((section) => ({ value: section.id, label: sectionLabel(section.id, section.label) })));
   const hasRadar = $derived(!!completeRadar(release.radar));
 
-  function sectionLabel(id: EditorSectionId, label: string) {
-    if (id === tailSection.id) return tally ? `${label} (${tally})` : label;
-    const count = missingIn[id].length;
-    return count ? `${label} · falta ${count}` : label;
-  }
+  // «Falta portada» con un pendiente; «Faltan 3» con varios. La lista completa, en el tooltip.
+  const missingTip = $derived(`Para publicar falta: ${missing.join(', ')}.`);
+  const missingMark = $derived(missing.length === 1 ? `Falta ${missing[0].toLowerCase()}` : `Faltan ${missing.length}`);
+
+  const changeCount = $derived(changes?.length ?? 0);
 
   function createLabel(text: string): ComboboxOption {
     const name = text.replace(/\s+/g, ' ').trim();
@@ -153,38 +168,9 @@
     release.label_id = entry.id;
   }
 
-  // ---------------------------------------------------------------------------
-  // Índice: lleva a cada sección y marca la que se está viendo.
-
-  async function goTo(id: EditorSectionId) {
-    activeSection = id;
-    const target = document.getElementById(editorSectionAnchor(id));
-    if (!target) return;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
-    // El foco va un frame después. Con el salto instantáneo, el header veía el
-    // scroll unas veces con el foco aún en el selector (se queda) y otras ya en
-    // el h2 (se oculta); así siempre lo ve antes del cambio de foco.
-    const heading = target.querySelector<HTMLElement>('h2');
-    requestAnimationFrame(() => heading?.focus({ preventScroll: true }));
-  }
-
-  $effect(() => {
-    if (typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) activeSection = entry.target.getAttribute('data-section') as EditorSectionId;
-        }
-      },
-      { rootMargin: '-20% 0px -70% 0px', threshold: 0 }
-    );
-    for (const section of sections) {
-      const element = document.getElementById(editorSectionAnchor(section.id));
-      if (element) observer.observe(element);
-    }
-    return () => observer.disconnect();
-  });
+  const addRadar = () => (release.radar = Object.fromEntries(RADAR_AXES.map((axis) => [axis, 0])));
+  // Sin radar el payload lleva {} y el servidor lo borra (U19, admin_update_catalog_release).
+  const removeRadar = () => (release.radar = {});
 
   const formatDate = (value: string | null) =>
     value
@@ -192,62 +178,47 @@
       : 'Sin fecha';
 </script>
 
+{#snippet sectionLabel(id: EditorSectionId, label: string)}
+  <div class="editor__label">
+    <h2 id="editor-h-{id}" tabindex="-1">{label}</h2>
+    {#if missingIn[id]?.length}
+      <span class="editor__label-flag" title={`Falta: ${missingIn[id].join(', ')}`}><span class="sr-only">Falta: {missingIn[id].join(', ')}</span></span>
+    {/if}
+  </div>
+{/snippet}
+
 <div class="editor">
   <header class="editor__head">
     <IconButton icon="flecha-izquierda" label={backLabel} variant="secondary" tooltip="bottom" tooltipAlign="start" onclick={onclose} />
     <Cover class="editor__thumb" src={release.cover_url} alt="" radius="sm" loading="eager" />
     <div class="editor__identity">
-      <p class="editor__eyebrow">{eyebrow}</p>
       <h1 class="editor__title">{release.title || 'Sin título'}</h1>
-      <p class="editor__artists">{artistLine || 'Añade un artista principal'}</p>
+      <p class="editor__line">
+        {#if status}{@render status()}<span class="editor__sep" aria-hidden="true">·</span>{/if}
+        <span class="editor__artists">{artistLine || 'Añade un artista principal'}</span>
+      </p>
     </div>
-    {#if meta}<div class="editor__meta">{@render meta()}</div>{/if}
+    <div class="editor__meta">
+      {#if missing.length}
+        <span class="editor__readiness" title={missingTip}>
+          <Icon name={missing.length === 1 && missing[0] === 'Portada' ? 'imagen-off' : 'aviso'} size="sm" />
+          <span aria-hidden="true">{missingMark}</span><span class="sr-only">{missingTip}</span>
+        </span>
+      {:else}
+        <span class="editor__readiness editor__readiness--ok"><Icon name="check" size="sm" />Lista para publicar</span>
+      {/if}
+      {#if meta}{@render meta()}{/if}
+    </div>
   </header>
 
+  <div class="editor__body">
+    {#if intro}{@render intro()}{/if}
 
-  <div class="editor__layout">
-    <aside class="editor__aside">
-      <nav class="editor__index" aria-label="Secciones del lanzamiento">
-        <ol>
-          {#each sections as section (section.id)}
-            {@const count = section.id === tailSection.id ? tally : missingIn[section.id].length}
-            <li>
-              <a
-                class="editor__index-link"
-                href="#{editorSectionAnchor(section.id)}"
-                aria-current={activeSection === section.id ? 'location' : undefined}
-                onclick={(event) => { event.preventDefault(); void goTo(section.id); }}
-              >
-                <span>{section.label}</span>
-                {#if section.id === tailSection.id}
-                  {#if count}<span class="editor__tally">{count}</span>{/if}
-                {:else if count}
-                  <span class="editor__tally editor__tally--missing">falta {count}</span>
-                {/if}
-              </a>
-            </li>
-          {/each}
-        </ol>
-      </nav>
-      <div class="editor__jump">
-        <Select label="Ir a la sección" hideLabel icon="lista" options={sectionOptions} value={activeSection} onchange={(value) => void goTo(value as EditorSectionId)} />
-      </div>
-      <p class="editor__readiness" class:editor__readiness--ok={!missing.length}>
-        {#if missing.length}<span class="editor__readiness-label">Para publicar falta:</span> {missing.join(', ')}{:else}Listo para publicar.{/if}
-      </p>
-    </aside>
-
-    <div class="editor__body">
-      {#if intro}{@render intro()}{/if}
-
-      <section class="editor__section" id={editorSectionAnchor('datos')} data-section="datos" aria-labelledby="editor-h-datos">
-        <header class="editor__section-head">
-          <h2 id="editor-h-datos" tabindex="-1">Datos</h2>
-          {#if missingIn.datos.length}<span class="editor__section-missing">Falta: {missingIn.datos.join(', ')}</span>{/if}
-        </header>
-        <div class="editor__grid">
+    <section class="editor__section" id={editorSectionAnchor('datos')} data-section="datos" aria-labelledby="editor-h-datos">
+      {@render sectionLabel('datos', sectionName('datos'))}
+      <div class="editor__content">
+        <div class="editor__row editor__row--data">
           <Field
-            class="editor__span-4"
             label="Título"
             required
             value={release.title}
@@ -258,21 +229,16 @@
               if (release.title.trim()) titleError = '';
             }}
           />
-          <Select
-            class="editor__span-2"
-            label="Tipo"
-            options={typeOptions}
-            value={release.release_type_id ?? ''}
-            onchange={(value) => (release.release_type_id = value || null)}
-          />
+          <Select label="Tipo" options={typeOptions} value={release.release_type_id ?? ''} onchange={(value) => (release.release_type_id = value || null)} />
           <Field
-            class="editor__span-2"
-            label="Fecha de lanzamiento"
+            label="Fecha"
             type="date"
             value={release.release_date ?? ''}
             oninput={(event: Event) => (release.release_date = (event.currentTarget as HTMLInputElement).value)}
           />
-          <div class="editor__span-4 editor__stack">
+        </div>
+        <div class="editor__row editor__row--pair">
+          <div class="editor__stack editor__label-field">
             <Combobox
               label="Sello"
               single
@@ -283,9 +249,11 @@
               createLabel={(text) => `Añadir «${text}» como sello nuevo`}
               oncreate={createLabel}
               placeholder="Busca un sello o escribe uno nuevo"
-              hint={pendingLabel ? `«${pendingLabel}» es nuevo: se crea ${createdWhen}.` : 'Si es autoeditado, elige «Independiente».'}
               removeLabel={(text) => `Quitar sello ${text}`}
             />
+            {#if pendingLabel}
+              <span class="editor__new editor__new--label" title={newRule}>Nuevo<span class="sr-only">: «{pendingLabel}» se crea {createdWhen}</span></span>
+            {/if}
             {#if pendingLabel && labelSimilar.of(pendingLabel).length}
               <Notice class="editor__similar" title={`«${pendingLabel}» no está en el catálogo y se creará como nuevo.`}>
                 Hay nombres parecidos. Si es el mismo, usa el que ya existe.
@@ -297,45 +265,35 @@
               </Notice>
             {/if}
           </div>
+          {#if technical && release.id}
+            <div class="editor__tech-toggle">
+              <button type="button" class="editor__more" aria-expanded={techOpen} aria-controls="editor-tech" onclick={() => (techOpen = !techOpen)}>
+                <span class="editor__more-icon" aria-hidden="true"><Icon name="agregar" size="sm" /></span>Datos técnicos
+              </button>
+            </div>
+          {/if}
         </div>
-        <details class="editor__more">
-          <summary><span class="editor__chevron" aria-hidden="true"><Icon name="chevron-derecha" size="sm" /></span>Reseña <span class="editor__optional">(opcional)</span></summary>
-          <Textarea
-            label="Texto editorial"
-            hideLabel
-            rows={4}
-            bind:value={release.review}
-            readonly={!!lockedNote}
-            hint={lockedNote || reviewHint}
-            placeholder="Añade una reseña solo cuando aporte contexto."
-          />
-        </details>
-        {#if technical && release.id}
-          <details class="editor__more">
-            <summary><span class="editor__chevron" aria-hidden="true"><Icon name="chevron-derecha" size="sm" /></span>Datos técnicos</summary>
-            <dl class="editor__tech">
-              <dt>ID</dt><dd>{release.id}</dd>
-              <dt>Identificador</dt><dd>{release.slug}</dd>
-              <dt>Última edición</dt><dd>{formatDate(release.updated_at)}</dd>
-            </dl>
-          </details>
+        {#if technical && release.id && techOpen}
+          <dl class="editor__tech" id="editor-tech">
+            <dt>ID</dt><dd>{release.id}</dd>
+            <dt>Identificador</dt><dd>{release.slug}</dd>
+            <dt>Última edición</dt><dd>{formatDate(release.updated_at)}</dd>
+          </dl>
         {/if}
-      </section>
+      </div>
+    </section>
 
-      <section class="editor__section" id={editorSectionAnchor('creditos')} data-section="creditos" aria-labelledby="editor-h-creditos">
-        <header class="editor__section-head">
-          <h2 id="editor-h-creditos" tabindex="-1">Créditos</h2>
-          {#if missingIn.creditos.length}<span class="editor__section-missing">Falta: {missingIn.creditos.join(', ')}</span>{/if}
-        </header>
+    <section class="editor__section" id={editorSectionAnchor('creditos')} data-section="creditos" aria-labelledby="editor-h-creditos">
+      {@render sectionLabel('creditos', sectionName('creditos'))}
+      <div class="editor__content">
         <EditorCredits bind:release bind:artists {createdWhen} {onmessage} />
-      </section>
+      </div>
+    </section>
 
-      <section class="editor__section" id={editorSectionAnchor('clasificacion')} data-section="clasificacion" aria-labelledby="editor-h-clasificacion">
-        <header class="editor__section-head">
-          <h2 id="editor-h-clasificacion" tabindex="-1">Clasificación</h2>
-          {#if missingIn.clasificacion.length}<span class="editor__section-missing">Falta: {missingIn.clasificacion.join(', ')}</span>{/if}
-        </header>
-        <div class="editor__pair">
+    <section class="editor__section" id={editorSectionAnchor('clasificacion')} data-section="clasificacion" aria-labelledby="editor-h-clasificacion">
+      {@render sectionLabel('clasificacion', sectionName('clasificacion'))}
+      <div class="editor__content">
+        <div class="editor__row editor__row--pair">
           <Combobox
             label="Géneros"
             options={genreOptions}
@@ -352,75 +310,84 @@
           />
         </div>
         {#if hasRadar}
-          <RadarControls bind:value={release.radar} />
+          <div class="editor__radar" role="group" aria-labelledby="editor-radar-title">
+            <div class="editor__radar-head">
+              <span class="editor__field-label" id="editor-radar-title">Radar</span>
+              <IconButton size="sm" icon="cerrar" label="Quitar radar" onclick={removeRadar} />
+            </div>
+            <div class="editor__radar-box">
+              <RadarPips bind:value={release.radar} spine={false} />
+              <div class="editor__radar-chart" aria-hidden="true"><RadarVisual valores={release.radar} /></div>
+            </div>
+          </div>
         {:else}
-          <div class="editor__radar-empty">
-            <span>Sin radar.</span>
-            <Button variant="link" size="sm" onclick={() => (release.radar = { experimental: 0, denso: 0, sintetico: 0, bailable: 0, rapido: 0 })}>Añadir radar</Button>
+          <div class="editor__more-row">
+            <button type="button" class="editor__more" onclick={addRadar}>
+              <span class="editor__more-icon" aria-hidden="true"><Icon name="agregar" size="sm" /></span>Radar
+            </button>
           </div>
         {/if}
-      </section>
+      </div>
+    </section>
 
-      <section class="editor__section" id={editorSectionAnchor('medios')} data-section="medios" aria-labelledby="editor-h-medios">
-        <header class="editor__section-head">
-          <h2 id="editor-h-medios" tabindex="-1">Medios</h2>
-          {#if missingIn.medios.length}<span class="editor__section-missing">Falta: {missingIn.medios.join(', ')}</span>{/if}
-        </header>
-        <div class="editor__media">
-          <Cover class="editor__cover" src={release.cover_url} alt={release.cover_url ? `Portada de ${release.title || 'lanzamiento'}` : ''} radius="sm" />
-          <div class="editor__media-fields">
-            <Field
-              label="Link de compra o escucha"
-              type="url"
-              value={link?.url ?? ''}
-              placeholder="https://bandcamp.com/…"
-              hint={link?.url ? `Proveedor: ${inferProvider(link.url)}.` : 'Detectamos el proveedor a partir de la URL.'}
-              oninput={(event: Event) => (release.links = withPrimaryLink(release.links, (event.currentTarget as HTMLInputElement).value))}
-            />
-            <Field
-              label="URL de portada"
-              type="url"
-              value={release.cover_url ?? ''}
-              readonly={!!lockedNote}
-              oninput={(event: Event) => (release.cover_url = (event.currentTarget as HTMLInputElement).value)}
-              placeholder="https://…"
-              hint={lockedNote || 'Pega una URL HTTPS. La detección automática llegará después.'}
-            />
-            {#if extraLinks}<p class="editor__extra">{extraLinks === 1 ? 'Hay 1 enlace adicional' : `Hay ${extraLinks} enlaces adicionales`}; se conservan al guardar.</p>{/if}
-          </div>
+    <section class="editor__section" id={editorSectionAnchor('medios')} data-section="medios" aria-labelledby="editor-h-medios">
+      {@render sectionLabel('medios', sectionName('medios'))}
+      <div class="editor__content editor__media">
+        <Cover class="editor__cover" src={release.cover_url} alt={release.cover_url ? `Portada de ${release.title || 'lanzamiento'}` : ''} radius="sm" />
+        <div class="editor__media-fields">
+          <Field
+            label={link?.url ? `Compra o escucha · ${inferProvider(link.url)}` : 'Compra o escucha'}
+            type="url"
+            value={link?.url ?? ''}
+            placeholder="https://bandcamp.com/…"
+            oninput={(event: Event) => (release.links = withPrimaryLink(release.links, (event.currentTarget as HTMLInputElement).value))}
+          />
+          <Field
+            label="Portada · URL HTTPS"
+            type="url"
+            value={release.cover_url ?? ''}
+            readonly={!!lockedNote}
+            oninput={(event: Event) => (release.cover_url = (event.currentTarget as HTMLInputElement).value)}
+            placeholder="https://…"
+            hint={lockedNote || undefined}
+          />
+          {#if extraLinks}<p class="editor__extra">{extraLinks === 1 ? 'Hay 1 enlace adicional' : `Hay ${extraLinks} enlaces adicionales`}; se conservan al guardar.</p>{/if}
         </div>
-      </section>
+      </div>
+    </section>
 
+    {#if tailSection && tail}
       <section class="editor__section" id={editorSectionAnchor(tailSection.id)} data-section={tailSection.id} aria-labelledby="editor-h-{tailSection.id}">
-        <header class="editor__section-head">
-          <h2 id="editor-h-{tailSection.id}" tabindex="-1">{tailSection.label}</h2>
-          {#if tailNote}<span class="editor__section-note">{tailNote}</span>{/if}
-        </header>
-        {@render tail()}
+        {@render sectionLabel(tailSection.id, tailSection.label)}
+        <div class="editor__content">{@render tail()}</div>
       </section>
+    {/if}
 
-      <div class="editor__bar" role="region" aria-label="Guardar">
+    <div class="editor__bar" role="region" aria-label="Guardar">
+      <div class="editor__bar-row" class:editor__bar-row--stacked={stackActions}>
         <div class="editor__bar-status" aria-live="polite">
           {#if feedback}
-            <p class="editor__feedback editor__feedback--{feedback.tone}" role={feedback.tone === 'error' ? 'alert' : 'status'}>{feedback.text}</p>
+            <p class="editor__feedback editor__feedback--{feedback.tone}" role={feedback.tone === 'error' ? 'alert' : 'status'} title={feedback.text}>{feedback.text}</p>
+          {:else if changes}
+            <p class="editor__dirty" class:editor__dirty--clean={clean} title={changeCount ? changes.join(', ') : undefined}>
+              {#if !clean && changeCount}<strong>{changeCount === 1 ? '1 cambio' : `${changeCount} cambios`}</strong> · {changes.join(', ').toLowerCase()}{:else if clean}Sin cambios{:else}Cambios sin guardar{/if}
+            </p>
           {:else}
             <p class="editor__dirty" class:editor__dirty--clean={clean}>{statusText}</p>
           {/if}
         </div>
-        <div class="editor__bar-row" class:editor__bar-row--stacked={stackActions}>
-          <Field
-            class="editor__note"
-            label={noteLabel}
-            hideLabel
-            required={noteRequired}
-            bind:value={note}
-            bind:element={noteElement}
-            placeholder={notePlaceholder}
-            autocomplete="off"
-            onkeydown={(event: KeyboardEvent) => { if (event.key === 'Enter') { event.preventDefault(); onnoteenter?.(); } }}
-          />
-          <div class="editor__bar-actions">{@render actions()}</div>
-        </div>
+        <Field
+          class="editor__note"
+          label={noteLabel}
+          hideLabel
+          required={noteRequired}
+          bind:value={note}
+          bind:element={noteElement}
+          placeholder={notePlaceholder}
+          autocomplete="off"
+          onkeydown={(event: KeyboardEvent) => { if (event.key === 'Enter') { event.preventDefault(); onnoteenter?.(); } }}
+        />
+        <div class="editor__bar-actions">{@render actions()}</div>
       </div>
     </div>
   </div>
@@ -432,150 +399,134 @@
   /* ---- Cabecera -------------------------------------------------------- */
   .editor__head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-3);
-    margin-bottom: var(--density-gap);
+    gap: var(--space-3) var(--space-4);
+    padding-bottom: var(--tool-gap-header);
+    border-bottom: 1px solid var(--color-linea);
   }
   .editor__head :global(.editor__thumb) {
-    flex: 0 0 var(--tool-thumb);
-    width: var(--tool-thumb);
-    height: var(--tool-thumb);
+    flex: 0 0 var(--tool-editor-thumb);
+    width: var(--tool-editor-thumb);
+    height: var(--tool-editor-thumb);
   }
-  .editor__identity { flex: 1; min-width: 0; }
-  .editor__eyebrow {
-    margin: 0;
-    color: var(--color-acento);
-    font-size: var(--text-2xs);
-    font-weight: 700;
-    letter-spacing: var(--nav-letter-spacing);
-    text-transform: uppercase;
-  }
+  .editor__identity { display: flex; flex: 1 1 16rem; flex-direction: column; gap: var(--space-1); min-width: 0; }
   .editor__title {
     margin: 0;
     overflow: hidden;
     color: var(--color-texto);
-    font-size: var(--text-lg);
-    font-weight: 700;
+    font-size: var(--text-xl);
+    font-weight: 800;
     line-height: var(--leading-heading);
     white-space: nowrap;
     text-overflow: ellipsis;
   }
-  .editor__artists {
-    margin: 0;
-    overflow: hidden;
-    color: var(--color-texto-tenue);
-    font-size: var(--text-xs);
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-  .editor__meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); }
-
-
-  /* ---- Índice y cuerpo ------------------------------------------------- */
-  .editor__layout {
-    display: grid;
-    grid-template-columns: var(--tool-index-w) minmax(0, 1fr);
-    gap: var(--space-5);
-    align-items: start;
-  }
-
-  .editor__aside {
-    position: sticky;
-    top: calc(var(--header-offset) + var(--space-5));
-    transition: top var(--motion-slow) var(--ease-emphasized);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-  }
-  .editor__index ol {
-    display: flex;
-    flex-direction: column;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    border-left: 1px solid var(--color-linea);
-  }
-  .editor__index-link {
+  .editor__line {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: var(--space-2);
-    min-height: var(--target-touch);
-    margin-left: -1px;
-    padding: 0 var(--space-3);
-    border-left: 2px solid transparent;
-    color: var(--color-texto-medio);
-    font-size: var(--density-text);
-    font-weight: 600;
-    text-decoration: none;
-    transition: color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
-  }
-  .editor__index-link:hover { color: var(--color-texto); }
-  .editor__index-link[aria-current='location'] { border-left-color: var(--color-acento); color: var(--color-acento); }
-  .editor__tally { color: var(--color-texto-tenue); font-size: var(--text-2xs); font-weight: 500; font-variant-numeric: tabular-nums; }
-  .editor__tally--missing { color: var(--color-aviso); }
-
-  .editor__jump { display: none; }
-
-  .editor__readiness {
+    min-width: 0;
     margin: 0;
-    padding: var(--space-3) var(--space-3) 0;
-    border-top: 1px solid var(--color-linea);
+    color: var(--color-texto-medio);
+    font-size: var(--text-2xs);
+  }
+  /* Solo los artistas se recortan: el estado y la versión se leen enteros. */
+  .editor__line :global(.ui-status) { flex: none; color: var(--color-texto-medio); }
+  .editor__sep { color: var(--color-texto-tenue); }
+  .editor__artists { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .editor__meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); }
+
+  /* Marca de publicación: ámbar si falta algo (la lista, en el tooltip); verde tenue si está lista. */
+  .editor__readiness {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    height: var(--space-5);
+    margin-right: var(--space-2);
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-pill);
+    background: var(--color-aviso-dim);
     color: var(--color-aviso);
     font-size: var(--text-2xs);
-    line-height: 1.5;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: default;
   }
-  .editor__readiness-label { color: var(--color-texto-tenue); }
-  .editor__readiness--ok { color: var(--color-acento); }
+  .editor__readiness--ok { background: var(--color-acento-tinte); color: var(--color-acento); }
 
-  .editor__body { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+  /* ---- Secciones: etiqueta en el margen, línea fina entre ellas -------- */
+  .editor__body { display: flex; flex-direction: column; min-width: 0; }
 
   .editor__section {
-    padding: var(--density-pad);
-    border: 1px solid var(--color-borde);
-    border-radius: var(--radius-sm);
-    background: var(--color-panel);
+    display: grid;
+    grid-template-columns: var(--tool-editor-label) minmax(0, 1fr);
+    gap: var(--tool-gap-col);
+    padding-block: var(--tool-pad-section);
+    border-bottom: 1px solid var(--color-linea-sutil);
     /* El alto del header lo reserva el scroll-padding de html (U18). */
     scroll-margin-top: var(--space-5);
   }
-  .editor__section-head {
+  .editor__label {
     display: flex;
-    flex-wrap: wrap;
     align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-1) var(--space-3);
-    margin-bottom: var(--space-3);
+    gap: var(--space-2);
+    /* Alineada con el primer control: la altura de una etiqueta de campo y su separación. */
+    padding-top: calc(var(--density-label) * 1.5 + var(--tool-gap-label));
   }
-  .editor__section-head h2 { margin: 0; font-size: var(--text-md); font-weight: 700; }
-  .editor__section-head h2:focus { outline: none; }
-  .editor__section-missing { color: var(--color-aviso); font-size: var(--text-2xs); }
-  .editor__section-note { color: var(--color-texto-tenue); font-size: var(--text-2xs); }
+  .editor__label h2 { margin: 0; color: var(--color-texto-medio); font-size: var(--text-xs); font-weight: 700; }
+  .editor__label h2:focus { outline: none; }
+  .editor__label-flag {
+    flex: none;
+    width: calc(var(--icon-sm) / 2);
+    height: calc(var(--icon-sm) / 2);
+    border-radius: var(--radius-pill);
+    background: var(--color-aviso);
+    cursor: default;
+  }
+  .editor__content { display: flex; flex-direction: column; gap: var(--tool-gap-row); min-width: 0; }
 
-  /* ---- Datos ------------------------------------------------------------ */
-  .editor__grid {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: var(--space-3) var(--density-gap);
-  }
-  .editor__grid :global(.editor__span-4) { grid-column: span 4; }
-  .editor__grid :global(.editor__span-2) { grid-column: span 2; }
+  .editor__row { display: grid; gap: var(--tool-gap-row) var(--tool-gap-col); align-items: start; }
+  .editor__row--data { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); }
+  .editor__row--pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .editor__stack { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
 
-  .editor__more { margin-top: var(--space-3); }
-  .editor__more summary {
+  .editor__field-label { color: var(--color-texto-medio); font-size: var(--density-label); font-weight: 600; }
+
+  /* «Nuevo»: la regla completa va en el tooltip. */
+  .editor__label-field { position: relative; }
+  .editor__new {
+    color: var(--color-aviso);
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    letter-spacing: var(--nav-letter-spacing);
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: default;
+  }
+  .editor__new--label { position: absolute; top: 0; right: 0; line-height: 1.5; }
+
+  /* «+ Datos técnicos» y «+ Radar»: se despliegan en el sitio. */
+  .editor__tech-toggle { display: flex; align-items: flex-end; align-self: stretch; }
+  .editor__more {
     display: inline-flex;
     align-items: center;
+    gap: var(--space-2);
     min-height: var(--target-touch);
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: var(--color-texto-medio);
-    font-size: var(--text-sm);
+    font: inherit;
+    font-size: var(--text-xs);
     font-weight: 600;
     cursor: pointer;
   }
-  .editor__more summary { gap: var(--space-1); list-style: none; }
-  .editor__more summary::-webkit-details-marker { display: none; }
-  .editor__chevron { display: flex; color: var(--color-texto-tenue); transition: transform var(--motion-fast) var(--ease-standard); }
-  .editor__more[open] .editor__chevron { transform: rotate(90deg); }
-  .editor__optional { margin-left: .3em; color: var(--color-texto-tenue); font-weight: 400; }
+  .editor__tech-toggle .editor__more { margin-bottom: calc((var(--density-control-h) - var(--target-touch)) / 2); }
+  .editor__more:hover { color: var(--color-texto); }
+  .editor__more:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; border-radius: var(--radius-xs); }
+  .editor__more-icon { display: flex; color: var(--color-acento); transition: transform var(--motion-fast) var(--ease-standard); }
+  .editor__more[aria-expanded='true'] .editor__more-icon { transform: rotate(45deg); }
+  .editor__more-row { display: flex; }
   .editor__tech {
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr);
@@ -586,105 +537,87 @@
   .editor__tech dt { color: var(--color-texto-tenue); }
   .editor__tech dd { margin: 0; overflow-wrap: anywhere; color: var(--color-texto-alto); font-variant-numeric: tabular-nums; }
 
-  /* ---- Clasificación ---------------------------------------------------- */
-  .editor__pair {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-3) var(--density-gap);
-    align-items: start;
-  }
-  .editor__radar-empty {
+  /* ---- Radar: los puntos de la búsqueda y el pentágono al lado --------- */
+  .editor__radar { display: flex; flex-direction: column; gap: var(--tool-gap-label); }
+  .editor__radar-head { display: flex; align-items: center; gap: var(--tool-gap-remove); min-height: var(--control-h-sm); }
+  .editor__radar-box {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0 var(--space-2);
-    margin-top: var(--space-4);
-    padding-top: var(--space-3);
-    border-top: 1px solid var(--color-borde);
-    color: var(--color-texto-tenue);
-    font-size: var(--text-sm);
+    gap: var(--space-5) var(--tool-pad-section);
+    width: fit-content;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: var(--space-4) var(--tool-pad-panel-x);
+    border: 1px solid var(--color-linea);
+    border-radius: var(--radius-sm);
   }
+  /* Las letras del pentágono salen del dibujo: margen para que no se corten. */
+  .editor__radar-chart { width: var(--tool-editor-radar); }
+  .editor__radar-chart :global(svg) { overflow: visible; }
 
   /* ---- Medios ----------------------------------------------------------- */
-  .editor__media {
-    display: grid;
-    grid-template-columns: var(--tool-cover) minmax(0, 1fr);
-    gap: var(--density-gap);
-    align-items: start;
-  }
+  .editor__media { display: grid; grid-template-columns: var(--tool-cover) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
   .editor__media :global(.editor__cover) { width: var(--tool-cover); height: var(--tool-cover); }
-  .editor__media-fields { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+  .editor__media-fields { display: flex; flex-direction: column; gap: var(--tool-gap-row); min-width: 0; }
   .editor__extra { margin: 0; color: var(--color-texto-tenue); font-size: var(--text-2xs); }
 
-  /* ---- Barra de guardar: fija abajo mientras se edita ------------------ */
+  /* ---- Barra de guardar: fija abajo, una línea -------------------------- */
   .editor__bar {
     position: sticky;
     bottom: 0;
     z-index: var(--layer-sticky);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    margin-top: var(--space-2);
-    padding: var(--space-3) var(--density-pad) calc(var(--space-3) + var(--safe-area-bottom));
-    border: 1px solid var(--color-linea);
-    border-radius: var(--radius-sm);
-    background: var(--color-panel);
-    box-shadow: var(--shadow-flotante);
+    padding: var(--space-3) 0 calc(var(--space-3) + var(--safe-area-bottom));
+    border-top: 1px solid var(--color-linea);
+    background: var(--color-fondo);
   }
-  .editor__bar-status p { margin: 0; font-size: var(--text-2xs); }
-  .editor__dirty { color: var(--color-texto-tenue); }
-  .editor__feedback--error { color: var(--color-danger-texto); font-weight: 600; }
-  .editor__feedback--success { color: var(--color-acento); }
   .editor__bar-row { display: flex; align-items: center; gap: var(--space-3); }
-  .editor__bar-row :global(.editor__note) { flex: 1; }
+  .editor__bar-status { flex: 0 1 auto; min-width: 0; max-width: 40%; }
+  .editor__bar-status p {
+    margin: 0;
+    overflow: hidden;
+    color: var(--color-texto-medio);
+    font-size: var(--text-2xs);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .editor__dirty strong { color: var(--color-texto); font-weight: 700; }
+  .editor__bar-status .editor__feedback--error { color: var(--color-danger-texto); font-weight: 600; }
+  .editor__bar-status .editor__feedback--success { color: var(--color-acento); }
+  .editor__bar-row :global(.editor__note) { flex: 1 1 20rem; min-width: 0; }
   .editor__bar-actions { display: flex; gap: var(--space-2); }
   /* Muchas acciones (propuesta como admin): debajo de la nota, en dos grupos. */
-  .editor__bar-row--stacked { flex-direction: column; align-items: stretch; gap: var(--space-2); }
-  .editor__bar-row--stacked .editor__bar-actions { flex-wrap: wrap; justify-content: space-between; }
+  .editor__bar-row--stacked { flex-wrap: wrap; }
+  .editor__bar-row--stacked .editor__bar-actions { flex: 1 1 100%; flex-wrap: wrap; justify-content: space-between; }
   .editor__bar-actions :global(.editor__bar-group) { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
-  /* ---- Tablet: el índice sigue al lado, más estrecho ------------------- */
+  /* ---- Tablet ------------------------------------------------------------ */
   @media (max-width: 1023px) {
-    .editor__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    /* Título y sello a todo el ancho; tipo y fecha comparten fila. */
-    .editor__grid :global(.editor__span-4) { grid-column: 1 / -1; }
-    .editor__grid :global(.editor__span-2) { grid-column: span 1; }
-    .editor__pair { grid-template-columns: minmax(0, 1fr); }
+    .editor__row--data { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .editor__row--data > :global(:first-child) { grid-column: 1 / -1; }
   }
 
-  /* ---- Móvil: una columna, el índice es un selector y la barra va abajo - */
+  /* ---- Móvil: una columna; la etiqueta de la sección va encima ------------ */
   @media (max-width: 767px) {
-    .editor__head { flex-wrap: wrap; }
+    /* Título junto a la portada; la marca y los iconos, en la fila de abajo. */
+    .editor__identity { flex-basis: 10rem; }
     .editor__meta { flex-basis: 100%; justify-content: flex-start; }
-    /* En bloque, no en grilla: el selector fijo necesita toda la página como
-       bloque contenedor (en una grilla sería solo su fila). */
-    .editor__layout { display: block; }
-    .editor__body { margin-top: var(--space-3); }
-    .editor__aside {
-      top: var(--header-offset);
-      z-index: var(--layer-sticky);
-      gap: var(--space-1);
-      margin-inline: calc(-1 * var(--container-gutter));
-      padding: var(--space-2) var(--container-gutter);
-      border-bottom: 1px solid var(--color-linea);
-      background: var(--color-fondo);
-    }
-    .editor__index { display: none; }
-    .editor__jump { display: block; }
-    .editor__readiness { padding: 0; border: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .editor__section { margin-inline: calc(-1 * var(--container-gutter)); border-inline: 0; border-radius: 0; scroll-margin-top: calc(var(--field-h-md) + var(--space-7)); }
-    .editor__grid { grid-template-columns: minmax(0, 1fr); }
-    .editor__grid :global(.editor__span-4),
-    .editor__grid :global(.editor__span-2) { grid-column: 1 / -1; }
+    .editor__section { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); padding-block: var(--tool-gap-row); }
+    .editor__label { padding-top: 0; }
+    .editor__row--data,
+    .editor__row--pair { grid-template-columns: minmax(0, 1fr); }
+    .editor__tech-toggle { align-self: auto; }
+    .editor__tech-toggle .editor__more { margin-bottom: 0; }
+    .editor__radar-box { width: 100%; justify-content: space-between; padding-inline: var(--space-4); }
     .editor__media { grid-template-columns: minmax(0, 1fr); }
     .editor__bar {
       margin-inline: calc(-1 * var(--container-gutter));
       padding-inline: var(--container-gutter);
-      border-inline: 0;
-      border-radius: 0;
     }
     .editor__bar-status:has(.editor__dirty--clean) { display: none; }
+    .editor__bar-status { max-width: none; }
     .editor__bar-row { flex-direction: column; align-items: stretch; gap: var(--space-2); }
+    .editor__bar-row :global(.editor__note) { flex: none; }
     /* Dos acciones largas (colaborador) no caben en una fila de 390: bajan de línea. */
     .editor__bar-actions { flex-wrap: wrap; }
     .editor__bar-actions > :global(*) { flex: 1 1 auto; }
@@ -692,8 +625,6 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .editor__index-link,
-    .editor__chevron,
-    .editor__aside { transition: none; }
+    .editor__more-icon { transition: none; }
   }
 </style>

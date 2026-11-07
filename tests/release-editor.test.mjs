@@ -27,8 +27,8 @@ const complete = () => ({
   cover_url: 'https://img.test/c.jpg'
 });
 
-test('el índice tiene las cinco secciones del plan, en orden', () => {
-  assert.deepEqual(EDITOR_SECTIONS.map((section) => section.label), ['Datos', 'Créditos', 'Clasificación', 'Medios', 'Historial']);
+test('U22: el editor tiene las cuatro secciones del formulario; el historial se abre desde la cabecera', () => {
+  assert.deepEqual(EDITOR_SECTIONS.map((section) => section.label), ['Datos', 'Créditos', 'Clasificación', 'Medios']);
 });
 
 test('un lanzamiento completo no tiene pendientes', () => {

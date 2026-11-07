@@ -3,8 +3,8 @@
   import EditorHistory from './EditorHistory.svelte';
   import ReleaseForm from './ReleaseForm.svelte';
   import { studioProposalsHref, studioReportsHref } from '$lib/domain/studio';
-  import { EDITOR_SECTIONS, isPendingId, mergeById, missingFields, pendingName, validateRelease } from '$lib/domain/releaseEditor';
-  import { Button, Chip, Dialog, ErrorState, LoadingIndicator, Menu, Notice, Textarea, type MenuItem } from '$lib/ui';
+  import { EDITOR_SECTIONS, changedFields, isPendingId, mergeById, missingFields, pendingName, primaryLink, validateRelease } from '$lib/domain/releaseEditor';
+  import { Button, Dialog, ErrorState, IconButton, LoadingIndicator, Menu, Notice, Sheet, SourceLink, StatusDot, Textarea, type MenuGroup, type MenuItem, type StatusTone } from '$lib/ui';
   import {
     getArtistsByIds,
     getCatalogHistory,
@@ -48,7 +48,7 @@
   type Feedback = { tone: 'error' | 'success'; text: string } | null;
 
   const STATUS_LABELS: Record<CatalogStatus, string> = { draft: 'Borrador', published: 'Publicado', archived: 'Archivado' };
-  const STATUS_TONES: Record<CatalogStatus, 'neutral' | 'accent' | 'danger'> = { draft: 'neutral', published: 'accent', archived: 'danger' };
+  const STATUS_TONES: Record<CatalogStatus, StatusTone> = { draft: 'draft', published: 'ok', archived: 'danger' };
 
   let selected = $state<CatalogSnapshot | null>(null);
   let history = $state<CatalogHistory[]>([]);
@@ -72,21 +72,38 @@
 
   let noteEl = $state<HTMLInputElement>();
 
+  // U22: el historial deja de ser una sección y se abre en una hoja desde la cabecera.
+  let historyOpen = $state(false);
+  let historyButton = $state<HTMLElement>();
+
   const dirty = $derived(selected ? JSON.stringify(payload(selected)) !== baseline : false);
+  /** Los campos que difieren de lo leído o guardado, con su nombre del historial («n cambios · campos»). */
+  const baselineState = $derived(baseline ? JSON.parse(baseline) : null);
+  const changes = $derived(selected && dirty ? changedFields({ before_state: baselineState, after_state: payload(selected) }) : []);
+  const link = $derived(selected ? primaryLink(selected) : null);
   const missing = $derived(selected ? missingFields(selected) : []);
   const artistLine = $derived(
     selected ? selected.artist_ids.map((id) => (isPendingId(id) ? pendingName(id) : artists.find((artist) => artist.id === id)?.name ?? 'Artista sin resolver')).join(', ') : ''
   );
   const reports = $derived(selected?.signals?.open_report_count ?? 0);
-  const menuItems = $derived.by<MenuItem[]>(() => {
+  // ⋯ (tablero 7): publicar y archivar, y lo relacionado. Publicar sale de la barra; sin todo lo que
+  // pide E06, queda deshabilitado (la cabecera dice qué falta).
+  const menuGroups = $derived.by<MenuGroup[]>(() => {
     if (!selected?.id) return [];
-    const items: MenuItem[] = [];
-    if (selected.status === 'published') items.push({ label: 'Ver ficha pública', icon: 'flecha-externa', href: `/lanzamiento/${selected.slug}` });
-    items.push({ label: reports ? `Reportes abiertos (${reports})` : 'Reportes', icon: 'reportar', href: studioReportsHref(selected.id) });
-    items.push({ label: 'Propuestas', icon: 'lista', href: studioProposalsHref(selected.id) });
-    if (selected.status !== 'archived') items.push({ label: 'Archivar lanzamiento', tone: 'danger', onselect: () => askFor('archive', null) });
-    return items;
+    const actions: MenuItem[] = [];
+    if (selected.status !== 'published') {
+      actions.push(missing.length || busy
+        ? { label: 'Publicar lanzamiento', icon: 'check', disabled: true }
+        : { label: 'Publicar lanzamiento', icon: 'check', onselect: () => askFor('publish', null) });
+    }
+    if (selected.status !== 'archived') actions.push({ label: 'Archivar lanzamiento', tone: 'danger', onselect: () => askFor('archive', null) });
+    const related: MenuItem[] = [];
+    if (selected.status === 'published') related.push({ label: 'Ver ficha pública', icon: 'flecha-externa', href: `/lanzamiento/${selected.slug}` });
+    related.push({ label: reports ? `Reportes abiertos (${reports})` : 'Reportes', icon: 'reportar', href: studioReportsHref(selected.id) });
+    related.push({ label: 'Propuestas', icon: 'lista', href: studioProposalsHref(selected.id) });
+    return [...(actions.length ? [{ items: actions }] : []), { label: 'Relacionado', items: related }];
   });
+  const historyLabel = $derived(`Historial · ${history.length === 1 ? '1 cambio' : `${history.length} cambios`}`);
   const dialogTitle = $derived({ publish: 'Publicar lanzamiento', archive: 'Archivar lanzamiento', revert: 'Revertir cambio' }[dialog ?? 'publish']);
 
   const formatDate = (value: string | null) =>
@@ -230,6 +247,8 @@
     }
     busy = true;
     feedback = null;
+    // Al terminar se cierran el diálogo y la hoja: el resultado se lee en la barra.
+    returnFocus = historyButton ?? null;
     try {
       await revertCatalog(pendingHistory.change_set_id, pendingHistory.result_version, revertReason);
       await refresh();
@@ -243,6 +262,7 @@
     } finally {
       busy = false;
       closeDialog();
+      historyOpen = false;
     }
   }
 
@@ -279,40 +299,56 @@
     {countries}
     {types}
     sections={EDITOR_SECTIONS}
-    eyebrow="Editar lanzamiento"
     backLabel="Volver al catálogo"
     {onclose}
     createdWhen="al guardar"
     technical
-    tally={history.length}
-    tailNote="Cada entrada conserva quién, la observación y las versiones."
     {feedback}
-    statusText={dirty ? 'Cambios sin guardar.' : 'Sin cambios.'}
+    {changes}
     clean={!dirty}
     noteLabel="Observación del cambio"
-    notePlaceholder="¿Qué cambió?"
+    notePlaceholder="¿Qué cambió? (queda en el historial)"
     noteRequired
     onnoteenter={() => void submit()}
     onmessage={(text) => fail(text)}
   >
-    {#snippet meta()}
-      <Chip kind="status" tone={STATUS_TONES[release.status]} label={STATUS_LABELS[release.status]} />
+    {#snippet status()}
+      <StatusDot label={STATUS_LABELS[release.status]} tone={STATUS_TONES[release.status]} />
+      <span class="editor__sep" aria-hidden="true">·</span>
       <span class="editor__version">v{release.catalog_version}</span>
-      {#if reports}<a class="editor__reports" href={studioReportsHref(release.id)}>{reports === 1 ? '1 reporte' : `${reports} reportes`}</a>{/if}
-      {#if menuItems.length}
-        <Menu label="Más acciones" items={menuItems} />
-      {/if}
     {/snippet}
-    {#snippet tail()}
-      <EditorHistory {history} unsaved={false} disabled={busy} onrevert={askRevert} />
+    {#snippet meta()}
+      {#if reports}
+        <span class="editor__counted">
+          <IconButton icon="reportar" variant="secondary" href={studioReportsHref(release.id)} label={reports === 1 ? '1 reporte abierto' : `${reports} reportes abiertos`} tooltip="bottom" />
+          <span class="editor__badge editor__badge--danger" aria-hidden="true">{reports}</span>
+        </span>
+      {/if}
+      {#if link?.url}<SourceLink href={link.url} provider={link.provider} tooltip="bottom" />{/if}
+      <span class="editor__counted">
+        <IconButton
+          icon="historial"
+          variant="secondary"
+          label={historyLabel}
+          tooltip="bottom"
+          aria-haspopup="dialog"
+          bind:element={historyButton}
+          onclick={() => (historyOpen = true)}
+        />
+        {#if history.length}<span class="editor__badge" aria-hidden="true">{history.length}</span>{/if}
+      </span>
+      {#if menuGroups.length}
+        <Menu label="Más acciones" groups={menuGroups} align="end" />
+      {/if}
     {/snippet}
     {#snippet actions()}
-      {#if release.status !== 'published'}
-        <Button variant="accent" disabled={busy || missing.length > 0} onclick={(event: MouseEvent) => askFor('publish', event.currentTarget as HTMLElement)}>Publicar</Button>
-      {/if}
-      <Button loading={busy && !dialogOpen} onclick={() => submit()}>Guardar cambios</Button>
+      <Button loading={busy && !dialogOpen} onclick={() => submit()}>Guardar</Button>
     {/snippet}
   </ReleaseForm>
+
+  <Sheet bind:open={historyOpen} title="Historial" returnFocus={historyButton}>
+    <EditorHistory {history} unsaved={false} disabled={busy} onrevert={askRevert} />
+  </Sheet>
 {/if}
 
 <Dialog bind:open={dialogOpen} title={dialogTitle} size="sm" dismissible={!busy} {returnFocus} onclose={closeDialog} initialFocus="[data-dialog-focus]">
@@ -343,9 +379,32 @@
 
 <style>
   .editor__state { display: grid; place-items: center; min-height: 16rem; }
-  .editor__version { color: var(--color-texto-tenue); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
-  .editor__reports { color: var(--color-danger-texto); font-size: var(--text-2xs); }
-  .editor__reports:hover { color: var(--color-texto); }
+  .editor__version { font-variant-numeric: tabular-nums; }
+  .editor__sep { color: var(--color-texto-tenue); }
+
+  /* Icono con su conteo (historial, reportes), como las insignias de la barra lateral. */
+  .editor__counted { position: relative; display: inline-flex; }
+  .editor__badge {
+    position: absolute;
+    top: calc(var(--tool-badge-h) / -3);
+    right: calc(var(--tool-badge-h) / -3);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--tool-badge-h);
+    height: var(--tool-badge-h);
+    box-sizing: border-box;
+    padding: 0 var(--space-1);
+    border-radius: var(--radius-pill);
+    background: var(--color-superficie-3);
+    color: var(--color-texto);
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    pointer-events: none;
+  }
+  .editor__badge--danger { background: var(--color-danger); color: var(--color-sobre-acento); }
 
   /* ---- Diálogos --------------------------------------------------------- */
   .editor__dialog-text { margin: 0 0 var(--space-3); color: var(--color-texto-medio); font-size: var(--text-sm); line-height: 1.5; }

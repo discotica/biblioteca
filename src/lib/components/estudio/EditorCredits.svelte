@@ -23,10 +23,12 @@
 
   let { release = $bindable(), artists = $bindable(), createdWhen, onmessage }: Props = $props();
 
-  const GROUPS: Array<{ kind: CreditKind; title: string; other: string; optional: boolean }> = [
-    { kind: 'artist_ids', title: 'Artistas principales', other: 'colaboradores', optional: false },
-    { kind: 'collaborator_ids', title: 'Colaboradores', other: 'principales', optional: true }
+  // `title` nombra el grupo (lectores de pantalla, buscador); `short` es lo que se ve (tablero 7).
+  const GROUPS: Array<{ kind: CreditKind; title: string; short: string; other: string; optional: boolean }> = [
+    { kind: 'artist_ids', title: 'Artistas principales', short: 'Principales', other: 'colaboradores', optional: false },
+    { kind: 'collaborator_ids', title: 'Colaboradores', short: 'Colaboradores', other: 'principales', optional: true }
   ];
+  const DRAG_TIP = 'Arrastra para ordenar o cambiar de grupo; Mayús o Cmd seleccionan varios.';
 
   let queries = $state<Record<CreditKind, string>>({ artist_ids: '', collaborator_ids: '' });
   let results = $state<Record<CreditKind, Artist[]>>({ artist_ids: [], collaborator_ids: [] });
@@ -183,12 +185,7 @@
       ondragover={(event) => dragOver(event, group.kind, null)}
       ondrop={drop}
     >
-      <header class="credits__head">
-        <h3 class="credits__title">
-          {group.title}{#if group.optional}<span class="credits__optional">(opcional)</span>{/if}
-        </h3>
-        <span class="credits__count">{ids.length}</span>
-      </header>
+      <h3 class="credits__title">{group.short}<span class="credits__count" aria-hidden="true">{` · ${ids.length}`}</span></h3>
 
       {#if ids.length}
         <ol class="credits__list" aria-label={group.title}>
@@ -204,7 +201,7 @@
               ondrop={drop}
               ondragend={dragEnd}
             >
-              <span class="credit__handle" aria-hidden="true"><Icon name="arrastrar" size="sm" /></span>
+              <span class="credit__handle" aria-hidden="true" title={DRAG_TIP}><Icon name="arrastrar" size="sm" /></span>
               <button
                 type="button"
                 class="credit__name"
@@ -212,14 +209,14 @@
                 aria-label={`Seleccionar ${nameOf(id)}${isPendingId(id) ? `, nuevo, se crea ${createdWhen}` : ''}`}
                 onclick={(event) => select(event, group.kind, id, index)}
               >{nameOf(id)}</button>
-              {#if isPendingId(id)}<span class="credit__new" aria-hidden="true">Nuevo · se crea {createdWhen}</span>{/if}
+              {#if isPendingId(id)}<span class="credit__new" aria-hidden="true" title={`No está en el catálogo: se crea ${createdWhen}.`}>Nuevo</span>{/if}
               <IconButton size="sm" icon="intercambiar" label={`Mover a ${group.other}`} onclick={() => moveToOther(group.kind, id)} />
               <IconButton size="sm" icon="cerrar" label={`Quitar ${nameOf(id)}`} tooltipAlign="end" onclick={() => remove(group.kind, id)} />
             </li>
           {/each}
         </ol>
       {:else}
-        <p class="credits__empty">{group.optional ? 'Sin colaboradores.' : 'Añade al menos un artista principal.'}</p>
+        {#if !group.optional}<p class="credits__empty">Añade al menos un artista principal.</p>{/if}
       {/if}
 
       <Combobox
@@ -252,34 +249,29 @@
     </section>
   {/each}
 </div>
-{#if release.artist_ids.length + release.collaborator_ids.length > 1}
-  <p class="credits__help">Arrastra para ordenar o cambiar de grupo; Mayús o Cmd seleccionan varios.</p>
-{/if}
 
 <style>
+  /* U22: sin subpanel. Los dos grupos son columnas de la sección; el grupo destino del arrastre
+     se marca con un fondo tenue en lugar del borde. */
   .credits {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--density-gap);
+    gap: var(--tool-gap-row) var(--tool-gap-col);
     align-items: start;
   }
 
   .credits__group {
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
+    gap: var(--tool-gap-label);
     min-width: 0;
-    padding: var(--space-3);
-    border: 1px solid var(--color-borde);
     border-radius: var(--radius-sm);
-    transition: border-color var(--motion-fast) var(--ease-standard);
+    transition: background var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard);
   }
-  .credits__group--target { border-color: var(--color-acento-border); }
+  .credits__group--target { background: var(--color-acento-tinte); box-shadow: 0 0 0 var(--space-1) var(--color-acento-tinte); }
 
-  .credits__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
-  .credits__title { margin: 0; color: var(--color-texto-alto); font-size: var(--text-sm); font-weight: 600; }
-  .credits__optional { margin-left: .3em; color: var(--color-texto-tenue); font-weight: 400; }
-  .credits__count { color: var(--color-texto-tenue); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
+  .credits__title { margin: 0; color: var(--color-texto-medio); font-size: var(--density-label); font-weight: 600; }
+  .credits__count { font-variant-numeric: tabular-nums; }
 
   .credits__list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
 
@@ -292,7 +284,7 @@
     border-radius: var(--radius-xs);
     box-shadow: inset 0 0 0 1px transparent;
   }
-  .credit + .credit { border-top: 1px solid var(--color-linea-sutil); }
+  .credit { border-bottom: 1px solid var(--color-linea-sutil); }
   .credit:hover { background: var(--color-superficie-1); }
   .credit--picked { background: var(--color-acento-tinte); box-shadow: inset 0 0 0 1px var(--color-acento-border); }
   .credit--dragging { opacity: .5; }
@@ -317,20 +309,24 @@
     cursor: pointer;
   }
 
+  /* «Nuevo»: la regla (se crea al guardar o al aceptar) va en el tooltip. */
   .credit__new {
     flex: none;
+    margin-right: var(--space-1);
     color: var(--color-aviso);
     font-size: var(--text-2xs);
+    font-weight: 700;
+    letter-spacing: var(--nav-letter-spacing);
+    text-transform: uppercase;
     white-space: nowrap;
+    cursor: default;
   }
 
   .credits__empty { margin: 0; padding: var(--space-2) var(--space-1); color: var(--color-texto-tenue); font-size: var(--text-xs); }
-  .credits__help { margin: var(--space-2) 0 0; color: var(--color-texto-tenue); font-size: var(--text-2xs); }
 
   /* Sin puntero fino no se arrastra: mover y quitar quedan en los botones. */
   @media (hover: none) {
     .credit__handle { display: none; }
-    .credits__help { display: none; }
   }
 
   @media (max-width: 767px) {

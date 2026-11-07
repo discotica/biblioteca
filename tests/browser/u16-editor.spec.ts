@@ -6,7 +6,8 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 // - el payload de cada mutación auditada (E06) es exactamente el de E07 para la
 //   misma edición: mismas claves, mismos valores, misma versión, operación y
 //   observación. Como E06 audita lo que recibe, la auditoría registra igual;
-// - la página: índice (selector en móvil), barra de guardar fija, combobox.
+// - la página: sin índice (U22, D1), historial en una hoja desde la cabecera, barra de guardar
+//   fija con «n cambios · campos», radar con puntos y combobox.
 
 const project = 'hgocyrzhgohetfpzbmfs';
 const base = `https://${project}.supabase.co`;
@@ -131,6 +132,7 @@ async function openRelease(page: Page) {
 }
 
 const feedback = (page: Page) => page.locator('.editor__feedback');
+const save = (page: Page) => page.getByRole('button', { name: 'Guardar', exact: true });
 
 async function noHorizontalOverflow(page: Page) {
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -163,11 +165,11 @@ for (const width of widths) {
     test('editar: guardar sin cambios y con cambios envía exactamente lo editado', async ({ page }) => {
       const writes = await mockAdmin(page);
       await openRelease(page);
-      await expect(page.locator('.editor__dirty')).toHaveText('Sin cambios.');
+      await expect(page.locator('.editor__dirty')).toHaveText('Sin cambios');
 
       // Sin cambios: el payload es el snapshot tal como llegó (E07 hacía lo mismo).
       await page.getByPlaceholder('¿Qué cambió?').fill('Revisión sin cambios');
-      await page.getByRole('button', { name: 'Guardar cambios' }).click();
+      await save(page).click();
       await expect(feedback(page)).toHaveText('Cambios guardados.');
       expect(writes[0]).toEqual({
         rpc: 'admin_update_catalog_release',
@@ -176,16 +178,18 @@ for (const width of widths) {
 
       // Con cambios en cada sección: título, créditos, clasificación y medios.
       await page.getByLabel('Título').fill('Killing Mariposas (remaster)');
-      await expect(page.locator('.editor__dirty')).toHaveText('Cambios sin guardar.');
+      await expect(page.locator('.editor__dirty')).toHaveText('1 cambio · título');
       await page.getByRole('group', { name: 'Colaboradores' }).getByRole('button', { name: 'Mover a principales' }).click();
       await expect(page.getByRole('group', { name: 'Artistas principales' }).locator('.credit__name')).toHaveText(['Luca Durán', 'Kelman Duran']);
       await page.getByRole('combobox', { name: 'Géneros' }).fill('tech');
       await page.getByRole('option', { name: 'Techno' }).click();
       await page.keyboard.press('Escape');
-      await page.getByLabel('Experimental').fill('1');
-      await page.getByLabel('Link de compra o escucha').fill('https://soundcloud.com/luca/killing');
+      // U22: el radar es el de la búsqueda, cinco puntos por eje.
+      await page.getByRole('button', { name: 'Experimental: 1 de 5' }).click();
+      await page.getByLabel('Compra o escucha').fill('https://soundcloud.com/luca/killing');
+      await expect(page.locator('.editor__dirty')).toHaveText('6 cambios · título, artistas principales, colaboradores, géneros, radar, enlaces');
       await page.getByPlaceholder('¿Qué cambió?').fill('Corrección completa');
-      await page.getByRole('button', { name: 'Guardar cambios' }).click();
+      await save(page).click();
       await expect(feedback(page)).toHaveText('Cambios guardados.');
       expect(writes[1].body).toEqual({
         p_release_id: releaseId,
@@ -230,10 +234,13 @@ for (const width of widths) {
     test('revertir: desde el historial, con la versión exacta del change set', async ({ page }) => {
       const writes = await mockAdmin(page);
       await openRelease(page);
-      if (width.name === '390') await page.getByLabel('Ir a la sección').selectOption('historial');
-      else await page.getByRole('navigation', { name: 'Secciones del lanzamiento' }).getByRole('link', { name: /Historial/ }).click();
-      await expect(page.getByRole('heading', { level: 2, name: 'Historial' })).toBeInViewport();
-      await page.getByRole('button', { name: 'Revertir este cambio' }).click();
+      // U22: el historial ya no es una sección; se abre en una hoja desde el icono de la cabecera.
+      await expect(page.getByRole('heading', { level: 2, name: 'Historial' })).toHaveCount(0);
+      const open = page.getByRole('button', { name: 'Historial · 1 cambio' });
+      await open.click();
+      const sheet = page.getByRole('dialog', { name: 'Historial' });
+      await expect(sheet.getByText('Corrección editorial')).toBeVisible();
+      await sheet.getByRole('button', { name: 'Revertir este cambio' }).click();
       const dialog = page.getByRole('dialog', { name: 'Revertir cambio' });
       // Sin observación, el diálogo lo pide y no envía nada.
       await dialog.getByRole('button', { name: 'Revertir cambio', exact: true }).click();
@@ -241,36 +248,32 @@ for (const width of widths) {
       await dialog.getByLabel('Observación de la reversión').fill('Volver al título anterior');
       await dialog.getByRole('button', { name: 'Revertir cambio', exact: true }).click();
       await expect(feedback(page)).toHaveText('Cambio revertido mediante una nueva entrada auditada.');
+      // La hoja se cierra con el diálogo: el resultado se lee en la barra y el foco vuelve al icono.
+      await expect(sheet).toHaveCount(0);
+      await expect(open).toBeFocused();
       expect(writes).toEqual([{
         rpc: 'admin_revert_catalog_change',
         body: { p_change_set_id: history.items[0].change_set_id, p_expected_version: 4, p_reason: 'Volver al título anterior' }
       }]);
     });
 
-    test('la barra de guardar queda fija abajo y el índice lleva a cada sección', async ({ page }) => {
+    test('la barra de guardar queda fija abajo; sin índice, las secciones llevan su etiqueta al margen', async ({ page }) => {
       await mockAdmin(page);
       await openRelease(page);
       const bar = page.getByRole('region', { name: 'Guardar' });
       const viewport = page.viewportSize()!;
-      if (width.name === '390') await page.getByLabel('Ir a la sección').selectOption('clasificacion');
-      else await page.getByRole('navigation', { name: 'Secciones del lanzamiento' }).getByRole('link', { name: 'Clasificación' }).click();
-      await expect(page.getByRole('heading', { level: 2, name: 'Clasificación' })).toBeInViewport();
-      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
+      // U22 (D1): sin índice ni selector de sección.
+      await expect(page.getByRole('navigation', { name: 'Secciones del lanzamiento' })).toHaveCount(0);
+      await expect(page.getByLabel('Ir a la sección')).toHaveCount(0);
+      await page.getByRole('heading', { level: 2, name: 'Medios' }).scrollIntoViewIfNeeded();
+      await expect(page.getByRole('heading', { level: 2, name: 'Medios' })).toBeInViewport();
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
       // La barra está dentro del viewport, pegada abajo, aunque la sección quede arriba.
       await expect.poll(async () => {
         const box = await bar.boundingBox();
         return box ? Math.round(box.y + box.height) : -1;
       }).toBeLessThanOrEqual(viewport.height);
-      await expect(bar.getByRole('button', { name: 'Guardar cambios' })).toBeInViewport();
-      if (width.name === '390') {
-        // El selector también queda fijo arriba y marca la sección.
-        await expect(page.getByLabel('Ir a la sección')).toBeInViewport();
-        await expect(page.getByLabel('Ir a la sección')).toHaveValue('clasificacion');
-        await expect(page.getByRole('navigation', { name: 'Secciones del lanzamiento' })).toBeHidden();
-      } else {
-        await expect(page.getByRole('navigation', { name: 'Secciones del lanzamiento' }).getByRole('link', { name: 'Clasificación' })).toHaveAttribute('aria-current', 'location');
-        await expect(page.getByLabel('Ir a la sección')).toBeHidden();
-      }
+      await expect(bar.getByRole('button', { name: 'Guardar', exact: true })).toBeInViewport();
       // Sin vista previa del sitio y sin la nube completa de géneros.
       await expect(page.getByText(/vista previa/i)).toHaveCount(0);
       await expect(page.getByRole('checkbox', { name: 'Techno' })).toHaveCount(0);
@@ -289,17 +292,17 @@ test('arrastrar un colaborador delante del principal lo convierte en el primero 
   await expect(principal.locator('.credit__name')).toHaveText(['Kelman Duran', 'Luca Durán']);
   await expect(guests.locator('.credit__name')).toHaveCount(0);
   await page.getByPlaceholder('¿Qué cambió?').fill('Orden de créditos');
-  await page.getByRole('button', { name: 'Guardar cambios' }).click();
+  await save(page).click();
   await expect(feedback(page)).toHaveText('Cambios guardados.');
   expect(writes[0].body.p_payload).toEqual({ ...payloadOf(snapshot), artist_ids: [artistB, artistA], collaborator_ids: [] });
 });
 
-test('tablet (834): índice lateral, sin desborde y barra de guardar a la vista', async ({ page }) => {
+test('tablet (834): sin índice, sin desborde y barra de guardar a la vista', async ({ page }) => {
   await page.setViewportSize({ width: 834, height: 1112 });
   await mockAdmin(page);
   await openRelease(page);
-  await expect(page.getByRole('navigation', { name: 'Secciones del lanzamiento' })).toBeVisible();
-  await expect(page.getByLabel('Ir a la sección')).toBeHidden();
-  await expect(page.getByRole('region', { name: 'Guardar' }).getByRole('button', { name: 'Guardar cambios' })).toBeInViewport();
+  await expect(page.getByRole('navigation', { name: 'Secciones del lanzamiento' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Historial/ })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Guardar' }).getByRole('button', { name: 'Guardar', exact: true })).toBeInViewport();
   await noHorizontalOverflow(page);
 });

@@ -392,10 +392,10 @@ add('admin-selection-D', 'D', STUDIO, {
 each(['D', 'T'], 'admin-editor', STUDIO, { role: 'admin', full: true, maxH: 4600, setup: openEditor });
 add('admin-editor-top-D', 'D', STUDIO, { role: 'admin', setup: openEditor });
 add('admin-editor-M', 'M', STUDIO, { role: 'admin', full: true, maxH: 4000, setup: openEditor });
-// U16: el historial es la última sección de la página; el índice lleva a ella.
+// U22: el historial se abre en una hoja desde el icono de la cabecera (antes, última sección).
 add('admin-history-D', 'D', STUDIO, {
   role: 'admin',
-  setup: async (page) => { await openEditor(page); await page.getByRole('navigation', { name: 'Secciones del lanzamiento' }).getByRole('link', { name: /Historial/ }).click(); await settle(page); }
+  setup: async (page) => { await openEditor(page); await page.getByRole('button', { name: /^Historial/ }).click(); await page.getByRole('dialog', { name: 'Historial' }).waitFor(); await settle(page); }
 });
 add('admin-finder-D', 'D', STUDIO, {
   role: 'admin',
@@ -423,19 +423,16 @@ add('admin-publish-D', 'D', STUDIO, {
 });
 // U19: «Nuevo lanzamiento» lleva a Sugerir (un solo flujo para crear); ya no hay editor en blanco.
 add('admin-new-D', 'D', STUDIO, { role: 'admin', full: true, maxH: 4000, setup: async (page) => { await page.getByRole('link', { name: 'Nuevo lanzamiento' }).click(); await page.waitForURL(/\/sugerir$/); await page.getByLabel('Enlace de la fuente').waitFor(); await settle(page); } });
-// U16: móvil edita (antes solo consulta): selector de sección arriba y guardar abajo, fijos.
+// U16: móvil edita (antes solo consulta); guardar abajo, fijo. U22: sin selector de sección.
 add('estudio-editor-top-M', 'M', STUDIO, { role: 'admin', supplementary: true, setup: openEditor });
 add('estudio-editor-medios-M', 'M', STUDIO, {
   role: 'admin', supplementary: true,
   setup: async (page) => {
     await openEditor(page);
-    // El header retoma la referencia de scroll un tick después de cada cambio de
-    // foco. selectOption enfoca el selector y salta a la vez, y la captura dependía
-    // de quién ganaba; enfocar antes reproduce el orden de una persona (header oculto).
-    const section = page.getByLabel('Ir a la sección');
-    await section.focus();
-    await settle(page);
-    await section.selectOption('medios');
+    // U22: sin selector de sección; se baja hasta Medios enfocando su enlace (header oculto,
+    // como al desplazarse una persona).
+    const field = page.getByLabel('Compra o escucha');
+    await field.focus();
     await settle(page);
   }
 });
@@ -460,7 +457,7 @@ add('estudio-editor-guardado-D', 'D', STUDIO, {
   setup: async (page) => {
     await openEditor(page);
     await page.getByLabel('Título').fill('Killing Mariposas (edición)');
-    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await page.waitForSelector('.editor__feedback--error');
     await settle(page);
   }

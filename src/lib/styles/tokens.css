@@ -235,9 +235,12 @@
   --tool-table-row-h-dense: 2.75rem;
   --tool-table-thumb: 2rem;
   --tool-dialog-list-max-h: 16rem;
-  /* Editor del Estudio (U16): índice lateral fijo, portada de la sección
-     Medios y radar junto a sus cinco controles. */
-  --tool-index-w: 12rem;
+  /* Editor del Estudio (U16; U22, tablero 7): columna de la etiqueta de cada
+     sección, portada de la cabecera y de Medios, pentágono junto a los puntos
+     del radar; --tool-radar es el dibujo de los deslizadores de Sugerir. */
+  --tool-editor-label: 8.75rem; /* 140 */
+  --tool-editor-thumb: 3rem;    /* 48 */
+  --tool-editor-radar: 8.5rem;  /* 136 */
   --tool-cover: 6rem;
   --tool-radar: 7rem;
   /* Bandeja del Estudio (U17): ancho de la lista junto al detalle. */

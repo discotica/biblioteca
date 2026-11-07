@@ -220,9 +220,12 @@ for (const width of [1440, 390]) {
     await expect(credits(page, 'Artistas principales').locator('.credit__name')).toHaveText(['Artista del catálogo', 'Artista nueva uno', 'Artista nueva dos']);
     await expect(credits(page, 'Artistas principales').nth(0)).not.toContainText('Nuevo');
     await expect(credits(page, 'Artistas principales').nth(1)).toContainText('Artista nueva uno');
-    await expect(credits(page, 'Artistas principales').nth(1)).toContainText('Nuevo · se crea al aceptar');
-    await expect(credits(page, 'Artistas principales').nth(2)).toContainText('Nuevo · se crea al aceptar');
-    await expect(page.getByText('«Sello nuevo» es nuevo: se crea al aceptar.')).toBeVisible();
+    // U22: marca «Nuevo» con la regla en el tooltip (el editor de propuestas la hereda de EditorCredits).
+    for (const index of [1, 2]) {
+      await expect(credits(page, 'Artistas principales').nth(index).locator('.credit__new')).toHaveText('Nuevo');
+      await expect(credits(page, 'Artistas principales').nth(index).locator('.credit__new')).toHaveAttribute('title', 'No está en el catálogo: se crea al aceptar.');
+    }
+    await expect(page.locator('.editor__new--label')).toHaveAttribute('title', 'No está en el catálogo: se crea al aceptar.');
     // Lo que no está en la cola del editor del catálogo: el historial pasa a ser la propuesta.
     await expect(page.getByRole('heading', { level: 2, name: 'Propuesta' })).toBeVisible();
     await expect(page.getByText('Todavía puede editarla.', { exact: false })).toBeVisible();
@@ -263,7 +266,7 @@ test('admin: corrige, guarda y acepta publicando; el segundo guardado usa la ver
   await expect(page.locator('.editor__feedback')).toHaveText('Corrección guardada. Desde ahora quien la propuso ya no puede editarla.');
   await expect(page.locator('.proposal__facts')).toContainText('Ya no puede editarla: el equipo la tomó');
 
-  await page.getByLabel('Fecha de lanzamiento').fill('2026-09-19');
+  await page.getByLabel('Fecha', { exact: true }).fill('2026-09-19');
   await page.getByRole('button', { name: 'Aceptar y publicar' }).click();
   const dialog = page.getByRole('dialog', { name: 'Aceptar y publicar' });
   await expect(dialog).toContainText('Artista del catálogo, Artista nueva uno');
@@ -298,9 +301,10 @@ for (const width of [1440, 390]) {
     // Sin Catálogo en la barra lateral (en móvil, la barra lateral es el selector de sección).
     if (width === 1440) await expect(studioNav(page).getByRole('link')).toHaveText([/^\s*Propuestas/]);
     await expect(page.getByRole('link', { name: /^Catálogo/ })).toHaveCount(0);
-    // Reseña y portada en solo lectura; sin decisiones de admin.
-    await expect(page.getByLabel('URL de portada')).toHaveAttribute('readonly', '');
-    await expect(page.locator('.editor__media').getByText('Solo admin cambia la reseña y la portada.')).toBeVisible();
+    // Portada en solo lectura (la reseña salió de la interfaz en U22); sin decisiones de admin.
+    await expect(page.getByLabel('Portada · URL HTTPS')).toHaveAttribute('readonly', '');
+    await expect(page.locator('.editor__media').getByText('Solo admin cambia la portada.')).toBeVisible();
+    await expect(page.getByText(/reseña/i)).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Aceptar|Rechazar|Pedir cambios/ })).toHaveCount(0);
     await noHorizontalOverflow(page);
     await shot(page, `editor-propuesta-colaborador-${width}`);
@@ -363,7 +367,7 @@ test('el autor edita lo enviado hasta que el equipo lo toma: dos sesiones, el si
   // …mientras, en otra sesión, el colaborador guarda una corrección: la toma.
   await collaborator.goto(`/estudio/propuestas?editar=${ids.compilado}`);
   await expect(collaborator.getByRole('heading', { level: 1, name: 'Compilado de la radio (autor)' })).toBeVisible();
-  await collaborator.getByLabel('Fecha de lanzamiento').fill('2026-09-20');
+  await collaborator.getByLabel('Fecha', { exact: true }).fill('2026-09-20');
   await collaborator.getByRole('button', { name: 'Guardar corrección' }).click();
   await expect(collaborator.locator('.editor__feedback')).toHaveText('Corrección guardada. Desde ahora quien la propuso ya no puede editarla.');
 

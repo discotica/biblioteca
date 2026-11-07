@@ -292,7 +292,7 @@ test.describe('U17 propuestas', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Propuesta comunitaria' })).toBeVisible();
     await page.getByLabel('Título').fill('Propuesta comunitaria (edición corregida)');
     await page.getByPlaceholder('¿Qué cambió?').fill('Corrección tras aprobar la propuesta');
-    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(page.locator('.editor__feedback')).toHaveText('Cambios guardados.');
     await capture(page, '5-corregido-1440');
 
