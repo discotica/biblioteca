@@ -87,6 +87,9 @@ export const ICONS = {
       'M4 18h10', 'M18 18h2', circle(16, 18, 2)
     ]
   },
+  // Barra lateral del Estudio (U20): plegar (flecha hacia el borde) y desplegar.
+  'barra-plegar': { paths: ['M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z', 'M9 4v16', 'M15.5 10l-2 2 2 2'] },
+  'barra-desplegar': { paths: ['M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z', 'M9 4v16', 'M13.5 10l2 2-2 2'] },
   // Diccionarios del Estudio (U19): géneros, países, sellos y artistas son etiquetas.
   etiqueta: { paths: ['M4 4h7.2l8.8 8.8-7.2 7.2L4 11.2Z', circle(8.5, 8.5, 1.5)] },
 
@@ -100,6 +103,17 @@ export const ICONS = {
       'M4 11.5h1.3V17H4Z',
       'M6.5 10h1.3v7H6.5Z',
       'M8.8 9h1.1v8H8.8Z'
+    ]
+  },
+  // Spotify (U20): botón de fuente del Estudio. Un solo trazo: las tres bandas
+  // van en sentido contrario al círculo y quedan vaciadas (regla nonzero).
+  spotify: {
+    filled: true,
+    paths: [
+      circle(12, 12, 10) +
+        'M6.3 9.4 6.8 10.9C10 10 13.9 10.3 17 11.8L17.8 10.3C14.3 8.3 9.8 8.1 6.3 9.4Z' +
+        'M7.2 12.6 7.6 13.9C10.4 13.2 13.3 13.5 15.7 14.8L16.4 13.6C13.6 12 10.3 11.8 7.2 12.6Z' +
+        'M8 15.4 8.3 16.5C10.4 16 12.5 16.2 14.3 17.1L14.9 16.1C12.8 15 10.3 14.8 8 15.4Z'
     ]
   },
   instagram: {

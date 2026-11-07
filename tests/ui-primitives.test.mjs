@@ -4,6 +4,7 @@ import { paginationItems, clampPage } from '../src/lib/ui/pagination.ts';
 import { evaluatePassword, DEFAULT_PASSWORD_RULES, PASSWORD_MIN_LENGTH } from '../src/lib/ui/password.ts';
 import { readViewPreference, writeViewPreference, viewPreferenceKey } from '../src/lib/ui/viewPreference.ts';
 import { ICONS, ICON_NAMES, SOCIAL_ICONS } from '../src/lib/ui/icons.ts';
+import { readToolSidebarCollapsed, writeToolSidebarCollapsed, TOOL_SIDEBAR_KEY } from '../src/lib/layouts/toolSidebar.ts';
 
 // ---- Pagination -------------------------------------------------------------
 
@@ -130,4 +131,38 @@ test('U5 iconos: el menú son tres barras iguales y equidistantes', () => {
   assert.equal(bars.length, 3);
   assert.equal(new Set(bars.map(([x, , w]) => `${x}:${w}`)).size, 1, 'mismo inicio y largo');
   assert.equal(bars[1][1] - bars[0][1], bars[2][1] - bars[1][1], 'misma separación');
+});
+
+// ---- U20: Estudio -------------------------------------------------------------
+
+test('U20 iconos: spotify (fuente) y los de plegar la barra lateral', () => {
+  for (const name of ['spotify', 'barra-plegar', 'barra-desplegar', 'bandcamp', 'soundcloud', 'flecha-externa']) {
+    assert.ok(ICON_NAMES.includes(name), name);
+  }
+  assert.equal(ICONS.spotify.filled, true, 'marca: silueta rellena, como bandcamp y soundcloud');
+  assert.deepEqual([...SOCIAL_ICONS], ['bandcamp', 'soundcloud', 'instagram', 'x', 'facebook'], 'spotify no entra en las redes del perfil');
+});
+
+test('U20 barra lateral: desplegada por defecto; plegada solo si se guardó así', () => {
+  const storage = memoryStorage();
+  assert.equal(readToolSidebarCollapsed(storage), false);
+  assert.equal(writeToolSidebarCollapsed(true, storage), true);
+  assert.equal(storage.data.get(TOOL_SIDEBAR_KEY), 'collapsed');
+  assert.equal(readToolSidebarCollapsed(storage), true);
+  assert.equal(writeToolSidebarCollapsed(false, storage), true);
+  assert.equal(readToolSidebarCollapsed(storage), false);
+  storage.setItem(TOOL_SIDEBAR_KEY, 'plegada');
+  assert.equal(readToolSidebarCollapsed(storage), false, 'un valor extraño deja la barra desplegada');
+});
+
+test('U20 barra lateral: almacenamiento bloqueado o ausente la deja desplegada sin romper', () => {
+  const throwing = {
+    getItem() { throw new DOMException('bloqueado', 'SecurityError'); },
+    setItem() { throw new DOMException('lleno', 'QuotaExceededError'); }
+  };
+  assert.equal(readToolSidebarCollapsed(throwing), false);
+  assert.equal(writeToolSidebarCollapsed(true, throwing), false);
+  assert.equal(readToolSidebarCollapsed(null), false);
+  assert.equal(writeToolSidebarCollapsed(true, null), false);
+  assert.equal(readToolSidebarCollapsed(), false, 'sin localStorage global (Node)');
 });

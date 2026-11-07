@@ -75,15 +75,15 @@
   .l-inbox {
     display: grid;
     grid-template-columns: minmax(0, var(--tool-inbox-list-w)) minmax(0, 1fr);
-    gap: var(--density-pad);
+    gap: var(--tool-gap-row);
     align-items: start;
   }
 
   /* La lista acompaña el scroll del detalle y se desplaza por dentro. */
   .l-inbox__list {
     position: sticky;
-    top: calc(var(--header-offset) + var(--space-5));
-    max-height: calc(100dvh - var(--header-offset) - var(--space-5) * 2);
+    top: calc(var(--header-offset) + var(--tool-gap-header));
+    max-height: calc(100dvh - var(--header-offset) - var(--tool-gap-header) * 2);
     overflow-y: auto;
     overscroll-behavior: contain;
     box-sizing: border-box;
@@ -100,7 +100,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-2);
-    padding: var(--space-3) var(--space-4) 0;
+    padding: var(--space-3) var(--tool-pad-item-x) 0;
   }
 
   .l-inbox__group-title {
@@ -126,7 +126,7 @@
 
   .l-inbox__group-help {
     margin: var(--space-1) 0 0;
-    padding: 0 var(--space-4);
+    padding: 0 var(--tool-pad-item-x);
     color: var(--color-texto-tenue);
     font-size: var(--text-2xs);
     line-height: 1.45;
@@ -142,7 +142,7 @@
 
   .l-inbox__empty {
     margin: 0;
-    padding: var(--space-3) var(--space-4) var(--space-4);
+    padding: var(--space-3) var(--tool-pad-item-x) var(--space-4);
     color: var(--color-texto-tenue);
     font-size: var(--density-text);
   }

@@ -451,3 +451,69 @@ test.describe('U15 matriz de anchos', () => {
     });
   }
 });
+
+// U20 — Barra lateral plegable (rediseño del Estudio). Desplegada por defecto
+// (D4); la preferencia se recuerda en este navegador y, si el almacenamiento
+// falla, queda desplegada. Por debajo de 1024 sigue siendo la fila de secciones.
+test.describe('U20 barra lateral plegable', () => {
+  const sidebarWidth = (page: Page) => page.locator('.l-tool__sidebar').evaluate((el) => Math.round(el.getBoundingClientRect().width));
+
+  test('se pliega a iconos con conteo, conserva los nombres y se recuerda al recargar', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockStudio(page, 'admin');
+    await page.goto('/estudio/catalogo');
+    const nav = studioNav(page);
+    await expect(nav.getByRole('link', { name: /^Reportes/ })).toHaveText(/Reportes\s*2/);
+    await expect.poll(() => sidebarWidth(page)).toBe(220);
+    // Sin la etiqueta «ESTUDIO»: el nombre queda solo como nombre accesible de la barra.
+    await expect(page.locator('.l-tool__sidebar')).not.toContainText('Estudio');
+
+    await page.getByRole('button', { name: 'Plegar la barra' }).click();
+    await expect.poll(() => sidebarWidth(page)).toBe(60);
+    await expect(nav.getByRole('link', { name: /^Reportes/ })).toBeVisible();
+    await expect(nav.getByRole('list', { name: 'Catálogo' })).toBeHidden();
+    await expect(nav.locator('.l-tool__count')).toHaveText(['1', '2']);
+    expect(await page.evaluate(() => localStorage.getItem('discotica:estudio:barra'))).toBe('collapsed');
+
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Desplegar la barra' })).toBeVisible();
+    await expect.poll(() => sidebarWidth(page)).toBe(60);
+    await page.getByRole('button', { name: 'Desplegar la barra' }).click();
+    await expect.poll(() => sidebarWidth(page)).toBe(220);
+    await expect(nav.getByRole('list', { name: 'Catálogo' })).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem('discotica:estudio:barra'))).toBe('expanded');
+  });
+
+  test('con el almacenamiento bloqueado arranca desplegada y pliega igual', async ({ page }) => {
+    await page.addInitScript(() => {
+      const { getItem, setItem } = Storage.prototype;
+      Storage.prototype.getItem = function (key: string) {
+        if (key === 'discotica:estudio:barra') throw new DOMException('bloqueado', 'SecurityError');
+        return getItem.call(this, key);
+      };
+      Storage.prototype.setItem = function (key: string, value: string) {
+        if (key === 'discotica:estudio:barra') throw new DOMException('lleno', 'QuotaExceededError');
+        return setItem.call(this, key, value);
+      };
+    });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockStudio(page, 'admin');
+    await page.goto('/estudio/catalogo');
+    await expect(page.getByText('Lanzamiento 1', { exact: true })).toBeVisible();
+    await expect.poll(() => sidebarWidth(page)).toBe(220);
+    await page.getByRole('button', { name: 'Plegar la barra' }).click();
+    await expect.poll(() => sidebarWidth(page)).toBe(60);
+  });
+
+  test('en móvil la barra es la fila de secciones aunque se haya guardado plegada', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('discotica:estudio:barra', 'collapsed'));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockStudio(page, 'admin');
+    await page.goto('/estudio/catalogo');
+    const nav = studioNav(page);
+    await expect(nav.getByRole('link', { name: /^Reportes/ })).toHaveText(/Reportes\s*2/);
+    await expect(nav.locator('.l-tool__label').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /la barra$/ })).toBeHidden();
+    await noHorizontalOverflow(page);
+  });
+});

@@ -102,9 +102,11 @@
 
   .ui-textarea__input {
     width: 100%;
-    min-height: calc(var(--field-h-md) * 2);
+    /* Densidad (U20): dos alturas de control y su padding lateral; 88 y 16 por
+       defecto, 72 y 12 en el Estudio. */
+    min-height: calc(var(--density-control-h) * 2);
     box-sizing: border-box;
-    padding: var(--space-3) var(--control-px-md);
+    padding: var(--space-3) var(--density-control-px);
     border: 1px solid var(--color-linea-fuerte);
     border-radius: var(--control-radius);
     background: var(--color-superficie-1);

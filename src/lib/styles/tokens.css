@@ -124,10 +124,12 @@
   --radius-lg: 20px;
   --radius-pill: 999px;
 
-  /* ---- Controles: 32 · 40 · 44 · 52 ------------------------------------------
+  /* ---- Controles: 32 · 36 · 40 · 44 · 52 -------------------------------------
      Padding horizontal mayor que el vertical. Referencia: Comprar (44px,
-     1.5rem a los lados, radio sm). */
+     1.5rem a los lados, radio sm). 36 es la altura de la densidad compacta
+     (Estudio, U20); ningún control la usa fuera de [data-density='compact']. */
   --control-h-sm: 32px;
+  --control-h-compact: 36px;
   --control-h-md: 40px;
   --control-h-lg: 44px;
   --control-h-xl: 52px;
@@ -221,7 +223,10 @@
   /* Herramienta (U15): barra lateral; tabla del Estudio con la densidad de la
      consola de E07 (filas de 56 y portada de 40), ancho mínimo antes de
      desplazarse en horizontal y alto máximo de las listas de un diálogo. */
-  --tool-sidebar-w: 15rem;
+  --tool-sidebar-w: 13.75rem;  /* 220 · desplegada (U20, lienzo del rediseño) */
+  --tool-sidebar-w-collapsed: 3.75rem;  /* 60 · plegada: solo iconos e insignias */
+  --tool-nav-item: 2.5rem;     /* 40 · icono de sección con la barra plegada */
+  --tool-badge-h: 0.9375rem;   /* 15 · insignia del conteo sobre el icono */
   --tool-row-h: 3.5rem;
   --tool-thumb: 2.5rem;
   --tool-table-min-w: 48rem;
@@ -233,6 +238,23 @@
   --tool-radar: 7rem;
   /* Bandeja del Estudio (U17): ancho de la lista junto al detalle. */
   --tool-inbox-list-w: 22rem;
+  /* Ritmo de espaciado del Estudio (U20; plan del rediseño, §3). La densidad
+     compacta baja la altura de los controles, no los espacios: estos tokens
+     separan los contenedores para que no queden pegados. U21–U24 los usan en
+     lugar de números sueltos.
+     gap: entre elementos hermanos · pad: dentro de un contenedor. */
+  --tool-gap-label: var(--space-2);       /* 8 · etiqueta → su control */
+  --tool-gap-row: 1.25rem;                /* 20 · filas de campos; paneles vecinos */
+  --tool-gap-col: var(--space-6);         /* 32 · columnas de campos; barra lateral → contenido */
+  --tool-gap-header: 1.25rem;             /* 20 · cabecera de la vista → contenido */
+  --tool-gap-remove: var(--space-3);      /* 12 · mínimo entre un ✕ de quitar y lo que quita */
+  --tool-pad-control: var(--space-3);     /* 12 · a los lados de un control compacto */
+  --tool-pad-cell: var(--space-4);        /* 16 · a los lados de una celda de tabla */
+  --tool-pad-item-y: 0.875rem;            /* 14 · ítem de bandeja, arriba y abajo */
+  --tool-pad-item-x: var(--space-4);      /* 16 · ítem de bandeja, a los lados */
+  --tool-pad-panel-y: 1.25rem;            /* 20 · panel (resumen, detalle, barra de acciones), arriba y abajo */
+  --tool-pad-panel-x: var(--space-5);     /* 24 · panel, a los lados */
+  --tool-pad-section: 1.75rem;            /* 28 · sección del editor, arriba y abajo */
   /* Header: avatar del menú de cuenta y logo */
   --avatar-sm: 28px;
   --header-logo-h: 22px;
@@ -349,9 +371,17 @@
   /* ---- Densidad ------------------------------------------------------------------
      Por defecto, la del sitio público. El Estudio (U15) aplica
      data-density="compact" en su raíz (ToolLayout): misma paleta, controles y
-     filas más bajos. */
+     filas más bajos.
+     Desde U20, Button e IconButton md, Field, Select, Combobox y Textarea toman
+     su altura de --density-control-h y su padding horizontal de
+     --density-control-px. Los valores por defecto son los de siempre (44 y 16),
+     así que fuera del Estudio nada cambia. Button md (24 a los lados) y Select
+     (12) conservan su padding propio fuera de la densidad compacta.
+     --density-inset: padding lateral de un bloque en línea (EmptyState inline);
+     0 en el sitio público, donde vive sin marco. */
   --density-control-h: var(--control-h-lg);
   --density-control-px: var(--control-px-md);
+  --density-inset: 0px;
   --density-row-h: 56px;
   --density-gap: var(--space-4);
   --density-pad: var(--space-5);
@@ -360,8 +390,9 @@
 }
 
 [data-density='compact'] {
-  --density-control-h: var(--control-h-sm);
-  --density-control-px: var(--control-px-sm);
+  --density-control-h: var(--control-h-compact);
+  --density-control-px: var(--tool-pad-control);
+  --density-inset: var(--tool-pad-panel-x);
   --density-row-h: 40px;
   --density-gap: var(--space-2);
   --density-pad: var(--space-4);

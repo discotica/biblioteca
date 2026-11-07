@@ -100,13 +100,17 @@
 </div>
 
 <style>
+  /* Altura de la densidad (U20): 44 por defecto, 36 en el Estudio. El padding
+     lateral es 12 fuera de la densidad compacta y --density-control-px dentro. */
   .ui-select {
-    --select-h: var(--field-h-md);
+    --select-h: var(--density-control-h);
+    --select-px: var(--space-3);
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
     min-width: 0;
   }
+  :global([data-density='compact']) .ui-select { --select-px: var(--density-control-px); }
   .ui-select--inline { flex-direction: row; align-items: center; gap: var(--space-2); }
 
   .ui-select__label {
@@ -130,7 +134,7 @@
     min-width: 0;
     height: var(--select-h);
     box-sizing: border-box;
-    padding: 0 calc(var(--space-2) + var(--icon-sm) + var(--space-1)) 0 var(--space-3);
+    padding: 0 calc(var(--space-2) + var(--icon-sm) + var(--space-1)) 0 var(--select-px);
     border: 1px solid var(--color-linea-fuerte);
     border-radius: var(--control-radius);
     background: var(--color-superficie-1);
@@ -145,7 +149,7 @@
     cursor: pointer;
     transition: border-color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
   }
-  .ui-select--icon .ui-select__input { padding-left: calc(var(--space-3) + var(--icon-sm) + var(--space-1)); }
+  .ui-select--icon .ui-select__input { padding-left: calc(var(--select-px) + var(--icon-sm) + var(--space-1)); }
   /* El menú nativo hereda el fondo de la página, no el velo translúcido. */
   .ui-select__input option { background: var(--color-panel); color: var(--color-texto); }
 
@@ -158,6 +162,28 @@
   }
   .ui-select__input:disabled { border-color: var(--color-linea-sutil); color: var(--color-texto-desactivado); cursor: not-allowed; }
 
+  /* Densidad compacta (U20): caja visible de 36 y área táctil de 44, como Field. */
+  :global([data-density='compact']) .ui-select__input {
+    --select-touch: calc((var(--target-touch) - var(--select-h)) / 2);
+    --select-line: var(--color-linea-fuerte);
+    height: var(--target-touch);
+    margin-block: calc(-1 * var(--select-touch));
+    border: 0 solid transparent;
+    border-block-width: var(--select-touch);
+    border-radius: var(--control-radius) / calc(var(--control-radius) + var(--select-touch));
+    background-clip: padding-box;
+    box-shadow: inset 0 0 0 1px var(--select-line);
+    transition: box-shadow var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
+  }
+  :global([data-density='compact']) .ui-select__input:hover:not(:disabled) { --select-line: var(--color-acento-border); border-color: transparent; }
+  :global([data-density='compact']) .ui-select__input:focus-visible {
+    --select-line: var(--color-acento-border);
+    outline-offset: calc(2px - var(--select-touch));
+    box-shadow: inset 0 0 0 1px var(--select-line), var(--focus-ring);
+  }
+  :global([data-density='compact']) .ui-select__input:disabled { --select-line: var(--color-linea-sutil); border-color: transparent; }
+  :global([data-density='compact']) .ui-select--error .ui-select__input { --select-line: var(--color-danger); border-color: transparent; }
+
   .ui-select__icon,
   .ui-select__chevron {
     position: absolute;
@@ -165,14 +191,14 @@
     color: var(--color-texto-tenue);
     pointer-events: none;
   }
-  .ui-select__icon { left: var(--space-3); }
+  .ui-select__icon { left: var(--select-px); }
   .ui-select__chevron { right: var(--space-2); }
   .ui-select__control:focus-within .ui-select__icon,
   .ui-select__control:focus-within .ui-select__chevron { color: var(--color-acento); }
 
   @media (max-width: 479px) {
     .ui-select--icon-wide .ui-select__icon { display: none; }
-    .ui-select--icon-wide .ui-select__input { padding-left: var(--space-3); }
+    .ui-select--icon-wide .ui-select__input { padding-left: var(--select-px); }
     .ui-select__label--compact {
       position: absolute;
       width: 1px;

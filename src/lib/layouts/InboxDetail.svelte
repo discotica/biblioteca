@@ -46,7 +46,7 @@
 
   .l-inbox-detail__head,
   .l-inbox-detail__body,
-  .l-inbox-detail__actions { padding: var(--density-pad); }
+  .l-inbox-detail__actions { padding: var(--tool-pad-panel-y) var(--tool-pad-panel-x); }
 
   .l-inbox-detail__head {
     display: flex;
@@ -80,7 +80,7 @@
   .l-inbox-detail__body {
     display: flex;
     flex-direction: column;
-    gap: var(--density-pad);
+    gap: var(--tool-gap-row);
   }
 
   .l-inbox-detail__actions {
@@ -94,7 +94,7 @@
   .l-inbox-detail :global(.l-inbox-fields) {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-4) var(--density-pad);
+    gap: var(--tool-gap-row) var(--tool-gap-col);
     margin: 0;
   }
 

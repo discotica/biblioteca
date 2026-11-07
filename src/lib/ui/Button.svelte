@@ -12,7 +12,10 @@
   type Props = {
     /** primary (lleno) · secondary (borde) · accent (borde y texto de acento) · ghost · destructive · link */
     variant?: ButtonVariant;
-    /** sm 32 · md 44 (Comprar) · lg 52. sm amplía su área táctil a 44. */
+    /**
+     * sm 32 · md 44 (Comprar) · lg 52. sm amplía su área táctil a 44.
+     * md sigue la densidad (U20): 36 con 12 a los lados en [data-density='compact'].
+     */
     size?: ButtonSize;
     /** Con href se renderiza como enlace con el mismo aspecto. */
     href?: string;
@@ -115,8 +118,10 @@
 {/if}
 
 <style>
+  /* md toma la altura de la densidad (44 por defecto, como --button-h-md; 36 en
+     el Estudio). El padding de md solo cambia en la densidad compacta. */
   .ui-btn {
-    --btn-h: var(--button-h-md);
+    --btn-h: var(--density-control-h);
     --btn-px: var(--button-px-md);
     position: relative;
     display: inline-flex;
@@ -150,6 +155,7 @@
     inset-inline: min(0px, calc((100% - var(--target-touch)) / 2));
   }
 
+  :global([data-density='compact']) .ui-btn--md:not(.ui-btn--link) { --btn-px: var(--density-control-px); }
   .ui-btn--sm { --btn-h: var(--button-h-sm); --btn-px: var(--button-px-sm); font-size: var(--text-xs); gap: var(--space-1); }
   .ui-btn--lg { --btn-h: var(--button-h-lg); --btn-px: var(--button-px-lg); font-size: var(--text-md); }
   .ui-btn--square { width: var(--btn-h); padding: 0; }

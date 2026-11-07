@@ -50,7 +50,7 @@
     gap: var(--space-1);
     min-height: var(--tool-row-h);
     box-sizing: border-box;
-    padding: var(--space-2) var(--space-4);
+    padding: var(--tool-pad-item-y) var(--tool-pad-item-x);
     border-left: 2px solid transparent;
     color: var(--color-texto-medio);
     text-decoration: none;
