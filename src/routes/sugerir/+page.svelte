@@ -409,8 +409,11 @@
       sourceInput?.focus();
       return;
     }
-    detectionState = 'loading';
     const url = sourceUrl.trim();
+    // Otro enlace es otro lanzamiento: nada del anterior se arrastra, y guardar crea un borrador
+    // nuevo en vez de pisar el suyo. Al retomar uno (?draft=), cambiar el enlace es corregirlo.
+    if (hasData && !draftParam && url !== detectedUrl) clearRelease();
+    detectionState = 'loading';
     // El aviso de duplicado se pide a la vez; si falla, se sigue sin él (el servidor no lo exige).
     const found = checkSourceDuplicate(url).catch(() => null);
     try {
@@ -526,8 +529,8 @@
     }
   }
 
-  async function sugerirOtro() {
-    sourceUrl = '';
+  /** Vacía lo que describe al lanzamiento en curso. El enlace y el paso los decide quien llama. */
+  function clearRelease() {
     title = '';
     primaryArtists = [];
     collaborators = [];
@@ -549,6 +552,11 @@
     savedEdit = false;
     reviewerNote = '';
     fieldErrors = {};
+  }
+
+  async function sugerirOtro() {
+    sourceUrl = '';
+    clearRelease();
     error = '';
     saved = '';
     fallbackStep = 1;
