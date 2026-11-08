@@ -7,6 +7,7 @@ import {
   proposalDetection,
   proposalFields,
   proposalGroups,
+  proposalInboxCount,
   reportContextRows,
   relativeInboxDate,
   reportGroups,
@@ -115,6 +116,23 @@ test('U17: acciones por rol, iguales a las de E10', () => {
   for (const status of ['approved', 'rejected', 'changes_requested', 'draft']) {
     assert.equal(proposalAction(proposal({ status }), 'admin', 'u-admin'), 'none');
   }
+});
+
+test('U25-P3-01: la cifra de Propuestas sale de los grupos y de lo que cada rol puede hacer', () => {
+  const community = proposal({ id: 'c' });
+  const ready = proposal({ id: 'r', status: 'ready_for_admin', queue_kind: null });
+  const collab = proposal({ id: 'k', queue_kind: 'collaborator', author_id: 'u-colab' });
+  const own = proposal({ id: 'o', author_id: 'u-colab' });
+  const legacy = proposal({ id: 'l', queue_kind: null });
+  const queue = [community, ready, collab, own, legacy];
+
+  // La propuesta pendiente sin cola no está en ningún grupo y tampoco cuenta; sin cola pero preparada, sí.
+  assert.ok(!proposalGroups(queue, 'admin', false).flatMap((group) => group.items).includes(legacy));
+  assert.equal(proposalInboxCount(queue, 'admin', 'u-admin'), 4);
+  assert.equal(proposalInboxCount([legacy], 'admin', 'u-admin'), 0);
+  // Colaborador: solo lo que puede preparar; sus aportes se ven, pero esperan a admin.
+  assert.equal(proposalInboxCount(queue, 'colaborador', 'u-colab'), 1);
+  assert.equal(proposalInboxCount([], 'admin', 'u-admin'), 0);
 });
 
 test('U17: selección de la bandeja', () => {
