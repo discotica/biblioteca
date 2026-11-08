@@ -258,6 +258,24 @@ test.describe('U15 permisos por rol', () => {
     await expect(page.locator('main > :first-child')).toHaveClass(/l-container--full/);
     await expect(page.locator('footer.site-footer, footer.footer')).toHaveCount(0);
   });
+
+  test('admin: la cifra de Propuestas es lo que muestra la bandeja, sin la propuesta antigua sin cola', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockStudio(page, 'admin', {
+      contributions: [
+        contributionFor(),
+        contributionFor({
+          id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb02', queue_kind: null, payload_version: 1, payload_quality: 'legacy',
+          payload: { ...contributionFor().payload, title: 'Propuesta antigua sin cola' }
+        })
+      ]
+    });
+    await page.goto('/estudio/propuestas');
+    await expect(page.getByRole('heading', { name: 'Comunidad', exact: true })).toBeVisible();
+    await expect(page.getByRole('main').getByText('Propuesta comunitaria').first()).toBeVisible();
+    await expect(page.getByRole('main').getByText('Propuesta antigua sin cola')).toHaveCount(0);
+    await expect(studioNav(page).getByRole('link', { name: /^Propuestas/ })).toHaveText(/^\s*Propuestas\s*1\s*$/);
+  });
 });
 
 test.describe('U15 catálogo', () => {
