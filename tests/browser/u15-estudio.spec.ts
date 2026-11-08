@@ -229,13 +229,13 @@ test.describe('U15 permisos por rol', () => {
     const calls = await mockStudio(page, 'colaborador');
     await page.goto('/estudio/propuestas');
     await expect(studioNav(page).getByRole('link')).toHaveText([/^\s*Propuestas\s*1$/]);
-    await expect(page.getByRole('heading', { name: 'Cola comunitaria' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Comunidad', exact: true })).toBeVisible();
     // U19 (G3): corrige en el editor, sin Catálogo en la barra lateral y sin leer nada administrativo.
-    await page.getByRole('link', { name: 'Abrir en el editor' }).click();
+    await page.getByRole('link', { name: 'Editar' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Propuesta comunitaria' })).toBeVisible();
     await expect(studioNav(page).getByRole('link')).toHaveText([/^\s*Propuestas\s*1$/]);
     await expect(page.getByRole('button', { name: 'Marcar lista para admin' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Aceptar|Rechazar|Pedir cambios/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Aceptar|Rechazar|Pedir cambios|Devolver/ })).toHaveCount(0);
     await expect(page.getByRole('link', { name: /Catálogo/ })).toHaveCount(0);
     for (const path of ['/estudio/catalogo', '/estudio/reportes', '/estudio/catalogo?lanzamiento=x']) {
       await page.goto(path);
@@ -424,7 +424,7 @@ test.describe('U15 catálogo', () => {
     // U19 (G3): la propuesta en cola se abre en el editor; aceptar y su aviso están en U17.
     await page.getByRole('link', { name: 'Ver todas' }).click();
     const card = page.getByRole('article', { name: 'Propuesta comunitaria' });
-    await expect(card.getByRole('link', { name: 'Abrir en el editor' })).toHaveAttribute('href', /\/estudio\/propuestas\?editar=/);
+    await expect(card.getByRole('link', { name: 'Editar' })).toHaveAttribute('href', /\/estudio\/propuestas\?editar=/);
   });
 
   test('el editor se abre por URL y "Volver" regresa a la vista de la lista', async ({ page }) => {
@@ -445,7 +445,7 @@ test.describe('U15 matriz de anchos', () => {
     test(`admin sin desborde a ${width}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await mockStudio(page, 'admin');
-      for (const [path, ready] of [['/estudio/catalogo', 'Lanzamiento 1'], ['/estudio/propuestas', 'Cola comunitaria'], ['/estudio/reportes', 'El país está mal.']]) {
+      for (const [path, ready] of [['/estudio/catalogo', 'Lanzamiento 1'], ['/estudio/propuestas', 'Comunidad'], ['/estudio/reportes', 'El país está mal.']]) {
         await page.goto(path);
         await expect(page.getByText(ready, { exact: true }).first()).toBeVisible();
         await noHorizontalOverflow(page);

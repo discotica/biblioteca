@@ -193,7 +193,9 @@ async function mockStudio(page: Page, role: Role) {
 
 const row = (page: Page, title: string) => page.getByRole('link', { name: new RegExp(`^${title}`) });
 const detail = (page: Page, title?: string) => (title ? page.getByRole('article', { name: title }) : page.getByRole('article'));
-const editedFields = (page: Page) => detail(page).locator('.l-inbox-field').filter({ hasText: 'Editado' }).locator('dt > span:first-child');
+// U23: lo que difiere de la fuente lleva un punto ámbar; su campo, en data-edited.
+const editedFields = (page: Page) => detail(page).locator('[data-edited]');
+const editedNames = (page: Page) => editedFields(page).evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-edited')));
 const noHorizontalOverflow = (page: Page) =>
   expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
@@ -210,7 +212,7 @@ test.describe('U17 propuestas', () => {
     await page.goto('/estudio/propuestas');
 
     const list = page.getByRole('region', { name: 'Propuestas en cola' });
-    await expect(list.getByRole('heading', { level: 2 })).toHaveText(['Cola prioritaria', 'Cola comunitaria']);
+    await expect(list.getByRole('heading', { level: 2 })).toHaveText(['Prioritaria', 'Comunidad']);
     // Sin elegir nada, se abre la primera de la lista.
     await expect(row(page, 'Aporte de colaboración')).toHaveAttribute('aria-current', 'true');
     await expect(detail(page, 'Aporte de colaboración')).toBeVisible();
@@ -226,26 +228,31 @@ test.describe('U17 propuestas', () => {
     await expect(page).toHaveURL(new RegExp(`/estudio/propuestas\\?propuesta=${ids.community}$`));
     expect(await page.evaluate(() => history.length)).toBe(historyLength);
     await expect(row(page, 'Propuesta comunitaria')).toBeFocused();
-    await expect(row(page, 'Propuesta comunitaria')).toContainText('2 campos editados');
+    // U23: el ítem ya no cuenta los campos editados; eso se ve en el resumen.
+    await expect(row(page, 'Propuesta comunitaria')).not.toContainText('editado');
 
     const proposal = detail(page, 'Propuesta comunitaria');
-    await expect(proposal.locator('dt > span:first-child')).toHaveText(['Título', 'Artistas principales', 'Colaboradores', 'Tipo', 'Fecha', 'Sello', 'Géneros', 'Países']);
-    await expect(editedFields(page)).toHaveText(['Título', 'Tipo']);
-    await expect(proposal.locator('.l-inbox-field').filter({ hasText: 'Tipo' }).locator('dd')).toHaveText('EP');
+    // Título y artistas van en la cabecera; el resto, en tres columnas.
+    await expect(proposal.locator('dt')).toHaveText([/^Tipo/, 'Fecha', 'Sello', 'Colaboradores', 'Géneros', 'País']);
+    await expect.poll(() => editedNames(page)).toEqual(['Título', 'Tipo']);
+    await expect(proposal.locator('.summary__field').filter({ hasText: 'Tipo' }).locator('dd')).toHaveText('EP');
     // Lo detectado no se muestra; solo se marca.
     await expect(proposal.getByText('Título detectado')).toHaveCount(0);
-    await expect(proposal.getByText('Sin nota')).toBeVisible();
-    await expect(proposal.getByRole('link', { name: /Abrir la fuente en Bandcamp/ })).toHaveAttribute('target', '_blank');
-    await expect(proposal.getByRole('img', { name: /Portada de la fuente/ })).toBeVisible();
+    // Sin nota no hay comentario vacío.
+    await expect(proposal.locator('.summary__comment')).toHaveCount(0);
+    await expect(proposal.getByRole('link', { name: 'Abrir en Bandcamp' })).toHaveAttribute('target', '_blank');
+    await expect(proposal.locator('.summary__cover img').first()).toBeVisible();
     await capture(page, '2-detalle-editado-1440');
 
     // Sin campos editados y con nota; fuente ilegible: sin marcas y dicho en una línea.
     await row(page, 'Segunda propuesta').click();
-    await expect(detail(page, 'Segunda propuesta').getByText('Coincide con lo que detectó la fuente.')).toBeVisible();
+    await expect(detail(page, 'Segunda propuesta')).toBeVisible();
     await expect(editedFields(page)).toHaveCount(0);
-    await expect(detail(page).getByText('La escuché en vivo.')).toBeVisible();
+    // La nota, como comentario.
+    await expect(detail(page).locator('.summary__comment').getByText('La escuché en vivo.')).toBeVisible();
     await row(page, 'Propuesta preparada').click();
-    await expect(detail(page, 'Propuesta preparada').getByText('La fuente no se pudo leer: todos los datos se escribieron a mano.')).toBeVisible();
+    // Fuente ilegible: nada que comparar, ninguna marca.
+    await expect(detail(page, 'Propuesta preparada')).toBeVisible();
     await expect(editedFields(page)).toHaveCount(0);
 
     // Enlace directo; un id que ya no está abre la primera.
@@ -266,7 +273,7 @@ test.describe('U17 propuestas', () => {
     await page.getByRole('navigation', { name: 'Estudio' }).getByRole('link', { name: /^Propuestas/ }).click();
     await row(page, 'Propuesta comunitaria').click();
     // U19 (G3): la propuesta se decide en el editor.
-    await detail(page, 'Propuesta comunitaria').getByRole('link', { name: 'Abrir en el editor' }).click();
+    await detail(page, 'Propuesta comunitaria').getByRole('link', { name: 'Editar' }).click();
     await expect(page).toHaveURL(new RegExp(`/estudio/propuestas\\?editar=${ids.community}$`));
     await expect(page.getByRole('heading', { level: 1, name: 'Propuesta comunitaria' })).toBeVisible();
     await page.getByRole('button', { name: 'Aceptar y publicar' }).click();
@@ -311,28 +318,38 @@ test.describe('U17 propuestas', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const writes = await mockStudio(page, 'admin');
     await page.goto(`/estudio/propuestas?editar=${ids.community}`);
-    const note = page.getByRole('textbox', { name: 'Nota para quien propone' });
 
-    await page.getByRole('button', { name: 'Rechazar' }).click();
-    await expect(page.locator('.editor__feedback')).toHaveText('Escribe una nota antes de rechazar.');
-    await expect(note).toBeFocused();
-    await page.getByRole('button', { name: 'Pedir cambios' }).click();
-    await expect(page.locator('.editor__feedback')).toHaveText('Escribe una nota para pedir cambios.');
+    // U23: Devolver ▾ abre un diálogo con la nota obligatoria; sin nota no se envía.
+    await page.getByRole('button', { name: 'Devolver' }).click();
+    await page.getByRole('menuitem', { name: 'Rechazar…' }).click();
+    let dialog = page.getByRole('dialog', { name: 'Rechazar' });
+    await dialog.getByRole('button', { name: 'Rechazar' }).click();
+    await expect(dialog.getByText('Escribe una nota antes de rechazar.')).toBeVisible();
+    await expect(dialog.getByRole('textbox', { name: /Por qué se rechaza/ })).toBeFocused();
+    await dialog.getByRole('button', { name: 'Cancelar' }).click();
+    await page.getByRole('button', { name: 'Devolver' }).click();
+    await page.getByRole('menuitem', { name: 'Pedir cambios…' }).click();
+    dialog = page.getByRole('dialog', { name: 'Pedir cambios' });
+    await dialog.getByRole('button', { name: 'Pedir cambios' }).click();
+    await expect(dialog.getByText('Escribe una nota para pedir cambios.')).toBeVisible();
     expect(writes).toEqual([]);
     await capture(page, '6-nota-obligatoria-1440');
 
-    await note.fill('Confirma el sello, por favor.');
-    await page.getByRole('button', { name: 'Pedir cambios' }).click();
+    await dialog.getByRole('textbox', { name: /Qué tiene que cambiar/ }).fill('Confirma el sello, por favor.');
+    await dialog.getByRole('button', { name: 'Pedir cambios' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Propuesta comunitaria: Cambios solicitados.' })).toBeVisible();
     await expect(row(page, 'Propuesta comunitaria')).toHaveCount(0);
     // La siguiente de la lista ocupa su lugar.
     await expect(page.getByRole('heading', { level: 2, name: 'Segunda propuesta' })).toBeFocused();
 
-    await detail(page, 'Segunda propuesta').getByRole('link', { name: 'Abrir en el editor' }).click();
-    // El editor de la siguiente empieza sin la nota ni el error de la anterior.
+    // D2: también se decide desde el resumen, sin abrir el editor. La nota empieza vacía.
+    await detail(page, 'Segunda propuesta').getByRole('button', { name: 'Devolver' }).click();
+    await page.getByRole('menuitem', { name: 'Rechazar…' }).click();
+    dialog = page.getByRole('dialog', { name: 'Rechazar' });
+    const note = dialog.getByRole('textbox', { name: /Por qué se rechaza/ });
     await expect(note).toHaveValue('');
     await note.fill('Ya existe en el catálogo.');
-    await page.getByRole('button', { name: 'Rechazar' }).click();
+    await dialog.getByRole('button', { name: 'Rechazar' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Segunda propuesta: Rechazado.' })).toBeVisible();
     // Era la última de su grupo: se abre la anterior.
     await expect(page.getByRole('heading', { level: 2, name: 'Propuesta preparada' })).toBeFocused();
@@ -348,20 +365,23 @@ test.describe('U17 propuestas', () => {
     const writes = await mockStudio(page, 'colaborador');
     await page.goto('/estudio/propuestas');
     const list = page.getByRole('region', { name: 'Propuestas en cola' });
-    await expect(list.getByRole('heading', { level: 2 })).toHaveText(['Cola comunitaria', 'Mis aportes prioritarios']);
+    await expect(list.getByRole('heading', { level: 2 })).toHaveText(['Comunidad', 'Mis aportes']);
     await expect(page.getByRole('button', { name: /Aceptar|Pedir cambios|Rechazar/ })).toHaveCount(0);
 
     await row(page, 'Aporte de colaboración').click();
-    await expect(detail(page, 'Aporte de colaboración').getByText('Pendiente de revisión administrativa.')).toBeVisible();
+    await expect(detail(page, 'Aporte de colaboración').getByText('Espera a admin')).toBeVisible();
     await expect(detail(page).getByRole('button')).toHaveCount(0);
-    await expect(detail(page).getByRole('link', { name: 'Abrir en el editor' })).toHaveCount(0);
+    await expect(detail(page).getByRole('link', { name: 'Editar' })).toHaveCount(0);
 
     await row(page, 'Propuesta comunitaria').click();
-    await detail(page, 'Propuesta comunitaria').getByRole('link', { name: 'Abrir en el editor' }).click();
-    await expect(page.getByRole('button', { name: /Aceptar|Pedir cambios|Rechazar/ })).toHaveCount(0);
-    await page.getByRole('textbox', { name: 'Nota interna para admin' }).fill('Fuente verificada en Bandcamp.');
-    await capture(page, '7-colaborador-1440');
+    await detail(page, 'Propuesta comunitaria').getByRole('link', { name: 'Editar' }).click();
+    await expect(page.getByRole('button', { name: /Aceptar|Pedir cambios|Rechazar|Devolver/ })).toHaveCount(0);
+    // U23 (D5): la nota interna va en el diálogo de «Marcar lista».
     await page.getByRole('button', { name: 'Marcar lista para admin' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Marcar lista para admin' });
+    await dialog.getByRole('textbox', { name: /Nota interna para admin/ }).fill('Fuente verificada en Bandcamp.');
+    await capture(page, '7-colaborador-1440');
+    await dialog.getByRole('button', { name: 'Marcar lista', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Propuesta comunitaria quedó lista para administración.' })).toBeVisible();
     await expect(row(page, 'Propuesta comunitaria')).toHaveCount(0);
 
@@ -389,7 +409,7 @@ test.describe('U17 móvil', () => {
     await expect(page).toHaveURL(new RegExp(`propuesta=${ids.community}$`));
     await expect(page.getByRole('region', { name: 'Propuestas en cola' })).toBeHidden();
     await expect(page.getByRole('heading', { level: 2, name: 'Propuesta comunitaria' })).toBeFocused();
-    await expect(editedFields(page)).toHaveText(['Título', 'Tipo']);
+    await expect.poll(() => editedNames(page)).toEqual(['Título', 'Tipo']);
     await noHorizontalOverflow(page);
     await capture(page, '9-detalle-390');
 
@@ -417,7 +437,7 @@ test.describe('U17 móvil', () => {
     const writes = await mockStudio(page, 'admin');
     await page.goto('/estudio/propuestas');
     await row(page, 'Propuesta comunitaria').click();
-    await detail(page).getByRole('link', { name: 'Abrir en el editor' }).click();
+    await detail(page).getByRole('link', { name: 'Editar' }).click();
     await page.getByRole('button', { name: 'Aceptar y publicar' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Confirmar y publicar' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'aceptada y publicada' })).toBeVisible();

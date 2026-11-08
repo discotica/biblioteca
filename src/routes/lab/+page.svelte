@@ -111,8 +111,8 @@
 
   // U17: bandeja del Estudio, con datos de ejemplo.
   type InboxDemoItem = { id: string; title: string; status: string; tone: 'neutral' | 'accent'; flag?: string; meta: string[] };
-  const inboxGroups: { id: string; label: string; help?: string; empty: string; items: InboxDemoItem[] }[] = [
-    { id: 'prioridad', label: 'Cola prioritaria', help: 'Aportes de colaboración y propuestas ya preparadas.', empty: '', items: [
+  const inboxGroups: { id: string; label: string; empty: string; items: InboxDemoItem[] }[] = [
+    { id: 'prioridad', label: 'Prioritaria', empty: '', items: [
       { id: 'p1', title: 'Fuego lento', status: 'Listo para administración', tone: 'accent', meta: ['Nicola Cruz', '20 de sept de 2026'] }
     ] },
     { id: 'comunidad', label: 'Cola comunitaria', empty: 'No hay propuestas comunitarias pendientes.', items: [

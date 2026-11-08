@@ -42,7 +42,7 @@ export function proposalCover(proposal: Pick<EditableProposal, 'payload' | 'dete
  * La propuesta en la forma del formulario. Artistas y sello que ya existen (por nombre o alias,
  * según `resolved`) llevan su UUID; los demás, un id «nuevo:». Géneros y países van por id de la
  * lista; los que no están en ella vuelven en `unknown`, para avisar (el servidor los rechazaría).
- * La reseña empieza con la nota de quien propone, porque aceptar la usa si no hay reseña.
+ * La reseña no se precarga (U23, D7b): la interfaz no la muestra y aceptar ya no usa la nota.
  */
 export function proposalToSnapshot(
   proposal: EditableProposal,
@@ -84,7 +84,8 @@ export function proposalToSnapshot(
       release_date: payload.release_date || null,
       release_type_id: dictionaries.types.find((type) => type.slug === payload.release_type)?.id ?? null,
       label_id: labelMatch?.id ?? (labelName ? pendingId(labelName) : null),
-      review: String(payload.review ?? payload.team_note ?? ''),
+      // La reseña no sale de la interfaz ni se precarga con la nota de quien propone (U23, D7b).
+      review: String(payload.review ?? ''),
       status: 'draft',
       credit_quality: 'proposed',
       catalog_version: 0,

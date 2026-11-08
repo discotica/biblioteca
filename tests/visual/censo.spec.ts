@@ -360,7 +360,7 @@ const EDITAR = '/estudio/propuestas?editar=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb03'
 add('editorial-approve-D', 'D', EDITAR, {
   role: 'admin',
   setup: async (page) => {
-    await page.getByRole('button', { name: 'Aceptar y publicar' }).click();
+    await page.getByRole('button', { name: 'Aceptar y publicar', exact: true }).click();
     await page.getByRole('button', { name: 'Confirmar y publicar' }).waitFor();
     await settle(page);
   }
@@ -530,10 +530,17 @@ add('estudio-diccionarios-fusionar-D', 'D', `${DICCIONARIOS}?tipo=paises&q=eeuu`
 const PROPUESTA = '/estudio/propuestas?propuesta=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb03';
 add('estudio-propuesta-M', 'M', PROPUESTA, { role: 'admin', full: true, maxH: 3600, supplementary: true });
 add('estudio-propuestas-T', 'T', '/estudio/propuestas', { role: 'admin', full: true, maxH: 2400, supplementary: true });
-// U19 (G3): la nota obligatoria se pide en el editor, al rechazar.
+// U19 (G3): la nota obligatoria se pide al rechazar. U23: en el diálogo de Devolver › Rechazar…
 add('estudio-propuesta-nota-D', 'D', EDITAR, {
   role: 'admin', supplementary: true,
-  setup: async (page) => { await page.getByRole('button', { name: 'Rechazar' }).click(); await page.getByText('Escribe una nota antes de rechazar.').waitFor(); await settle(page); }
+  setup: async (page) => {
+    await page.getByRole('button', { name: 'Devolver' }).click();
+    await page.getByRole('menuitem', { name: 'Rechazar…' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Rechazar' });
+    await dialog.getByRole('button', { name: 'Rechazar' }).click();
+    await dialog.getByText('Escribe una nota antes de rechazar.').waitFor();
+    await settle(page);
+  }
 });
 // U19 (G3): la propuesta abierta en el editor, como admin (decide) y como colaborador (corrige y la marca lista).
 each(['D', 'M'], 'estudio-propuesta-editor', EDITAR, { role: 'admin', full: true, maxH: 4200, supplementary: true });

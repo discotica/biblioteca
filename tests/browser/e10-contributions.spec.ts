@@ -291,19 +291,21 @@ test('E10 matriz de acceso: comunidad denegada y colaborador prepara solo comuni
   await mockBase(page, 'colaborador', { contributions: [contribution(), collaboratorOwn] });
   await page.goto('/editorial');
   // U17: bandeja. Lo que puede preparar va primero y se abre solo; sus aportes, aparte y sin revisión.
-  await expect(page.getByRole('heading', { name: 'Mis aportes prioritarios' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Mis aportes', exact: true })).toBeVisible();
   await page.getByRole('link', { name: /^Aporte propio/ }).click();
   const own = page.getByRole('article', { name: 'Aporte propio' });
-  await expect(own.getByText('Pendiente de revisión administrativa.')).toBeVisible();
+  await expect(own.getByText('Espera a admin')).toBeVisible();
   await expect(own.getByRole('button')).toHaveCount(0);
   await page.getByRole('link', { name: /^Propuesta comunitaria/ }).click();
   const community = page.getByRole('article', { name: 'Propuesta comunitaria' });
   // U19 (G3): se corrige y se marca lista en el editor; el colaborador no decide.
-  await community.getByRole('link', { name: 'Abrir en el editor' }).click();
+  await community.getByRole('link', { name: 'Editar' }).click();
   await expect(page.getByRole('button', { name: 'Marcar lista para admin' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /publicar|rechazar|pedir cambios/i })).toHaveCount(0);
-  await page.getByRole('textbox', { name: 'Nota interna para admin' }).fill('Fuente verificada');
+  await expect(page.getByRole('button', { name: /publicar|rechazar|pedir cambios|devolver/i })).toHaveCount(0);
   await page.getByRole('button', { name: 'Marcar lista para admin' }).click();
+  const ready = page.getByRole('dialog', { name: 'Marcar lista para admin' });
+  await ready.getByRole('textbox', { name: /Nota interna para admin/ }).fill('Fuente verificada');
+  await ready.getByRole('button', { name: 'Marcar lista', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'lista para administración' })).toBeVisible();
 });
 
@@ -315,22 +317,27 @@ test('E10 admin separa colas, exige notas y confirma publicación con teclado', 
   await expect(page.getByLabel('Enlace de la fuente')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Enviar a revisión' })).toHaveCount(0);
   await page.goto('/editorial');
-  await expect(page.getByRole('heading', { name: 'Cola prioritaria' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Cola comunitaria' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Prioritaria', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Comunidad', exact: true })).toBeVisible();
   // U17: bandeja con lista y detalle. El detalle muestra solo lo propuesto y marca
   // lo que difiere de lo detectado ("Título detectado" ya no se ve).
   await page.getByRole('link', { name: /^Propuesta comunitaria/ }).click();
   const community = page.getByRole('article', { name: 'Propuesta comunitaria' });
-  await expect(community.locator('.l-inbox-field').filter({ hasText: 'Título' }).first()).toContainText('Editado');
+  // U23: el título editado lleva el punto ámbar en la cabecera del resumen.
+  await expect(community.locator('[data-edited="Título"]')).toHaveCount(1);
   await expect(community.getByText('Título detectado')).toHaveCount(0);
-  await expect(community.getByText('Contexto de la persona autora')).toBeVisible();
-  // U19 (G3): las decisiones están en el editor.
-  await community.getByRole('link', { name: 'Abrir en el editor' }).click();
-  await page.getByRole('button', { name: 'Pedir cambios' }).click();
-  await expect(page.getByText('Escribe una nota para pedir cambios.')).toBeVisible();
-  await expect(page.getByRole('textbox', { name: 'Nota para quien propone' })).toBeFocused();
+  await expect(community.locator('.summary__comment').getByText('Contexto de la persona autora')).toBeVisible();
+  // U19 (G3): se decide en el editor (U23: también en el resumen).
+  await community.getByRole('link', { name: 'Editar' }).click();
+  await page.getByRole('button', { name: 'Devolver' }).click();
+  await page.getByRole('menuitem', { name: 'Pedir cambios…' }).click();
+  const giveBack = page.getByRole('dialog', { name: 'Pedir cambios' });
+  await giveBack.getByRole('button', { name: 'Pedir cambios' }).click();
+  await expect(giveBack.getByText('Escribe una nota para pedir cambios.')).toBeVisible();
+  await expect(giveBack.getByRole('textbox', { name: /Qué tiene que cambiar/ })).toBeFocused();
+  await giveBack.getByRole('button', { name: 'Cancelar' }).click();
 
-  const trigger = page.getByRole('button', { name: 'Aceptar y publicar' });
+  const trigger = page.getByRole('button', { name: 'Aceptar y publicar', exact: true });
   await trigger.click();
   const dialog = page.getByRole('dialog', { name: 'Aceptar y publicar' });
   await expect(dialog.getByText('Artista principal')).toBeVisible();

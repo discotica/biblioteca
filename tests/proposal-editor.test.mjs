@@ -53,10 +53,10 @@ test('la propuesta en el formulario: existentes por UUID y nuevos como nombres p
   assert.deepEqual(snapshot.genre_ids, ['g-techno']);
   assert.deepEqual(snapshot.country_ids, ['c-mex']);
   assert.deepEqual(unknown, { genres: [], countries: [] });
-  // Fuente como enlace principal y portada detectada; la reseña empieza con la nota del autor.
+  // Fuente como enlace principal y portada detectada. La reseña no se precarga con la nota (U23, D7b).
   assert.deepEqual(snapshot.links, [{ provider: 'bandcamp', url: 'https://artista.bandcamp.com/album/pulso', is_primary: true }]);
   assert.equal(snapshot.cover_url, 'https://f4.bcbits.com/img/pulso.jpg');
-  assert.equal(snapshot.review, 'Nota del autor');
+  assert.equal(snapshot.review, '');
   assert.deepEqual(snapshot.radar, {});
 });
 

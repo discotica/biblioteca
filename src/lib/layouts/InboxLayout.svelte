@@ -2,8 +2,6 @@
   export type InboxGroup<T> = {
     id: string;
     label: string;
-    /** Una línea bajo el nombre del grupo. */
-    help?: string;
     /** Texto cuando el grupo está vacío. */
     empty: string;
     items: T[];
@@ -51,7 +49,6 @@
           <h2 class="l-inbox__group-title" id="{uid}-{group.id}">{group.label}</h2>
           <span class="l-inbox__group-count" aria-label="{group.items.length} en {group.label}">{group.items.length}</span>
         </header>
-        {#if group.help}<p class="l-inbox__group-help">{group.help}</p>{/if}
         {#if group.items.length}
           <ul class="l-inbox__items">
             {#each group.items as entry (key(entry))}<li>{@render item(entry)}</li>{/each}
@@ -124,13 +121,6 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .l-inbox__group-help {
-    margin: var(--space-1) 0 0;
-    padding: 0 var(--tool-pad-item-x);
-    color: var(--color-texto-tenue);
-    font-size: var(--text-2xs);
-    line-height: 1.45;
-  }
 
   .l-inbox__items {
     display: flex;

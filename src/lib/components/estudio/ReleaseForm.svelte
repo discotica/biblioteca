@@ -69,9 +69,10 @@
     /** Texto de la barra cuando no hay aviso ni `changes`, y si es «sin cambios» (en móvil se oculta). */
     statusText?: string;
     clean: boolean;
-    note: string;
-    noteLabel: string;
-    notePlaceholder: string;
+    note?: string;
+    /** Sin etiqueta, la barra no lleva campo de nota (propuestas, U23: la nota va en el diálogo de cada decisión). */
+    noteLabel?: string;
+    notePlaceholder?: string;
     noteRequired?: boolean;
     noteElement?: HTMLInputElement;
     onnoteenter?: () => void;
@@ -79,6 +80,11 @@
     /** Las acciones en su propia fila, debajo de la nota (cuando son muchas). */
     stackActions?: boolean;
     onmessage?: (text: string) => void;
+    /**
+     * Nombres de View Transition para la portada y el título (U23): el resumen de la bandeja usa
+     * los mismos, así la cabecera no salta al pasar del uno al otro.
+     */
+    transition?: boolean;
   };
 
   let {
@@ -104,14 +110,15 @@
     statusText = '',
     clean,
     note = $bindable(''),
-    noteLabel,
-    notePlaceholder,
+    noteLabel = '',
+    notePlaceholder = '',
     noteRequired = false,
     noteElement = $bindable(),
     onnoteenter,
     actions,
     stackActions = false,
-    onmessage
+    onmessage,
+    transition = false
   }: Props = $props();
 
   const FORM_IDS: ReadonlyArray<EditorSectionId> = ['datos', 'creditos', 'clasificacion', 'medios'];
@@ -190,9 +197,9 @@
 <div class="editor">
   <header class="editor__head">
     <IconButton icon="flecha-izquierda" label={backLabel} variant="secondary" tooltip="bottom" tooltipAlign="start" onclick={onclose} />
-    <Cover class="editor__thumb" src={release.cover_url} alt="" radius="sm" loading="eager" />
+    <span class="editor__thumb" style={transition ? 'view-transition-name: proposal-cover' : undefined}><Cover src={release.cover_url} alt="" radius="sm" loading="eager" /></span>
     <div class="editor__identity">
-      <h1 class="editor__title">{release.title || 'Sin título'}</h1>
+      <h1 class="editor__title" style={transition ? 'view-transition-name: proposal-title' : undefined}>{release.title || 'Sin título'}</h1>
       <p class="editor__line">
         {#if status}{@render status()}<span class="editor__sep" aria-hidden="true">·</span>{/if}
         <span class="editor__artists">{artistLine || 'Añade un artista principal'}</span>
@@ -364,7 +371,7 @@
     {/if}
 
     <div class="editor__bar" role="region" aria-label="Guardar">
-      <div class="editor__bar-row" class:editor__bar-row--stacked={stackActions}>
+      <div class="editor__bar-row" class:editor__bar-row--stacked={stackActions} class:editor__bar-row--no-note={!noteLabel}>
         <div class="editor__bar-status" aria-live="polite">
           {#if feedback}
             <p class="editor__feedback editor__feedback--{feedback.tone}" role={feedback.tone === 'error' ? 'alert' : 'status'} title={feedback.text}>{feedback.text}</p>
@@ -376,7 +383,7 @@
             <p class="editor__dirty" class:editor__dirty--clean={clean}>{statusText}</p>
           {/if}
         </div>
-        <Field
+        {#if noteLabel}<Field
           class="editor__note"
           label={noteLabel}
           hideLabel
@@ -386,7 +393,7 @@
           placeholder={notePlaceholder}
           autocomplete="off"
           onkeydown={(event: KeyboardEvent) => { if (event.key === 'Enter') { event.preventDefault(); onnoteenter?.(); } }}
-        />
+        />{/if}
         <div class="editor__bar-actions">{@render actions()}</div>
       </div>
     </div>
@@ -405,7 +412,8 @@
     padding-bottom: var(--tool-gap-header);
     border-bottom: 1px solid var(--color-linea);
   }
-  .editor__head :global(.editor__thumb) {
+  .editor__thumb {
+    display: block;
     flex: 0 0 var(--tool-editor-thumb);
     width: var(--tool-editor-thumb);
     height: var(--tool-editor-thumb);
@@ -585,7 +593,9 @@
   .editor__bar-status .editor__feedback--error { color: var(--color-danger-texto); font-weight: 600; }
   .editor__bar-status .editor__feedback--success { color: var(--color-acento); }
   .editor__bar-row :global(.editor__note) { flex: 1 1 20rem; min-width: 0; }
-  .editor__bar-actions { display: flex; gap: var(--space-2); }
+  .editor__bar-actions { display: flex; align-items: center; gap: var(--space-2); }
+  /* Sin nota (propuestas): el estado ocupa el hueco y las acciones van a la derecha. */
+  .editor__bar-row--no-note .editor__bar-status { flex: 1 1 auto; max-width: none; }
   /* Muchas acciones (propuesta como admin): debajo de la nota, en dos grupos. */
   .editor__bar-row--stacked { flex-wrap: wrap; }
   .editor__bar-row--stacked .editor__bar-actions { flex: 1 1 100%; flex-wrap: wrap; justify-content: space-between; }

@@ -96,6 +96,8 @@ export const ICONS = {
   'imagen-off': { paths: ['M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z', 'M3 3l18 18'] },
   aviso: { paths: ['M12 4 2.8 19.5h18.4Z', 'M12 10v4.5', 'M12 17.2h.01'] },
   bandeja: { paths: ['M3 13h5l1 3h6l1-3h5', 'M5 5h14l2 8v6H3v-6Z'] },
+  // Propuestas (U23): editar una propuesta desde el resumen.
+  editar: { paths: ['M4 20h4L19 9l-4-4L4 16Z', 'M13.5 6.5l4 4'] },
   // Diccionarios del Estudio (U19): géneros, países, sellos y artistas son etiquetas.
   etiqueta: { paths: ['M4 4h7.2l8.8 8.8-7.2 7.2L4 11.2Z', circle(8.5, 8.5, 1.5)] },
 
