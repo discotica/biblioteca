@@ -17,6 +17,11 @@
      * pantalla. Con `ready`, una ✓ en su lugar.
      */
     dot?: { label: string; tone?: StatusTone };
+    /**
+     * Dónde va el punto: a la derecha (Propuestas) o antes del texto (Reportes, U24). Antes
+     * del texto, el título conserva sus dos líneas.
+     */
+    dotPlacement?: 'start' | 'end';
     /** Lista para administración (U23): ✓ en lugar del punto. */
     ready?: string;
     /** Portada a la izquierda (U23). Sin ella, el elemento es solo texto. */
@@ -33,9 +38,10 @@
     [attribute: string]: unknown;
   };
 
-  let { href, title, current = false, status, dot, ready, cover, meta = [], flag, onselect, ...rest }: Props = $props();
+  let { href, title, current = false, status, dot, dotPlacement = 'end', ready, cover, meta = [], flag, onselect, ...rest }: Props = $props();
 
   const visual = $derived(cover !== undefined || !!dot || !!ready);
+  const leadingDot = $derived(!!dot && !ready && dotPlacement === 'start');
 
   function click(event: MouseEvent) {
     if (!onselect || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -46,7 +52,9 @@
 
 <!-- Un elemento de la bandeja del Estudio (U17), en filas de 56 o más: título y, debajo, estado y datos.
      U23: con portada a la izquierda y el estado como punto (o ✓) a la derecha. -->
-<a class="l-inbox-item" class:l-inbox-item--visual={visual} {href} aria-current={current ? 'true' : undefined} onclick={click} {...rest}>
+<a class="l-inbox-item" class:l-inbox-item--visual={visual} class:l-inbox-item--lead={leadingDot} {href} aria-current={current ? 'true' : undefined} onclick={click} {...rest}>
+  <!-- Antes del texto solo se ve: el nombre del enlace empieza por el título y el estado va al final. -->
+  {#if leadingDot && dot}<StatusDot class="l-inbox-item__dot" label={dot.label} tone={dot.tone ?? 'neutral'} hideLabel aria-hidden="true" />{/if}
   {#if cover !== undefined}<Cover class="l-inbox-item__cover" src={cover} alt="" radius="sm" />{/if}
   <span class="l-inbox-item__text">
     <span class="l-inbox-item__title">{title}</span>
@@ -58,7 +66,9 @@
       </span>
     {/if}
   </span>
-  {#if ready}
+  {#if leadingDot && dot}
+    <span class="sr-only">{dot.label}</span>
+  {:else if ready}
     <span class="l-inbox-item__ready" title={ready}><Icon name="check" size="sm" /><span class="sr-only">{ready}</span></span>
   {:else if dot}
     <StatusDot class="l-inbox-item__dot" label={dot.label} tone={dot.tone ?? 'neutral'} hideLabel />
@@ -111,7 +121,10 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  .l-inbox-item--visual .l-inbox-item__title { display: block; white-space: nowrap; text-overflow: ellipsis; }
+  .l-inbox-item--visual:not(.l-inbox-item--lead) .l-inbox-item__title { display: block; white-space: nowrap; text-overflow: ellipsis; }
+  /* Punto antes del texto: alineado con la primera línea del título. */
+  .l-inbox-item--lead { align-items: flex-start; }
+  .l-inbox-item--lead :global(.l-inbox-item__dot) { height: calc(var(--density-text) * var(--leading-heading)); }
 
   /* Estado, marca y datos en una línea; lo que no cabe se corta al final. */
   .l-inbox-item__meta {

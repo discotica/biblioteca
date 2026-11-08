@@ -229,22 +229,25 @@ export type ReportStatus = 'new' | 'triaged' | 'in_progress' | 'resolved' | 'clo
 
 export const OPEN_REPORT_STATUSES: ReadonlyArray<ReportStatus> = ['new', 'triaged', 'in_progress'];
 
-/** Tono del chip de estado: lo nuevo pide atención; lo resuelto, ninguna. */
-export const REPORT_STATUS_TONES: Record<ReportStatus, 'neutral' | 'accent' | 'warning' | 'danger'> = {
-  new: 'warning',
-  triaged: 'neutral',
-  in_progress: 'accent',
+/**
+ * Tono del punto de estado (U24, StatusDot): lo nuevo pide atención (ámbar), lo clasificado
+ * es un contorno, lo que está en curso va en acento y lo resuelto o cerrado, apagado.
+ */
+export const REPORT_STATUS_TONES: Record<ReportStatus, 'ok' | 'pending' | 'draft' | 'neutral'> = {
+  new: 'pending',
+  triaged: 'draft',
+  in_progress: 'ok',
   resolved: 'neutral',
   closed: 'neutral'
 };
 
-/** Abiertos (lo que cuenta la barra lateral) y resueltos o cerrados, cada uno en su orden. */
+/** Abiertos (lo que cuenta la barra lateral) y cerrados (resueltos o cerrados), cada uno en su orden. */
 export function reportGroups<T extends { id: string; status: string }>(reports: T[]): InboxGroup<T>[] {
   const open = reports.filter((report) => (OPEN_REPORT_STATUSES as readonly string[]).includes(report.status));
   const closed = reports.filter((report) => !(OPEN_REPORT_STATUSES as readonly string[]).includes(report.status));
   return [
     { id: 'open', label: 'Abiertos', empty: 'No hay reportes abiertos.', items: open },
-    { id: 'closed', label: 'Resueltos y cerrados', empty: 'Ninguno todavía.', items: closed }
+    { id: 'closed', label: 'Cerrados', empty: 'Ninguno todavía.', items: closed }
   ];
 }
 

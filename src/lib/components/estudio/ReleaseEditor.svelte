@@ -29,8 +29,14 @@
     /** Nombres de artistas conocidos, compartidos con la lista. */
     artists: Artist[];
     onclose: () => void;
-    /** Algo cambió en el servidor: la lista y los conteos se vuelven a leer. */
-    onsaved: () => void;
+    /** A dónde vuelve «Volver» (U24: «Volver al reporte» si se abrió desde uno). */
+    backLabel?: string;
+    /**
+     * Algo cambió en el servidor: la lista y los conteos se vuelven a leer. `written` es true
+     * cuando lo escribió este editor (guardar, publicar, archivar, revertir) y no una recarga
+     * por conflicto (U24: así Reportes sabe cuándo volver).
+     */
+    onsaved: (written?: boolean) => void;
   };
 
   let {
@@ -41,6 +47,7 @@
     types,
     artists = $bindable(),
     onclose,
+    backLabel = 'Volver al catálogo',
     onsaved
   }: Props = $props();
 
@@ -158,13 +165,13 @@
   }
 
   /** Vuelve a leer el lanzamiento y su historial después de escribir. */
-  async function refresh(id = selected?.id) {
+  async function refresh(id = selected?.id, written = false) {
     if (!id) return;
     const snapshot = await getCatalogRelease(id);
     history = await getCatalogHistory(id);
     await ensureArtists([...snapshot.artist_ids, ...snapshot.collaborator_ids]);
     assign(snapshot);
-    onsaved();
+    onsaved(written);
   }
 
   // ---------------------------------------------------------------------------
@@ -216,7 +223,7 @@
     try {
       const snapshot = $state.snapshot(selected) as CatalogSnapshot;
       const outcome = await saveCatalog(snapshot, observation, operation);
-      await refresh(outcome.release_id);
+      await refresh(outcome.release_id, true);
       feedback = {
         tone: 'success',
         text: operation === 'archive' ? 'Lanzamiento archivado.' : operation === 'publish' ? 'Lanzamiento publicado.' : 'Cambios guardados.'
@@ -251,7 +258,7 @@
     returnFocus = historyButton ?? null;
     try {
       await revertCatalog(pendingHistory.change_set_id, pendingHistory.result_version, revertReason);
-      await refresh();
+      await refresh(undefined, true);
       feedback = { tone: 'success', text: 'Cambio revertido mediante una nueva entrada auditada.' };
       observation = '';
     } catch (cause: any) {
@@ -285,7 +292,7 @@
 {#if loading && !selected}
   <div class="editor__state"><LoadingIndicator label="Abriendo el lanzamiento" /></div>
 {:else if loadError || !selected}
-  <ErrorState size="inline" message={loadError || 'No se pudo abrir el lanzamiento.'} actionLabel="Volver al catálogo" onaction={onclose} />
+  <ErrorState size="inline" message={loadError || 'No se pudo abrir el lanzamiento.'} actionLabel={backLabel} onaction={onclose} />
 {:else}
   {@const release = selected}
   <ReleaseForm
@@ -299,7 +306,7 @@
     {countries}
     {types}
     sections={EDITOR_SECTIONS}
-    backLabel="Volver al catálogo"
+    {backLabel}
     {onclose}
     createdWhen="al guardar"
     technical

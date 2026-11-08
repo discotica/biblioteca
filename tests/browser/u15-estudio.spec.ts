@@ -405,8 +405,9 @@ test.describe('U15 catálogo', () => {
     await expect(page.getByRole('article')).toHaveCount(1);
     await expect(page.getByRole('article')).toContainText('El país está mal.');
 
-    await page.getByRole('article').getByRole('link', { name: 'Abrir el lanzamiento en el Catálogo' }).click();
-    await expect(page).toHaveURL(new RegExp(`/estudio/catalogo\\?lanzamiento=${idFor(4)}$`));
+    // U24: el lanzamiento es un bloque de acción; corregirlo abre el editor y vuelve al reporte.
+    await page.getByRole('article').getByRole('link', { name: 'Corregir lanzamiento' }).click();
+    await expect(page).toHaveURL(new RegExp(`/estudio/catalogo\\?lanzamiento=${idFor(4)}&desde=reporte:r1$`));
     await expect(page.locator('.editor__head')).toContainText('Lanzamiento 4');
     // U16: lo relacionado está en "Más acciones"; los reportes abiertos, también en la cabecera.
     await expect(page.locator('.editor__head').getByRole('link', { name: '1 reporte' })).toHaveAttribute('href', `/estudio/reportes?lanzamiento=${idFor(4)}`);

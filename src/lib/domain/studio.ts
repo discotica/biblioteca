@@ -105,9 +105,26 @@ export function catalogHref(view: StudioQuickView | null = null): string {
 // ---------------------------------------------------------------------------
 // Enlaces cruzados entre un lanzamiento, sus propuestas y sus reportes.
 
-/** El lanzamiento abierto en el editor del Catálogo. */
-export function studioReleaseHref(releaseId: string): string {
-  return `${STUDIO_BASE}/catalogo?lanzamiento=${encodeURIComponent(releaseId)}`;
+/**
+ * El lanzamiento abierto en el editor del Catálogo. Con `fromReport` (U24), el editor vuelve
+ * a ese reporte al cerrar o al guardar (`?desde=reporte:<id>`).
+ */
+export function studioReleaseHref(releaseId: string, fromReport?: string | null): string {
+  const from = fromReport ? `&desde=${REPORT_RETURN_PREFIX}${encodeURIComponent(fromReport)}` : '';
+  return `${STUDIO_BASE}/catalogo?lanzamiento=${encodeURIComponent(releaseId)}${from}`;
+}
+
+const REPORT_RETURN_PREFIX = 'reporte:';
+
+/** El reporte al que vuelve el editor, desde `?desde=reporte:<id>`; null si no viene de uno. */
+export function reportReturnId(desde: string | null | undefined): string | null {
+  if (!desde?.startsWith(REPORT_RETURN_PREFIX)) return null;
+  return desde.slice(REPORT_RETURN_PREFIX.length) || null;
+}
+
+/** Un reporte abierto en la bandeja. Con `corrected`, llega con «Resuelto» elegido (sin guardar). */
+export function studioReportHref(reportId: string, corrected = false): string {
+  return `${STUDIO_BASE}/reportes?reporte=${encodeURIComponent(reportId)}${corrected ? '&corregido=1' : ''}`;
 }
 
 /** Reportes de un lanzamiento. */

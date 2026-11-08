@@ -11,9 +11,10 @@
     crumb?: string;
     /**
      * Conteo junto al título (U20, guía de voz: «Catálogo 2.790»). Se formatea
-     * con separador de miles; 0 también se muestra.
+     * con separador de miles; 0 también se muestra. Como texto, va tal cual
+     * («2 abiertos», U24).
      */
-    count?: number;
+    count?: number | string;
     /**
      * @deprecated U20: el Estudio va sin subtítulo bajo el h1 (guía de voz del
      * rediseño, regla 1). Se conserva mientras U21–U24 quitan los de cada
@@ -35,7 +36,7 @@
 <header class="l-tool-header {className}">
   <div class="l-tool-header__text">
     <h1 class="l-tool-header__title">
-      {#if crumb}<span class="l-tool-header__crumb">{crumb} /</span>{' '}{/if}{title}{#if count !== undefined}{' '}<span class="l-tool-header__count">{count.toLocaleString('es-CO')}</span>{/if}
+      {#if crumb}<span class="l-tool-header__crumb">{crumb} /</span>{' '}{/if}{title}{#if count !== undefined}{' '}<span class="l-tool-header__count">{typeof count === 'number' ? count.toLocaleString('es-CO') : count}</span>{/if}
     </h1>
     {#if description}<p class="l-tool-header__description">{description}</p>{/if}
   </div>

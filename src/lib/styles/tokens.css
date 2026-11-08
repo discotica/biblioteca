@@ -248,6 +248,7 @@
   /* Propuestas (U23): portada del ítem de la bandeja y de la cabecera del resumen. */
   --tool-inbox-thumb: 2.25rem;    /* 36 */
   --tool-summary-thumb: 4.5rem;   /* 72 */
+  --tool-release-thumb: 3.5rem;   /* 56 · lanzamiento de un reporte (U24) */
   /* Ritmo de espaciado del Estudio (U20; plan del rediseño, §3). La densidad
      compacta baja la altura de los controles, no los espacios: estos tokens
      separan los contenedores para que no queden pegados. U21–U24 los usan en

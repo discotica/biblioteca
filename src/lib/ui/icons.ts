@@ -100,6 +100,10 @@ export const ICONS = {
   editar: { paths: ['M4 20h4L19 9l-4-4L4 16Z', 'M13.5 6.5l4 4'] },
   // Diccionarios del Estudio (U19): géneros, países, sellos y artistas son etiquetas.
   etiqueta: { paths: ['M4 4h7.2l8.8 8.8-7.2 7.2L4 11.2Z', circle(8.5, 8.5, 1.5)] },
+  // Reportes (U24): la página reportada, la captura y quién reporta.
+  enlace: { paths: ['M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1', 'M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1'] },
+  imagen: { paths: ['M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z', 'M3 16l5-5 4 4 3-3 6 6', circle(15.5, 8.5, 1.5)] },
+  persona: { paths: [circle(12, 8, 4), 'M4 21a8 8 0 0 1 16 0'] },
 
   // ---- Redes (perfil, D1) -------------------------------------------------
   bandcamp: { filled: true, paths: ['M2 18 8.5 6H22l-6.5 12H2Z'] },

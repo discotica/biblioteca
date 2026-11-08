@@ -16,6 +16,8 @@
     studioReleaseHref,
     studioReportsHref,
     withParams,
+    reportReturnId,
+    studioReportHref,
     type StudioQuickView
   } from '$lib/domain/studio';
   import SelectionBar from '$lib/components/estudio/SelectionBar.svelte';
@@ -317,13 +319,19 @@
   // enlazar desde Propuestas y Reportes. Los lanzamientos nuevos entran por Sugerir (U19):
   // el ?nuevo=1 de antes redirige allí.
 
+  /** U24: abierto desde un reporte (?desde=reporte:<id>): cerrar y guardar vuelven a él. */
+  $: fromReport = reportReturnId($pageStore.url.searchParams.get('desde'));
+
   function closeEditor() {
-    if (openedFromList) window.history.back();
+    if (fromReport) void goto(studioReportHref(fromReport));
+    else if (openedFromList) window.history.back();
     else void goto(withParams($pageStore.url, { lanzamiento: null }));
   }
-  function editorSaved() {
-    void loadList();
+  function editorSaved(written = false) {
     studio.refreshCounts();
+    // Guardado desde un reporte: vuelve con «Resuelto» elegido, sin guardarlo.
+    if (written && fromReport) return void goto(studioReportHref(fromReport, true));
+    void loadList();
   }
 
   /** La URL manda: vista rápida o lanzamiento abierto. */
@@ -391,6 +399,7 @@
       {countries}
       {types}
       onclose={closeEditor}
+      backLabel={fromReport ? 'Volver al reporte' : undefined}
       onsaved={editorSaved}
     />
   {:else}

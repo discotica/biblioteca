@@ -89,7 +89,7 @@ async function mockStudio(page: Page, role: Role) {
   let contributions = defaultContributions();
   let reports = defaultReports();
   const releases: Record<string, ReturnType<typeof editorRelease>> = {
-    [linkedRelease]: { ...editorRelease(linkedRelease, 'Lanzamiento 4'), slug: 'lanzamiento-4' }
+    [linkedRelease]: { ...editorRelease(linkedRelease, 'Lanzamiento 4'), slug: 'lanzamiento-4', country_ids: [countryId] }
   };
 
   const id = userIds[role];
@@ -202,7 +202,8 @@ const noHorizontalOverflow = (page: Page) =>
 async function capture(page: Page, name: string) {
   if (!capturas) return;
   await page.waitForTimeout(150);
-  await page.screenshot({ path: `docs/modernizacion/capturas-u17/${name}.png`, fullPage: true });
+  // U17_CAPTURAS_DIR: otra carpeta, para no pisar las capturas de U17 del repo.
+  await page.screenshot({ path: `${process.env.U17_CAPTURAS_DIR ?? 'docs/modernizacion/capturas-u17'}/${name}.png`, fullPage: true });
 }
 
 test.describe('U17 propuestas', () => {
@@ -450,42 +451,109 @@ test.describe('U17 móvil', () => {
 });
 
 test.describe('U17 reportes', () => {
-  test('la misma bandeja: estados traducidos, enlace al lanzamiento y clasificación de E18', async ({ page }) => {
+  test('la misma bandeja: estados traducidos, el lanzamiento como bloque y clasificación de E18', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const writes = await mockStudio(page, 'admin');
     await page.goto('/estudio/reportes');
+    // U24: «n abiertos» junto al título, sin descripción.
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Reportes\s*2 abiertos$/);
     const list = page.getByRole('region', { name: 'Reportes' });
-    await expect(list.getByRole('heading', { level: 2 })).toHaveText(['Abiertos', 'Resueltos y cerrados']);
-    await expect(list.locator('.ui-chip')).toHaveText(['Nuevo', 'Clasificado', 'Cerrado']);
+    await expect(list.getByRole('heading', { level: 2 })).toHaveText(['Abiertos', 'Cerrados']);
+    // U24: el estado es un punto; la palabra va al final del nombre del enlace.
+    await expect(list.locator('.ui-status')).toHaveText(['Nuevo', 'Clasificado', 'Cerrado']);
+    await expect(row(page, 'El país está mal: es de Ecuador.')).toHaveAccessibleName(/Ecuador\..*Catálogo.*Nuevo$/);
     // Ningún estado crudo en inglés.
     for (const raw of ['new', 'triaged', 'in_progress', 'resolved', 'closed']) {
       await expect(page.getByText(raw, { exact: true })).toHaveCount(0);
     }
 
-    const report = detail(page, 'Error de catálogo');
-    await expect(report.getByText('El país está mal: es de Ecuador.')).toBeVisible();
-    await expect(report.getByRole('link', { name: 'Abrir el lanzamiento en el Catálogo' })).toHaveAttribute('href', `/estudio/catalogo?lanzamiento=${linkedRelease}`);
-    await expect(report.getByRole('link', { name: 'Ver sus reportes' })).toHaveAttribute('href', `/estudio/reportes?lanzamiento=${linkedRelease}`);
+    // La descripción es el titular del detalle.
+    const report = detail(page, 'El país está mal: es de Ecuador.');
+    await expect(report.getByRole('heading', { level: 2 })).toHaveText('El país está mal: es de Ecuador.');
+    await expect(report.locator('.l-inbox-detail__eyebrow')).toContainText('Nuevo');
+    await expect(report.locator('.l-inbox-detail__eyebrow')).toContainText('Error de catálogo');
+    const facts = report.getByRole('list', { name: 'Datos del reporte' });
+    await expect(facts.getByRole('link', { name: '/lanzamiento/lanzamiento-4' })).toHaveAttribute('href', '/lanzamiento/lanzamiento-4');
+    await expect(facts).toContainText('Sin captura');
+    await expect(facts.getByRole('link', { name: '2 reportes más' })).toBeVisible();
+
+    // El lanzamiento, para comparar con lo reportado, y «Corregir lanzamiento» como acción primaria.
+    const release = report.getByRole('region', { name: 'Lanzamiento reportado' });
+    await expect(release).toContainText('Lanzamiento 4');
+    await expect(release).toContainText('Artista principal');
+    await expect(release).toContainText(/Tipo\s*Álbum/);
+    await expect(release).toContainText(/País\s*Colombia/);
+    await expect(release).toContainText(/Sello\s*Sello ejemplo/);
+    await expect(release).toContainText('Publicado');
+    await expect(release.getByRole('link', { name: 'Ver la ficha pública' })).toHaveAttribute('href', '/lanzamiento/lanzamiento-4');
+    const fix = release.getByRole('link', { name: 'Corregir lanzamiento' });
+    await expect(fix).toHaveAttribute('href', `/estudio/catalogo?lanzamiento=${linkedRelease}&desde=reporte:r1`);
+    await expect(fix).toHaveClass(/ui-btn--primary/);
+    await expect(report.getByRole('button', { name: 'Guardar' })).toHaveClass(/ui-btn--secondary/);
+    // El aviso de adjuntos y correo pasó al tooltip de la nota interna.
+    await expect(page.getByText(/no envían correo/)).toHaveCount(0);
+    await expect(report.getByLabel('Nota interna')).toHaveAttribute('title', /no se envía a quien reportó ni sale por correo/);
+    await expect(report.getByLabel('Nota interna')).toHaveAttribute('placeholder', 'Solo la ve el equipo');
+
     await expect(report.getByLabel('Estado').locator('option')).toHaveText(['Nuevo', 'Clasificado', 'En curso', 'Resuelto', 'Cerrado']);
+    await expect(report.getByLabel('Asignado').locator('option')).toHaveText(['Sin asignar', 'A mí']);
+    await expect(report.getByLabel('Asignado')).toHaveValue(userIds.admin);
     await report.getByText('Contexto técnico').click();
     await expect(report.getByText('390 × 844')).toBeVisible();
     await capture(page, '10-reportes-1440');
 
     await report.getByLabel('Estado').selectOption('resolved');
-    await report.getByLabel(/^Respuesta interna/).fill('País corregido en el editor.');
-    await report.getByRole('button', { name: 'Guardar clasificación' }).click();
+    await report.getByLabel('Nota interna').fill('País corregido en el editor.');
+    await report.getByRole('button', { name: 'Guardar' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Reporte actualizado: Resuelto.' })).toBeVisible();
-    // Pasa a resueltos y sigue abierto en el detalle.
+    // Pasa a cerrados y sigue abierto en el detalle.
     await expect(page.getByRole('region', { name: 'Reportes' }).locator('section').nth(1).getByRole('link', { name: /^El país está mal/ })).toBeVisible();
-    await expect(detail(page, 'Error de catálogo').getByLabel('Estado')).toHaveValue('resolved');
+    await expect(detail(page, 'El país está mal: es de Ecuador.').getByLabel('Estado')).toHaveValue('resolved');
     expect(writes).toEqual([{
       rpc: 'admin_update_problem_report',
       body: { p_report_id: 'r1', p_status: 'resolved', p_assigned_to: userIds.admin, p_note: 'País corregido en el editor.' }
     }]);
+  });
 
-    // Del reporte al lanzamiento, sin salir del Estudio.
-    await detail(page).getByRole('link', { name: 'Abrir el lanzamiento en el Catálogo' }).click();
+  test('Asignado: «Sin asignar» guarda sin responsable', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const writes = await mockStudio(page, 'admin');
+    await page.goto('/estudio/reportes?reporte=r2');
+    const report = detail(page, 'El reproductor no carga.');
+    // Sin lanzamiento: no hay bloque y Guardar es la acción primaria.
+    await expect(report.getByRole('region', { name: 'Lanzamiento reportado' })).toHaveCount(0);
+    await expect(report.getByRole('button', { name: 'Guardar' })).toHaveClass(/ui-btn--primary/);
+    await expect(report.getByRole('list', { name: 'Datos del reporte' })).toContainText('Captura adjunta');
+    await report.getByLabel('Asignado').selectOption('');
+    await report.getByRole('button', { name: 'Guardar' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Reporte actualizado: Clasificado.' })).toBeVisible();
+    expect(writes).toEqual([{ rpc: 'admin_update_problem_report', body: { p_report_id: 'r2', p_status: 'triaged', p_assigned_to: null, p_note: '' } }]);
+  });
+
+  test('Corregir lanzamiento: al guardar vuelve al reporte con «Resuelto» elegido, sin guardarlo', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const writes = await mockStudio(page, 'admin');
+    await page.goto('/estudio/reportes?reporte=r1');
+    await detail(page, 'El país está mal: es de Ecuador.').getByRole('link', { name: 'Corregir lanzamiento' }).click();
+    await expect(page).toHaveURL(new RegExp(`/estudio/catalogo\\?lanzamiento=${linkedRelease}&desde=reporte:r1$`));
     await expect(page.getByRole('heading', { level: 1, name: 'Lanzamiento 4' })).toBeVisible();
+
+    // Volver sin guardar: al reporte, sin elegir nada.
+    await page.getByRole('button', { name: 'Volver al reporte' }).click();
+    await expect(page).toHaveURL(/\/estudio\/reportes\?reporte=r1$/);
+    await expect(detail(page, 'El país está mal: es de Ecuador.').getByLabel('Estado')).toHaveValue('new');
+
+    await detail(page).getByRole('link', { name: 'Corregir lanzamiento' }).click();
+    await page.getByLabel(/^Observación/).fill('País corregido: Ecuador.');
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect(page).toHaveURL(/\/estudio\/reportes\?reporte=r1$/);
+    await expect(page.getByRole('status').filter({ hasText: 'Lanzamiento guardado. Falta guardar el reporte.' })).toBeVisible();
+    await expect(detail(page, 'El país está mal: es de Ecuador.').getByLabel('Estado')).toHaveValue('resolved');
+    // Solo se guardó el lanzamiento; el reporte espera a «Guardar».
+    expect(writes.map((write) => write.rpc)).toEqual(['admin_update_catalog_release']);
+    // Recargar no lo vuelve a elegir.
+    await page.reload();
+    await expect(detail(page, 'El país está mal: es de Ecuador.').getByLabel('Estado')).toHaveValue('new');
   });
 
   test('a 390: lista y detalle con retorno, sin desborde', async ({ page }) => {
@@ -494,8 +562,8 @@ test.describe('U17 reportes', () => {
     await page.goto('/estudio/reportes');
     await expect(detail(page)).toHaveCount(0);
     await row(page, 'El reproductor no carga').click();
-    await expect(page.getByRole('heading', { level: 2, name: 'Problema técnico' })).toBeFocused();
-    await expect(detail(page).getByText('Adjunta (privada)')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'El reproductor no carga.' })).toBeFocused();
+    await expect(detail(page).getByText('Captura adjunta')).toBeVisible();
     await noHorizontalOverflow(page);
     await capture(page, '11-reporte-390');
     await page.getByRole('button', { name: 'Volver a los reportes' }).click();
@@ -508,7 +576,7 @@ test.describe('U17 matriz de anchos', () => {
     test(`propuestas y reportes con detalle abierto, sin desborde a ${width}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await mockStudio(page, 'admin');
-      for (const [path, title] of [[`/estudio/propuestas?propuesta=${ids.community}`, 'Propuesta comunitaria'], ['/estudio/reportes?reporte=r1', 'Error de catálogo']]) {
+      for (const [path, title] of [[`/estudio/propuestas?propuesta=${ids.community}`, 'Propuesta comunitaria'], ['/estudio/reportes?reporte=r1', 'El país está mal: es de Ecuador.']]) {
         await page.goto(path);
         await expect(detail(page, title)).toBeVisible();
         await noHorizontalOverflow(page);

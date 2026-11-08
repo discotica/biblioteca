@@ -141,7 +141,7 @@ test('U17: reportes abiertos y cerrados, con los estados de E18 traducidos', () 
   const groups = reportGroups([report('1', 'new'), report('2', 'resolved'), report('3', 'in_progress'), report('4', 'closed'), report('5', 'triaged')]);
   assert.deepEqual(groups.map((group) => [group.id, group.label, group.items.map((item) => item.id)]), [
     ['open', 'Abiertos', ['1', '3', '5']],
-    ['closed', 'Resueltos y cerrados', ['2', '4']]
+    ['closed', 'Cerrados', ['2', '4']]
   ]);
   assert.deepEqual(Object.keys(REPORT_STATUS_TONES).sort(), ['closed', 'in_progress', 'new', 'resolved', 'triaged']);
 });
