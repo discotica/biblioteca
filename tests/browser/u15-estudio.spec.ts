@@ -160,7 +160,8 @@ test.describe('U15 rutas', () => {
     await mockStudio(page, 'admin');
     await page.goto('/admin/catalogo?vista=incompletos');
     await expect(page).toHaveURL(/\/estudio\/catalogo\?vista=incompletos$/);
-    await expect(page.getByRole('heading', { name: 'Incompletos', level: 2 })).toBeVisible();
+    // U21: sin cabecera de tabla; la vista es el h1 («Catálogo / Incompletos»).
+    await expect(page.getByRole('heading', { level: 1, name: /^Catálogo \/ Incompletos/ })).toBeVisible();
     await page.goto('/editorial?origen=correo');
     await expect(page).toHaveURL(/\/estudio\/propuestas\?origen=correo$/);
     await expect(page.getByRole('heading', { name: 'Propuestas', level: 1 })).toBeVisible();
@@ -228,13 +229,13 @@ test.describe('U15 permisos por rol', () => {
     const calls = await mockStudio(page, 'colaborador');
     await page.goto('/estudio/propuestas');
     await expect(studioNav(page).getByRole('link')).toHaveText([/^\s*Propuestas\s*1$/]);
-    await expect(page.getByRole('heading', { name: 'Cola comunitaria' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Comunidad', exact: true })).toBeVisible();
     // U19 (G3): corrige en el editor, sin Catálogo en la barra lateral y sin leer nada administrativo.
-    await page.getByRole('link', { name: 'Abrir en el editor' }).click();
+    await page.getByRole('link', { name: 'Editar' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Propuesta comunitaria' })).toBeVisible();
     await expect(studioNav(page).getByRole('link')).toHaveText([/^\s*Propuestas\s*1$/]);
     await expect(page.getByRole('button', { name: 'Marcar lista para admin' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Aceptar|Rechazar|Pedir cambios/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Aceptar|Rechazar|Pedir cambios|Devolver/ })).toHaveCount(0);
     await expect(page.getByRole('link', { name: /Catálogo/ })).toHaveCount(0);
     for (const path of ['/estudio/catalogo', '/estudio/reportes', '/estudio/catalogo?lanzamiento=x']) {
       await page.goto(path);
@@ -269,7 +270,8 @@ test.describe('U15 catálogo', () => {
     await studioNav(page).getByRole('link', { name: /^Incompletos/ }).click();
     await expect(page).toHaveURL(/\?vista=incompletos$/);
     await expect(studioNav(page).getByRole('link', { name: /^Incompletos/ })).toHaveAttribute('aria-current', 'page');
-    await expect(page.getByRole('heading', { name: 'Incompletos', level: 2 })).toBeVisible();
+    // U21: sin cabecera de tabla; la vista es el h1 («Catálogo / Incompletos»).
+    await expect(page.getByRole('heading', { level: 1, name: /^Catálogo \/ Incompletos/ })).toBeVisible();
     await expect.poll(() => listCalls(calls).at(-1)?.body.p_quick_view).toBe('incomplete');
     await expect(page.getByRole('cell', { name: /Falta: Portada/ })).toBeVisible();
 
@@ -351,7 +353,7 @@ test.describe('U15 catálogo', () => {
     await expect(rows.nth(1).getByRole('link', { name: 'Abrir en el editor' })).toHaveAttribute('href', `/estudio/catalogo?lanzamiento=${idFor(4)}`);
     await expect(result).not.toContainText('40001');
     // Detrás del diálogo la selección sigue intacta (el diálogo deja el resto inerte).
-    await expect(page.locator('.catalogo__batch-count')).toContainText('2 seleccionados');
+    await expect(page.locator('.selection-bar__count')).toContainText('2 seleccionados');
 
     await result.getByRole('button', { name: 'Quitar los rechazados' }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -403,8 +405,9 @@ test.describe('U15 catálogo', () => {
     await expect(page.getByRole('article')).toHaveCount(1);
     await expect(page.getByRole('article')).toContainText('El país está mal.');
 
-    await page.getByRole('article').getByRole('link', { name: 'Abrir el lanzamiento en el Catálogo' }).click();
-    await expect(page).toHaveURL(new RegExp(`/estudio/catalogo\\?lanzamiento=${idFor(4)}$`));
+    // U24: el lanzamiento es un bloque de acción; corregirlo abre el editor y vuelve al reporte.
+    await page.getByRole('article').getByRole('link', { name: 'Corregir lanzamiento' }).click();
+    await expect(page).toHaveURL(new RegExp(`/estudio/catalogo\\?lanzamiento=${idFor(4)}&desde=reporte:r1$`));
     await expect(page.locator('.editor__head')).toContainText('Lanzamiento 4');
     // U16: lo relacionado está en "Más acciones"; los reportes abiertos, también en la cabecera.
     await expect(page.locator('.editor__head').getByRole('link', { name: '1 reporte' })).toHaveAttribute('href', `/estudio/reportes?lanzamiento=${idFor(4)}`);
@@ -422,7 +425,7 @@ test.describe('U15 catálogo', () => {
     // U19 (G3): la propuesta en cola se abre en el editor; aceptar y su aviso están en U17.
     await page.getByRole('link', { name: 'Ver todas' }).click();
     const card = page.getByRole('article', { name: 'Propuesta comunitaria' });
-    await expect(card.getByRole('link', { name: 'Abrir en el editor' })).toHaveAttribute('href', /\/estudio\/propuestas\?editar=/);
+    await expect(card.getByRole('link', { name: 'Editar' })).toHaveAttribute('href', /\/estudio\/propuestas\?editar=/);
   });
 
   test('el editor se abre por URL y "Volver" regresa a la vista de la lista', async ({ page }) => {
@@ -434,7 +437,7 @@ test.describe('U15 catálogo', () => {
     await expect(page.locator('.editor__head')).toContainText('Lanzamiento 2');
     await page.getByRole('button', { name: 'Volver al catálogo' }).click();
     await expect(page).toHaveURL(/\/estudio\/catalogo\?vista=borradores$/);
-    await expect(page.getByRole('heading', { name: 'Borradores', level: 2 })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: /^Catálogo \/ Borradores/ })).toBeVisible();
   });
 });
 
@@ -443,11 +446,77 @@ test.describe('U15 matriz de anchos', () => {
     test(`admin sin desborde a ${width}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await mockStudio(page, 'admin');
-      for (const [path, ready] of [['/estudio/catalogo', 'Lanzamiento 1'], ['/estudio/propuestas', 'Cola comunitaria'], ['/estudio/reportes', 'El país está mal.']]) {
+      for (const [path, ready] of [['/estudio/catalogo', 'Lanzamiento 1'], ['/estudio/propuestas', 'Comunidad'], ['/estudio/reportes', 'El país está mal.']]) {
         await page.goto(path);
         await expect(page.getByText(ready, { exact: true }).first()).toBeVisible();
         await noHorizontalOverflow(page);
       }
     });
   }
+});
+
+// U20 — Barra lateral plegable (rediseño del Estudio). Desplegada por defecto
+// (D4); la preferencia se recuerda en este navegador y, si el almacenamiento
+// falla, queda desplegada. Por debajo de 1024 sigue siendo la fila de secciones.
+test.describe('U20 barra lateral plegable', () => {
+  const sidebarWidth = (page: Page) => page.locator('.l-tool__sidebar').evaluate((el) => Math.round(el.getBoundingClientRect().width));
+
+  test('se pliega a iconos con conteo, conserva los nombres y se recuerda al recargar', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockStudio(page, 'admin');
+    await page.goto('/estudio/catalogo');
+    const nav = studioNav(page);
+    await expect(nav.getByRole('link', { name: /^Reportes/ })).toHaveText(/Reportes\s*2/);
+    await expect.poll(() => sidebarWidth(page)).toBe(220);
+    // Sin la etiqueta «ESTUDIO»: el nombre queda solo como nombre accesible de la barra.
+    await expect(page.locator('.l-tool__sidebar')).not.toContainText('Estudio');
+
+    await page.getByRole('button', { name: 'Plegar la barra' }).click();
+    await expect.poll(() => sidebarWidth(page)).toBe(60);
+    await expect(nav.getByRole('link', { name: /^Reportes/ })).toBeVisible();
+    await expect(nav.getByRole('list', { name: 'Catálogo' })).toBeHidden();
+    await expect(nav.locator('.l-tool__count')).toHaveText(['1', '2']);
+    expect(await page.evaluate(() => localStorage.getItem('discotica:estudio:barra'))).toBe('collapsed');
+
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Desplegar la barra' })).toBeVisible();
+    await expect.poll(() => sidebarWidth(page)).toBe(60);
+    await page.getByRole('button', { name: 'Desplegar la barra' }).click();
+    await expect.poll(() => sidebarWidth(page)).toBe(220);
+    await expect(nav.getByRole('list', { name: 'Catálogo' })).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem('discotica:estudio:barra'))).toBe('expanded');
+  });
+
+  test('con el almacenamiento bloqueado arranca desplegada y pliega igual', async ({ page }) => {
+    await page.addInitScript(() => {
+      const { getItem, setItem } = Storage.prototype;
+      Storage.prototype.getItem = function (key: string) {
+        if (key === 'discotica:estudio:barra') throw new DOMException('bloqueado', 'SecurityError');
+        return getItem.call(this, key);
+      };
+      Storage.prototype.setItem = function (key: string, value: string) {
+        if (key === 'discotica:estudio:barra') throw new DOMException('lleno', 'QuotaExceededError');
+        return setItem.call(this, key, value);
+      };
+    });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockStudio(page, 'admin');
+    await page.goto('/estudio/catalogo');
+    await expect(page.getByText('Lanzamiento 1', { exact: true })).toBeVisible();
+    await expect.poll(() => sidebarWidth(page)).toBe(220);
+    await page.getByRole('button', { name: 'Plegar la barra' }).click();
+    await expect.poll(() => sidebarWidth(page)).toBe(60);
+  });
+
+  test('en móvil la barra es la fila de secciones aunque se haya guardado plegada', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('discotica:estudio:barra', 'collapsed'));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockStudio(page, 'admin');
+    await page.goto('/estudio/catalogo');
+    const nav = studioNav(page);
+    await expect(nav.getByRole('link', { name: /^Reportes/ })).toHaveText(/Reportes\s*2/);
+    await expect(nav.locator('.l-tool__label').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /la barra$/ })).toBeHidden();
+    await noHorizontalOverflow(page);
+  });
 });

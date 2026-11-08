@@ -46,7 +46,7 @@
   }
 
   .l-inbox-field__value {
-    margin: var(--space-1) 0 0;
+    margin: var(--tool-gap-label) 0 0;
     color: var(--color-texto-alto);
     font-size: var(--density-text);
     line-height: 1.45;

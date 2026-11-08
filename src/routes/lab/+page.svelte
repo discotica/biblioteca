@@ -26,6 +26,9 @@
     PasswordField,
     Select,
     Skeleton,
+    SourceLink,
+    SplitButton,
+    StatusDot,
     Textarea,
     ViewToggle,
     ICON_NAMES,
@@ -108,8 +111,8 @@
 
   // U17: bandeja del Estudio, con datos de ejemplo.
   type InboxDemoItem = { id: string; title: string; status: string; tone: 'neutral' | 'accent'; flag?: string; meta: string[] };
-  const inboxGroups: { id: string; label: string; help?: string; empty: string; items: InboxDemoItem[] }[] = [
-    { id: 'prioridad', label: 'Cola prioritaria', help: 'Aportes de colaboración y propuestas ya preparadas.', empty: '', items: [
+  const inboxGroups: { id: string; label: string; empty: string; items: InboxDemoItem[] }[] = [
+    { id: 'prioridad', label: 'Prioritaria', empty: '', items: [
       { id: 'p1', title: 'Fuego lento', status: 'Listo para administración', tone: 'accent', meta: ['Nicola Cruz', '20 de sept de 2026'] }
     ] },
     { id: 'comunidad', label: 'Cola comunitaria', empty: 'No hay propuestas comunitarias pendientes.', items: [
@@ -118,6 +121,44 @@
     ] }
   ];
   let inboxSelected = $state<string | null>('p2');
+
+  // U20: primitivas del rediseño del Estudio.
+  let splitAction = $state('Ninguna');
+  const splitItems = (prefix: string): MenuItem[] => [
+    { label: 'Aceptar como borrador', onselect: () => (splitAction = `${prefix}: como borrador`) },
+    { label: 'Aceptar y seguir con la siguiente', onselect: () => (splitAction = `${prefix}: y la siguiente`) }
+  ];
+  const returnItems: MenuItem[] = [
+    { label: 'Pedir cambios…', onselect: () => (splitAction = 'Pedir cambios') },
+    { label: 'Rechazar…', tone: 'danger', onselect: () => (splitAction = 'Rechazar') }
+  ];
+  const STATUS_SAMPLES = [
+    { label: 'Publicado', tone: 'ok' },
+    { label: 'Pendiente', tone: 'pending' },
+    { label: 'Borrador', tone: 'draft' },
+    { label: 'Archivado', tone: 'danger' },
+    { label: 'Sin revisar', tone: 'neutral' }
+  ] as const;
+  const SOURCE_SAMPLES = [
+    'https://ejemplo.bandcamp.com/album/fuego-lento',
+    'https://soundcloud.com/ejemplo/siete-lunas',
+    'https://open.spotify.com/album/0abc',
+    'https://www.youtube.com/watch?v=ejemplo'
+  ];
+  const TOOL_SECTIONS = [
+    {
+      label: 'Catálogo', href: '#u20-catalogo', icon: 'grilla' as const,
+      items: [
+        { label: 'Borradores', href: '#u20-borradores', count: 300 },
+        { label: 'Incompletos', href: '#u20-incompletos', count: 712 },
+        { label: 'Sin portada', href: '#u20-sin-portada', count: 30 },
+        { label: 'Con reportes', href: '#u20-con-reportes', count: 15 }
+      ]
+    },
+    { label: 'Propuestas', href: '#u20-propuestas', icon: 'lista' as const, count: 5 },
+    { label: 'Reportes', href: '#u20-reportes', icon: 'reportar' as const, count: 2 },
+    { label: 'Diccionarios', href: '#u20-diccionarios', icon: 'etiqueta' as const }
+  ];
   const inboxCurrent = $derived(inboxGroups.flatMap((group) => group.items).find((item) => item.id === inboxSelected) ?? null);
   let artistOptions = $state<ComboboxOption[]>([...ARTIST_OPTIONS]);
   let lastAction = $state('Ninguna');
@@ -787,6 +828,112 @@
       </div>
     </section>
   </div>
+
+  <!-- U20: primitivas del rediseño del Estudio. -->
+  <div class="lab__u20">
+    <section class="lab__section" id="densidad" aria-labelledby="t-densidad">
+      <h2 id="t-densidad">Densidad compacta</h2>
+      <p class="lab__note">Button e IconButton md, Field, Select, Combobox y Textarea leen <code>--density-control-h</code> y <code>--density-control-px</code>: 44 y 16 en el sitio, 36 y 12 dentro de <code>[data-density="compact"]</code> (el Estudio).</p>
+      <div class="lab__density">
+        {#each [{ id: 'sitio', label: 'Sitio público', compact: false }, { id: 'estudio', label: 'Estudio (compacta)', compact: true }] as column}
+          <div class="lab__density-col" data-density={column.compact ? 'compact' : undefined} data-testid={`densidad-${column.id}`}>
+            <h3>{column.label}</h3>
+            <div class="lab__row">
+              <Button>Guardar</Button>
+              <Button variant="secondary">Devolver</Button>
+              <IconButton icon="mas-opciones" label="Más acciones" variant="secondary" />
+            </div>
+            <Field label="Título" value="Fuego lento" />
+            <Select label="Tipo" options={[{ value: 'album', label: 'Álbum' }, { value: 'ep', label: 'EP' }]} value="album" />
+            <Combobox label="Géneros" options={GENRE_OPTIONS} value={['techno']} placeholder="Buscar género" />
+            <Textarea label="Observación" rows={2} />
+          </div>
+        {/each}
+      </div>
+    </section>
+
+    <section class="lab__section" id="estado" aria-labelledby="t-estado">
+      <h2 id="t-estado">StatusDot</h2>
+      <p class="lab__note">Punto de color + una palabra, en caja normal. Verde: publicado o listo; ámbar: pendiente o falta algo; contorno: borrador; rojo: archivado o rechazado. Sustituye a <code>Chip kind="status"</code> en el Estudio.</p>
+      <div class="lab__row">
+        {#each STATUS_SAMPLES as sample}<StatusDot label={sample.label} tone={sample.tone} />{/each}
+      </div>
+      <div class="lab__row">
+        <StatusDot label="Pendiente" tone="pending" hideLabel />
+        <span class="lab__note">Solo el punto (<code>hideLabel</code>): la palabra queda en el <code>title</code> y para lectores de pantalla.</span>
+      </div>
+      <div class="lab__row">
+        <StatusDot label="Lista" tone="ok" description="Un colaborador la marcó lista para administración." />
+        <span class="lab__note">Con <code>description</code>: la regla va en el tooltip.</span>
+      </div>
+      <div class="lab__table-wrap" data-density="compact">
+        <table class="lab__table lab__table--status">
+          <thead><tr><th scope="col">Lanzamiento</th><th scope="col">Estado</th></tr></thead>
+          <tbody>
+            {#each STATUS_SAMPLES as sample, index}
+              <tr><td>{tableRows[index]}</td><td><StatusDot label={sample.label} tone={sample.tone} /></td></tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="lab__section" id="split" aria-labelledby="t-split">
+      <h2 id="t-split">SplitButton</h2>
+      <p class="lab__note">Acción principal + menú sobre <code>Menu</code>. La flecha tiene su propio nombre. Intro o Espacio abren el menú, ↓ y ↑ lo abren y recorren, Escape y Tab lo cierran y devuelven el foco a la flecha.</p>
+      <div class="lab__row" data-density="compact">
+        <Menu buttonLabel="Devolver" label="Devolver la propuesta" variant="secondary" items={returnItems} />
+        <SplitButton label="Aceptar y publicar" menuLabel="Más formas de aceptar" items={splitItems('Aceptar')} onclick={() => (splitAction = 'Aceptar y publicar')} />
+        <SplitButton variant="secondary" label="Guardar" menuLabel="Más formas de guardar" items={[{ label: 'Guardar y cerrar', onselect: () => (splitAction = 'Guardar y cerrar') }]} onclick={() => (splitAction = 'Guardar')} />
+        <SplitButton label="Deshabilitado" menuLabel="Más formas (deshabilitado)" items={splitItems('Deshabilitado')} disabled />
+      </div>
+      <div class="lab__row">
+        <SplitButton label="Aceptar y publicar" menuLabel="Más formas de aceptar (sitio)" items={splitItems('Sitio')} onclick={() => (splitAction = 'Sitio')} />
+        <span class="lab__note">Fuera del Estudio (44).</span>
+      </div>
+      <p class="lab__note" aria-live="polite">Última acción: {splitAction}</p>
+    </section>
+
+    <section class="lab__section" id="fuente" aria-labelledby="t-fuente">
+      <h2 id="t-fuente">SourceLink</h2>
+      <p class="lab__note">Abre la fuente con el glifo de su proveedor (la misma detección que Sugerir) o una flecha externa para cualquier otro enlace. Tooltip y nombre «Abrir en {'{'}Proveedor{'}'}».</p>
+      <div class="lab__row" data-density="compact">
+        {#each SOURCE_SAMPLES as url}<SourceLink href={url} />{/each}
+        <SourceLink href={SOURCE_SAMPLES[0]} variant="ghost" />
+      </div>
+    </section>
+
+    <section class="lab__section" id="vacio-icono" aria-labelledby="t-vacio-icono">
+      <h2 id="t-vacio-icono">EmptyState con icono</h2>
+      <p class="lab__note">El icono es opcional y decorativo. <code>inline</code> lleva padding en los cuatro lados; el lateral sale de <code>--density-inset</code>, así que solo aparece en el Estudio.</p>
+      <div class="lab__states">
+        <div class="lab__frame" data-density="compact">
+          <EmptyState icon="lista" message="Sin borradores" detail="Todo lo que entra al catálogo está publicado o archivado." actionLabel="Ver todo el catálogo" actionHref="#vacio-icono" />
+        </div>
+        <div class="lab__frame" data-density="compact">
+          <EmptyState size="inline" icon="reportar" message="Sin reportes abiertos" detail="Los nuevos aparecen aquí." />
+        </div>
+        <div class="lab__frame">
+          <EmptyState size="inline" message="Inline fuera del Estudio" detail="Sin padding lateral, como hasta U19." />
+        </div>
+      </div>
+    </section>
+
+    <section class="lab__section" id="herramienta-plegable" aria-labelledby="t-herramienta-plegable">
+      <h2 id="t-herramienta-plegable">ToolLayout desplegado y plegado</h2>
+      <p class="lab__note">Desde 1024 la barra se pliega a 60 px: iconos con su nombre en el tooltip y los conteos como insignia. El botón de abajo la pliega o despliega, y el Estudio recuerda la preferencia en este navegador. Por debajo de 1024 sigue siendo la fila de secciones. Aquí sin recordar (<code>persist={'{'}false{'}'}</code>).</p>
+      {#each [{ id: 'desplegado', collapsed: false }, { id: 'plegado', collapsed: true }] as demo}
+        <div class="lab__frame" data-testid={`tool-${demo.id}`}>
+          <ToolLayout name={`Estudio (${demo.id})`} current="#u20-incompletos" title="Catálogo" count={2790} collapsed={demo.collapsed} persist={false} sections={TOOL_SECTIONS}>
+            {#snippet actions()}<Button icon="agregar">Nuevo</Button>{/snippet}
+            <div class="lab__table-wrap">
+              <EmptyState size="inline" icon="grilla" message="Contenido de la sección" detail="La tabla del catálogo." />
+            </div>
+          </ToolLayout>
+        </div>
+      {/each}
+    </section>
+  </div>
 </div>
 
 <Dialog bind:open={dialogOpen} title="Editar colección" description="El contenido largo hace scroll dentro; cabecera y pie quedan fijos.">
@@ -965,6 +1112,16 @@
     gap: var(--space-6);
   }
   .lab__rows { display: flex; flex-direction: column; gap: var(--space-2); }
+
+  /* ---- U20 ---- */
+  .lab__density {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+    gap: var(--space-6);
+  }
+  .lab__density-col { display: flex; flex-direction: column; gap: var(--tool-gap-row); }
+  .lab__density-col h3 { margin: 0; }
+  .lab__table--status td:last-child { width: 7rem; }
 
   .lab__states {
     display: grid;

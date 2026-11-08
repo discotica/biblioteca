@@ -24,6 +24,19 @@ export interface ContributionRowInput {
 
 export type ContributionRowTone = 'neutral' | 'accent' | 'warning' | 'danger';
 
+/**
+ * Tono del punto de estado en el Estudio (U23, StatusDot): ámbar lo que espera a alguien, verde lo
+ * listo o aceptado, rojo lo rechazado, contorno el borrador. Son los nombres de `StatusTone`.
+ */
+export const CONTRIBUTION_DOT_TONES: Record<ContributionRowStatus, 'ok' | 'pending' | 'draft' | 'danger' | 'neutral'> = {
+  draft: 'draft',
+  pending: 'pending',
+  ready_for_admin: 'ok',
+  changes_requested: 'pending',
+  rejected: 'danger',
+  approved: 'ok'
+};
+
 export const CONTRIBUTION_ROW_TONES: Record<ContributionRowStatus, ContributionRowTone> = {
   draft: 'neutral',
   pending: 'neutral',

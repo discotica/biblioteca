@@ -22,7 +22,7 @@
     readonly?: boolean;
     placeholder?: string;
     autocomplete?: HTMLInputAttributes['autocomplete'];
-    /** md 44 · lg 52 */
+    /** md 44 (36 en la densidad compacta) · lg 52 */
     size?: 'md' | 'lg';
     /** Icono al inicio, p. ej. `buscar`. */
     icon?: IconName;
@@ -101,14 +101,17 @@
 </div>
 
 <style>
+  /* md sigue la densidad (U20): altura y padding lateral de --density-control-*,
+     44 y 16 por defecto (los de siempre), 36 y 12 en el Estudio. */
   .ui-field {
-    --field-h: var(--field-h-md);
+    --field-h: var(--density-control-h);
+    --field-px: var(--density-control-px);
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
     min-width: 0;
   }
-  .ui-field--lg { --field-h: var(--field-h-lg); }
+  .ui-field--lg { --field-h: var(--field-h-lg); --field-px: var(--control-px-md); }
 
   .ui-field__label {
     color: var(--color-texto-alto);
@@ -128,7 +131,7 @@
     width: 100%;
     min-height: var(--field-h);
     box-sizing: border-box;
-    padding: 0 var(--control-px-md);
+    padding: 0 var(--field-px);
     border: 1px solid var(--color-linea-fuerte);
     border-radius: var(--control-radius);
     background: var(--color-superficie-1);
@@ -142,7 +145,7 @@
   /* Fecha (U13): el selector nativo con los colores del tema oscuro. */
   .ui-field__input[type='date'] { color-scheme: dark; }
   .ui-field__input::placeholder { color: var(--color-texto-tenue); opacity: 1; }
-  .ui-field__control--icon .ui-field__input { padding-left: calc(var(--control-px-md) + var(--icon-md) + var(--space-2)); }
+  .ui-field__control--icon .ui-field__input { padding-left: calc(var(--field-px) + var(--icon-md) + var(--space-2)); }
   .ui-field__control--end .ui-field__input { padding-right: calc(var(--button-h-sm) + var(--space-3)); }
 
   .ui-field__input:hover:not(:disabled):not(:read-only) { border-color: var(--color-acento-border); }
@@ -165,7 +168,7 @@
 
   .ui-field__icon {
     position: absolute;
-    left: var(--control-px-md);
+    left: var(--field-px);
     color: var(--color-texto-tenue);
     pointer-events: none;
   }
@@ -176,6 +179,33 @@
     right: calc((var(--field-h) - var(--button-h-sm)) / 2);
     display: flex;
   }
+
+  /* Densidad compacta (U20): la caja visible mide 36, pero el área táctil sigue
+     en 44, como la de Button. El borde de arriba y abajo crece y es transparente
+     (el margen negativo lo descuenta del flujo); la línea visible es una sombra
+     interior que sigue los mismos estados. */
+  :global([data-density='compact']) .ui-field--md .ui-field__input {
+    --field-touch: calc((var(--target-touch) - var(--field-h)) / 2);
+    --field-line: var(--color-linea-fuerte);
+    min-height: var(--target-touch);
+    margin-block: calc(-1 * var(--field-touch));
+    border: 0 solid transparent;
+    border-block-width: var(--field-touch);
+    border-radius: var(--control-radius) / calc(var(--control-radius) + var(--field-touch));
+    background-clip: padding-box;
+    box-shadow: inset 0 0 0 1px var(--field-line);
+    transition: box-shadow var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
+  }
+  :global([data-density='compact']) .ui-field--md .ui-field__input:hover:not(:disabled):not(:read-only) { --field-line: var(--color-acento-border); border-color: transparent; }
+  :global([data-density='compact']) .ui-field--md .ui-field__input:focus-visible {
+    --field-line: var(--color-acento-border);
+    outline-offset: calc(2px - var(--field-touch));
+    box-shadow: inset 0 0 0 1px var(--field-line), var(--focus-ring);
+  }
+  /* Sin borde discontinuo en una sombra: solo lectura con una línea más tenue. */
+  :global([data-density='compact']) .ui-field--md .ui-field__input:read-only { --field-line: var(--color-linea); border-color: transparent; }
+  :global([data-density='compact']) .ui-field--md .ui-field__input:disabled { --field-line: var(--color-linea-sutil); border-color: transparent; }
+  :global([data-density='compact']) .ui-field--md.ui-field--error .ui-field__input { --field-line: var(--color-danger); border-color: transparent; }
 
   .ui-field__hint,
   .ui-field__error {

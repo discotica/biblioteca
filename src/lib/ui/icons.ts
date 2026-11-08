@@ -79,6 +79,8 @@ export const ICONS = {
   intercambiar: { paths: ['M4 8h15', 'M15 4l4 4-4 4', 'M20 16H5', 'M9 12l-4 4 4 4'] },
   // Reiniciar filtros (U10): flecha circular.
   reiniciar: { paths: ['M4 12a8 8 0 1 0 2.4-5.7', 'M4 4v4.5h4.5'] },
+  // Historial del editor (U22): el reloj con la flecha de reiniciar.
+  historial: { paths: ['M4 12a8 8 0 1 0 2.4-5.7', 'M4 4v4.5h4.5', 'M12 8v4l2.5 1.5'] },
   // Filtros de la barra móvil (U10b): tres deslizadores con su mando.
   filtros: {
     paths: [
@@ -87,8 +89,21 @@ export const ICONS = {
       'M4 18h10', 'M18 18h2', circle(16, 18, 2)
     ]
   },
+  // Barra lateral del Estudio (U20): plegar (flecha hacia el borde) y desplegar.
+  'barra-plegar': { paths: ['M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z', 'M9 4v16', 'M15.5 10l-2 2 2 2'] },
+  'barra-desplegar': { paths: ['M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z', 'M9 4v16', 'M13.5 10l2 2-2 2'] },
+  // Señales y vacíos del Estudio (U21): portada que falta, datos que faltan, bandeja vacía.
+  'imagen-off': { paths: ['M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z', 'M3 3l18 18'] },
+  aviso: { paths: ['M12 4 2.8 19.5h18.4Z', 'M12 10v4.5', 'M12 17.2h.01'] },
+  bandeja: { paths: ['M3 13h5l1 3h6l1-3h5', 'M5 5h14l2 8v6H3v-6Z'] },
+  // Propuestas (U23): editar una propuesta desde el resumen.
+  editar: { paths: ['M4 20h4L19 9l-4-4L4 16Z', 'M13.5 6.5l4 4'] },
   // Diccionarios del Estudio (U19): géneros, países, sellos y artistas son etiquetas.
   etiqueta: { paths: ['M4 4h7.2l8.8 8.8-7.2 7.2L4 11.2Z', circle(8.5, 8.5, 1.5)] },
+  // Reportes (U24): la página reportada, la captura y quién reporta.
+  enlace: { paths: ['M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1', 'M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1'] },
+  imagen: { paths: ['M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z', 'M3 16l5-5 4 4 3-3 6 6', circle(15.5, 8.5, 1.5)] },
+  persona: { paths: [circle(12, 8, 4), 'M4 21a8 8 0 0 1 16 0'] },
 
   // ---- Redes (perfil, D1) -------------------------------------------------
   bandcamp: { filled: true, paths: ['M2 18 8.5 6H22l-6.5 12H2Z'] },
@@ -100,6 +115,17 @@ export const ICONS = {
       'M4 11.5h1.3V17H4Z',
       'M6.5 10h1.3v7H6.5Z',
       'M8.8 9h1.1v8H8.8Z'
+    ]
+  },
+  // Spotify (U20): botón de fuente del Estudio. Un solo trazo: las tres bandas
+  // van en sentido contrario al círculo y quedan vaciadas (regla nonzero).
+  spotify: {
+    filled: true,
+    paths: [
+      circle(12, 12, 10) +
+        'M6.3 9.4 6.8 10.9C10 10 13.9 10.3 17 11.8L17.8 10.3C14.3 8.3 9.8 8.1 6.3 9.4Z' +
+        'M7.2 12.6 7.6 13.9C10.4 13.2 13.3 13.5 15.7 14.8L16.4 13.6C13.6 12 10.3 11.8 7.2 12.6Z' +
+        'M8 15.4 8.3 16.5C10.4 16 12.5 16.2 14.3 17.1L14.9 16.1C12.8 15 10.3 14.8 8 15.4Z'
     ]
   },
   instagram: {

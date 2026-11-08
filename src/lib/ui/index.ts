@@ -1,6 +1,7 @@
 /**
- * Primitivas del sistema de interfaz: base (U5) y compuestas (U6). Catálogo
- * vivo en /lab. API de cada una:
+ * Primitivas del sistema de interfaz: base (U5), compuestas (U6) y las del
+ * Estudio (U20: StatusDot, SplitButton, SourceLink). Catálogo vivo en /lab.
+ * API de cada una:
  * docs/modernizacion/u5-primitivas-base-2026-10-07.md y
  * docs/modernizacion/u6-primitivas-compuestas-2026-10-07.md
  */
@@ -29,6 +30,10 @@ export { default as Sortable } from './Sortable.svelte';
 export { default as Cover } from './Cover.svelte';
 export { default as CreditLine } from './CreditLine.svelte';
 export { default as SocialLinks } from './SocialLinks.svelte';
+export { default as StatusDot, type StatusTone } from './StatusDot.svelte';
+export { default as SegmentedControl, type SegmentedOption } from './SegmentedControl.svelte';
+export { default as SplitButton } from './SplitButton.svelte';
+export { default as SourceLink, SOURCE_PROVIDER_NAMES } from './SourceLink.svelte';
 export { ICONS, ICON_NAMES, SOCIAL_ICONS, type IconName } from './icons';
 export { paginationItems, clampPage, type PaginationItem } from './pagination';
 export { readViewPreference, writeViewPreference, type ViewMode } from './viewPreference';

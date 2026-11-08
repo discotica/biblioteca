@@ -8,6 +8,7 @@ import {
   proposalFields,
   proposalGroups,
   reportContextRows,
+  relativeInboxDate,
   reportGroups,
   selectInboxItem
 } from '../src/lib/domain/studioInbox.ts';
@@ -87,14 +88,14 @@ test('U17: grupos de la bandeja por rol, con los mismos filtros que la estación
   const collab = proposal({ id: 'k', queue_kind: 'collaborator', author_id: 'u-colab' });
   const admin = proposalGroups([community, ready, collab], 'admin', false);
   assert.deepEqual(admin.map((group) => [group.id, group.label, group.items.map((item) => item.id)]), [
-    ['priority', 'Cola prioritaria', ['r', 'k']],
-    ['community', 'Cola comunitaria', ['c']]
+    ['priority', 'Prioritaria', ['r', 'k']],
+    ['community', 'Comunidad', ['c']]
   ]);
   // Colaborador: primero lo que puede preparar; sus aportes, solo si los hay.
   const colab = proposalGroups([community, collab], 'colaborador', false);
   assert.deepEqual(colab.map((group) => [group.id, group.label, group.items.map((item) => item.id)]), [
-    ['community', 'Cola comunitaria', ['c']],
-    ['own', 'Mis aportes prioritarios', ['k']]
+    ['community', 'Comunidad', ['c']],
+    ['own', 'Mis aportes', ['k']]
   ]);
   assert.deepEqual(proposalGroups([community], 'colaborador', false).map((group) => group.id), ['community']);
   // Filtro por lanzamiento: un solo grupo, sea cual sea el estado.
@@ -140,7 +141,7 @@ test('U17: reportes abiertos y cerrados, con los estados de E18 traducidos', () 
   const groups = reportGroups([report('1', 'new'), report('2', 'resolved'), report('3', 'in_progress'), report('4', 'closed'), report('5', 'triaged')]);
   assert.deepEqual(groups.map((group) => [group.id, group.label, group.items.map((item) => item.id)]), [
     ['open', 'Abiertos', ['1', '3', '5']],
-    ['closed', 'Resueltos y cerrados', ['2', '4']]
+    ['closed', 'Cerrados', ['2', '4']]
   ]);
   assert.deepEqual(Object.keys(REPORT_STATUS_TONES).sort(), ['closed', 'in_progress', 'new', 'resolved', 'triaged']);
 });
@@ -163,4 +164,14 @@ test('U17: contexto técnico de un reporte en palabras, solo con las claves perm
   assert.deepEqual(reportContextRows({}), []);
   assert.deepEqual(reportContextRows(null), []);
   assert.deepEqual(reportContextRows({ online: false }), [{ label: 'Conexión', value: 'Sin conexión' }]);
+});
+
+test('U23: fecha relativa de la bandeja', () => {
+  const now = new Date('2026-11-07T15:00:00-05:00');
+  assert.equal(relativeInboxDate('2026-11-07T08:00:00-05:00', now), 'hoy');
+  assert.equal(relativeInboxDate('2026-11-06T23:30:00-05:00', now), 'ayer');
+  assert.equal(relativeInboxDate('2026-11-04T10:00:00-05:00', now), 'hace 3 días');
+  assert.match(relativeInboxDate('2026-09-23T10:00:00-05:00', now), /^23 sept?$/);
+  assert.match(relativeInboxDate('2025-12-01T10:00:00-05:00', now), /^1 dic.* 2025$/);
+  assert.equal(relativeInboxDate(null, now), '');
 });

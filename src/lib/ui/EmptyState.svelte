@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import Button from './Button.svelte';
+  import Icon from './Icon.svelte';
+  import type { IconName } from './icons';
 
   type Props = {
     /** Mensaje corto: qué pasa. */
@@ -11,17 +13,24 @@
     actionLabel?: string;
     actionHref?: string;
     onaction?: (event: MouseEvent) => void;
-    /** page: centrado en el área de resultados · inline: dentro de un bloque. */
+    /**
+     * page: centrado en el área de resultados · inline: dentro de un bloque.
+     * inline lleva padding en los cuatro lados; el lateral sale de
+     * --density-inset (0 en el sitio público, el de un panel en el Estudio).
+     */
     size?: 'page' | 'inline';
+    /** Icono decorativo sobre el mensaje (U20), del juego de icons.ts. */
+    icon?: IconName;
     /** Sustituye la acción por contenido propio. */
     action?: Snippet;
     class?: string;
   };
 
-  let { message, detail, actionLabel, actionHref, onaction, size = 'page', action, class: className = '' }: Props = $props();
+  let { message, detail, actionLabel, actionHref, onaction, size = 'page', icon, action, class: className = '' }: Props = $props();
 </script>
 
 <div class="ui-state ui-state--{size} {className}" role="status">
+  {#if icon}<span class="ui-state__icon"><Icon name={icon} size="md" /></span>{/if}
   <p class="ui-state__message">{message}</p>
   {#if detail}<p class="ui-state__detail">{detail}</p>{/if}
   {#if action}
@@ -42,7 +51,23 @@
     text-align: center;
   }
   .ui-state--page { padding: var(--space-7) var(--space-4); }
-  .ui-state--inline { align-items: flex-start; padding: var(--space-4) 0; text-align: left; }
+  /* Cuatro lados (U20): dentro de una tabla o un panel del Estudio el texto no
+     toca el borde. Fuera del Estudio el lateral es 0, como hasta U19. */
+  .ui-state--inline { align-items: flex-start; padding: var(--space-4) var(--density-inset); text-align: left; }
+
+  /* Círculo tenue con el icono; lo que comunica ya lo dice el mensaje. */
+  .ui-state__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--control-h-lg);
+    height: var(--control-h-lg);
+    margin-bottom: var(--space-1);
+    border-radius: var(--radius-pill);
+    background: var(--color-superficie-2);
+    color: var(--color-texto-medio);
+  }
+  .ui-state--inline .ui-state__icon { width: var(--density-control-h); height: var(--density-control-h); }
 
   .ui-state__message {
     margin: 0;

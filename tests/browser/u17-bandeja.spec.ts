@@ -89,7 +89,7 @@ async function mockStudio(page: Page, role: Role) {
   let contributions = defaultContributions();
   let reports = defaultReports();
   const releases: Record<string, ReturnType<typeof editorRelease>> = {
-    [linkedRelease]: { ...editorRelease(linkedRelease, 'Lanzamiento 4'), slug: 'lanzamiento-4' }
+    [linkedRelease]: { ...editorRelease(linkedRelease, 'Lanzamiento 4'), slug: 'lanzamiento-4', country_ids: [countryId] }
   };
 
   const id = userIds[role];
@@ -193,14 +193,17 @@ async function mockStudio(page: Page, role: Role) {
 
 const row = (page: Page, title: string) => page.getByRole('link', { name: new RegExp(`^${title}`) });
 const detail = (page: Page, title?: string) => (title ? page.getByRole('article', { name: title }) : page.getByRole('article'));
-const editedFields = (page: Page) => detail(page).locator('.l-inbox-field').filter({ hasText: 'Editado' }).locator('dt > span:first-child');
+// U23: lo que difiere de la fuente lleva un punto ámbar; su campo, en data-edited.
+const editedFields = (page: Page) => detail(page).locator('[data-edited]');
+const editedNames = (page: Page) => editedFields(page).evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-edited')));
 const noHorizontalOverflow = (page: Page) =>
   expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
 async function capture(page: Page, name: string) {
   if (!capturas) return;
   await page.waitForTimeout(150);
-  await page.screenshot({ path: `docs/modernizacion/capturas-u17/${name}.png`, fullPage: true });
+  // U17_CAPTURAS_DIR: otra carpeta, para no pisar las capturas de U17 del repo.
+  await page.screenshot({ path: `${process.env.U17_CAPTURAS_DIR ?? 'docs/modernizacion/capturas-u17'}/${name}.png`, fullPage: true });
 }
 
 test.describe('U17 propuestas', () => {
@@ -210,7 +213,7 @@ test.describe('U17 propuestas', () => {
     await page.goto('/estudio/propuestas');
 
     const list = page.getByRole('region', { name: 'Propuestas en cola' });
-    await expect(list.getByRole('heading', { level: 2 })).toHaveText(['Cola prioritaria', 'Cola comunitaria']);
+    await expect(list.getByRole('heading', { level: 2 })).toHaveText(['Prioritaria', 'Comunidad']);
     // Sin elegir nada, se abre la primera de la lista.
     await expect(row(page, 'Aporte de colaboración')).toHaveAttribute('aria-current', 'true');
     await expect(detail(page, 'Aporte de colaboración')).toBeVisible();
@@ -226,26 +229,31 @@ test.describe('U17 propuestas', () => {
     await expect(page).toHaveURL(new RegExp(`/estudio/propuestas\\?propuesta=${ids.community}$`));
     expect(await page.evaluate(() => history.length)).toBe(historyLength);
     await expect(row(page, 'Propuesta comunitaria')).toBeFocused();
-    await expect(row(page, 'Propuesta comunitaria')).toContainText('2 campos editados');
+    // U23: el ítem ya no cuenta los campos editados; eso se ve en el resumen.
+    await expect(row(page, 'Propuesta comunitaria')).not.toContainText('editado');
 
     const proposal = detail(page, 'Propuesta comunitaria');
-    await expect(proposal.locator('dt > span:first-child')).toHaveText(['Título', 'Artistas principales', 'Colaboradores', 'Tipo', 'Fecha', 'Sello', 'Géneros', 'Países']);
-    await expect(editedFields(page)).toHaveText(['Título', 'Tipo']);
-    await expect(proposal.locator('.l-inbox-field').filter({ hasText: 'Tipo' }).locator('dd')).toHaveText('EP');
+    // Título y artistas van en la cabecera; el resto, en tres columnas.
+    await expect(proposal.locator('dt')).toHaveText([/^Tipo/, 'Fecha', 'Sello', 'Colaboradores', 'Géneros', 'País']);
+    await expect.poll(() => editedNames(page)).toEqual(['Título', 'Tipo']);
+    await expect(proposal.locator('.summary__field').filter({ hasText: 'Tipo' }).locator('dd')).toHaveText('EP');
     // Lo detectado no se muestra; solo se marca.
     await expect(proposal.getByText('Título detectado')).toHaveCount(0);
-    await expect(proposal.getByText('Sin nota')).toBeVisible();
-    await expect(proposal.getByRole('link', { name: /Abrir la fuente en Bandcamp/ })).toHaveAttribute('target', '_blank');
-    await expect(proposal.getByRole('img', { name: /Portada de la fuente/ })).toBeVisible();
+    // Sin nota no hay comentario vacío.
+    await expect(proposal.locator('.summary__comment')).toHaveCount(0);
+    await expect(proposal.getByRole('link', { name: 'Abrir en Bandcamp' })).toHaveAttribute('target', '_blank');
+    await expect(proposal.locator('.summary__cover img').first()).toBeVisible();
     await capture(page, '2-detalle-editado-1440');
 
     // Sin campos editados y con nota; fuente ilegible: sin marcas y dicho en una línea.
     await row(page, 'Segunda propuesta').click();
-    await expect(detail(page, 'Segunda propuesta').getByText('Coincide con lo que detectó la fuente.')).toBeVisible();
+    await expect(detail(page, 'Segunda propuesta')).toBeVisible();
     await expect(editedFields(page)).toHaveCount(0);
-    await expect(detail(page).getByText('La escuché en vivo.')).toBeVisible();
+    // La nota, como comentario.
+    await expect(detail(page).locator('.summary__comment').getByText('La escuché en vivo.')).toBeVisible();
     await row(page, 'Propuesta preparada').click();
-    await expect(detail(page, 'Propuesta preparada').getByText('La fuente no se pudo leer: todos los datos se escribieron a mano.')).toBeVisible();
+    // Fuente ilegible: nada que comparar, ninguna marca.
+    await expect(detail(page, 'Propuesta preparada')).toBeVisible();
     await expect(editedFields(page)).toHaveCount(0);
 
     // Enlace directo; un id que ya no está abre la primera.
@@ -266,7 +274,7 @@ test.describe('U17 propuestas', () => {
     await page.getByRole('navigation', { name: 'Estudio' }).getByRole('link', { name: /^Propuestas/ }).click();
     await row(page, 'Propuesta comunitaria').click();
     // U19 (G3): la propuesta se decide en el editor.
-    await detail(page, 'Propuesta comunitaria').getByRole('link', { name: 'Abrir en el editor' }).click();
+    await detail(page, 'Propuesta comunitaria').getByRole('link', { name: 'Editar' }).click();
     await expect(page).toHaveURL(new RegExp(`/estudio/propuestas\\?editar=${ids.community}$`));
     await expect(page.getByRole('heading', { level: 1, name: 'Propuesta comunitaria' })).toBeVisible();
     await page.getByRole('button', { name: 'Aceptar y publicar' }).click();
@@ -292,7 +300,7 @@ test.describe('U17 propuestas', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Propuesta comunitaria' })).toBeVisible();
     await page.getByLabel('Título').fill('Propuesta comunitaria (edición corregida)');
     await page.getByPlaceholder('¿Qué cambió?').fill('Corrección tras aprobar la propuesta');
-    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(page.locator('.editor__feedback')).toHaveText('Cambios guardados.');
     await capture(page, '5-corregido-1440');
 
@@ -311,28 +319,38 @@ test.describe('U17 propuestas', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const writes = await mockStudio(page, 'admin');
     await page.goto(`/estudio/propuestas?editar=${ids.community}`);
-    const note = page.getByRole('textbox', { name: 'Nota para quien propone' });
 
-    await page.getByRole('button', { name: 'Rechazar' }).click();
-    await expect(page.locator('.editor__feedback')).toHaveText('Escribe una nota antes de rechazar.');
-    await expect(note).toBeFocused();
-    await page.getByRole('button', { name: 'Pedir cambios' }).click();
-    await expect(page.locator('.editor__feedback')).toHaveText('Escribe una nota para pedir cambios.');
+    // U23: Devolver ▾ abre un diálogo con la nota obligatoria; sin nota no se envía.
+    await page.getByRole('button', { name: 'Devolver' }).click();
+    await page.getByRole('menuitem', { name: 'Rechazar…' }).click();
+    let dialog = page.getByRole('dialog', { name: 'Rechazar' });
+    await dialog.getByRole('button', { name: 'Rechazar' }).click();
+    await expect(dialog.getByText('Escribe una nota antes de rechazar.')).toBeVisible();
+    await expect(dialog.getByRole('textbox', { name: /Por qué se rechaza/ })).toBeFocused();
+    await dialog.getByRole('button', { name: 'Cancelar' }).click();
+    await page.getByRole('button', { name: 'Devolver' }).click();
+    await page.getByRole('menuitem', { name: 'Pedir cambios…' }).click();
+    dialog = page.getByRole('dialog', { name: 'Pedir cambios' });
+    await dialog.getByRole('button', { name: 'Pedir cambios' }).click();
+    await expect(dialog.getByText('Escribe una nota para pedir cambios.')).toBeVisible();
     expect(writes).toEqual([]);
     await capture(page, '6-nota-obligatoria-1440');
 
-    await note.fill('Confirma el sello, por favor.');
-    await page.getByRole('button', { name: 'Pedir cambios' }).click();
+    await dialog.getByRole('textbox', { name: /Qué tiene que cambiar/ }).fill('Confirma el sello, por favor.');
+    await dialog.getByRole('button', { name: 'Pedir cambios' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Propuesta comunitaria: Cambios solicitados.' })).toBeVisible();
     await expect(row(page, 'Propuesta comunitaria')).toHaveCount(0);
     // La siguiente de la lista ocupa su lugar.
     await expect(page.getByRole('heading', { level: 2, name: 'Segunda propuesta' })).toBeFocused();
 
-    await detail(page, 'Segunda propuesta').getByRole('link', { name: 'Abrir en el editor' }).click();
-    // El editor de la siguiente empieza sin la nota ni el error de la anterior.
+    // D2: también se decide desde el resumen, sin abrir el editor. La nota empieza vacía.
+    await detail(page, 'Segunda propuesta').getByRole('button', { name: 'Devolver' }).click();
+    await page.getByRole('menuitem', { name: 'Rechazar…' }).click();
+    dialog = page.getByRole('dialog', { name: 'Rechazar' });
+    const note = dialog.getByRole('textbox', { name: /Por qué se rechaza/ });
     await expect(note).toHaveValue('');
     await note.fill('Ya existe en el catálogo.');
-    await page.getByRole('button', { name: 'Rechazar' }).click();
+    await dialog.getByRole('button', { name: 'Rechazar' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Segunda propuesta: Rechazado.' })).toBeVisible();
     // Era la última de su grupo: se abre la anterior.
     await expect(page.getByRole('heading', { level: 2, name: 'Propuesta preparada' })).toBeFocused();
@@ -348,20 +366,23 @@ test.describe('U17 propuestas', () => {
     const writes = await mockStudio(page, 'colaborador');
     await page.goto('/estudio/propuestas');
     const list = page.getByRole('region', { name: 'Propuestas en cola' });
-    await expect(list.getByRole('heading', { level: 2 })).toHaveText(['Cola comunitaria', 'Mis aportes prioritarios']);
+    await expect(list.getByRole('heading', { level: 2 })).toHaveText(['Comunidad', 'Mis aportes']);
     await expect(page.getByRole('button', { name: /Aceptar|Pedir cambios|Rechazar/ })).toHaveCount(0);
 
     await row(page, 'Aporte de colaboración').click();
-    await expect(detail(page, 'Aporte de colaboración').getByText('Pendiente de revisión administrativa.')).toBeVisible();
+    await expect(detail(page, 'Aporte de colaboración').getByText('Espera a admin')).toBeVisible();
     await expect(detail(page).getByRole('button')).toHaveCount(0);
-    await expect(detail(page).getByRole('link', { name: 'Abrir en el editor' })).toHaveCount(0);
+    await expect(detail(page).getByRole('link', { name: 'Editar' })).toHaveCount(0);
 
     await row(page, 'Propuesta comunitaria').click();
-    await detail(page, 'Propuesta comunitaria').getByRole('link', { name: 'Abrir en el editor' }).click();
-    await expect(page.getByRole('button', { name: /Aceptar|Pedir cambios|Rechazar/ })).toHaveCount(0);
-    await page.getByRole('textbox', { name: 'Nota interna para admin' }).fill('Fuente verificada en Bandcamp.');
-    await capture(page, '7-colaborador-1440');
+    await detail(page, 'Propuesta comunitaria').getByRole('link', { name: 'Editar' }).click();
+    await expect(page.getByRole('button', { name: /Aceptar|Pedir cambios|Rechazar|Devolver/ })).toHaveCount(0);
+    // U23 (D5): la nota interna va en el diálogo de «Marcar lista».
     await page.getByRole('button', { name: 'Marcar lista para admin' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Marcar lista para admin' });
+    await dialog.getByRole('textbox', { name: /Nota interna para admin/ }).fill('Fuente verificada en Bandcamp.');
+    await capture(page, '7-colaborador-1440');
+    await dialog.getByRole('button', { name: 'Marcar lista', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Propuesta comunitaria quedó lista para administración.' })).toBeVisible();
     await expect(row(page, 'Propuesta comunitaria')).toHaveCount(0);
 
@@ -389,7 +410,7 @@ test.describe('U17 móvil', () => {
     await expect(page).toHaveURL(new RegExp(`propuesta=${ids.community}$`));
     await expect(page.getByRole('region', { name: 'Propuestas en cola' })).toBeHidden();
     await expect(page.getByRole('heading', { level: 2, name: 'Propuesta comunitaria' })).toBeFocused();
-    await expect(editedFields(page)).toHaveText(['Título', 'Tipo']);
+    await expect.poll(() => editedNames(page)).toEqual(['Título', 'Tipo']);
     await noHorizontalOverflow(page);
     await capture(page, '9-detalle-390');
 
@@ -417,7 +438,7 @@ test.describe('U17 móvil', () => {
     const writes = await mockStudio(page, 'admin');
     await page.goto('/estudio/propuestas');
     await row(page, 'Propuesta comunitaria').click();
-    await detail(page).getByRole('link', { name: 'Abrir en el editor' }).click();
+    await detail(page).getByRole('link', { name: 'Editar' }).click();
     await page.getByRole('button', { name: 'Aceptar y publicar' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Confirmar y publicar' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'aceptada y publicada' })).toBeVisible();
@@ -430,42 +451,109 @@ test.describe('U17 móvil', () => {
 });
 
 test.describe('U17 reportes', () => {
-  test('la misma bandeja: estados traducidos, enlace al lanzamiento y clasificación de E18', async ({ page }) => {
+  test('la misma bandeja: estados traducidos, el lanzamiento como bloque y clasificación de E18', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const writes = await mockStudio(page, 'admin');
     await page.goto('/estudio/reportes');
+    // U24: «n abiertos» junto al título, sin descripción.
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Reportes\s*2 abiertos$/);
     const list = page.getByRole('region', { name: 'Reportes' });
-    await expect(list.getByRole('heading', { level: 2 })).toHaveText(['Abiertos', 'Resueltos y cerrados']);
-    await expect(list.locator('.ui-chip')).toHaveText(['Nuevo', 'Clasificado', 'Cerrado']);
+    await expect(list.getByRole('heading', { level: 2 })).toHaveText(['Abiertos', 'Cerrados']);
+    // U24: el estado es un punto; la palabra va al final del nombre del enlace.
+    await expect(list.locator('.ui-status')).toHaveText(['Nuevo', 'Clasificado', 'Cerrado']);
+    await expect(row(page, 'El país está mal: es de Ecuador.')).toHaveAccessibleName(/Ecuador\..*Catálogo.*Nuevo$/);
     // Ningún estado crudo en inglés.
     for (const raw of ['new', 'triaged', 'in_progress', 'resolved', 'closed']) {
       await expect(page.getByText(raw, { exact: true })).toHaveCount(0);
     }
 
-    const report = detail(page, 'Error de catálogo');
-    await expect(report.getByText('El país está mal: es de Ecuador.')).toBeVisible();
-    await expect(report.getByRole('link', { name: 'Abrir el lanzamiento en el Catálogo' })).toHaveAttribute('href', `/estudio/catalogo?lanzamiento=${linkedRelease}`);
-    await expect(report.getByRole('link', { name: 'Ver sus reportes' })).toHaveAttribute('href', `/estudio/reportes?lanzamiento=${linkedRelease}`);
+    // La descripción es el titular del detalle.
+    const report = detail(page, 'El país está mal: es de Ecuador.');
+    await expect(report.getByRole('heading', { level: 2 })).toHaveText('El país está mal: es de Ecuador.');
+    await expect(report.locator('.l-inbox-detail__eyebrow')).toContainText('Nuevo');
+    await expect(report.locator('.l-inbox-detail__eyebrow')).toContainText('Error de catálogo');
+    const facts = report.getByRole('list', { name: 'Datos del reporte' });
+    await expect(facts.getByRole('link', { name: '/lanzamiento/lanzamiento-4' })).toHaveAttribute('href', '/lanzamiento/lanzamiento-4');
+    await expect(facts).toContainText('Sin captura');
+    await expect(facts.getByRole('link', { name: '2 reportes más' })).toBeVisible();
+
+    // El lanzamiento, para comparar con lo reportado, y «Corregir lanzamiento» como acción primaria.
+    const release = report.getByRole('region', { name: 'Lanzamiento reportado' });
+    await expect(release).toContainText('Lanzamiento 4');
+    await expect(release).toContainText('Artista principal');
+    await expect(release).toContainText(/Tipo\s*Álbum/);
+    await expect(release).toContainText(/País\s*Colombia/);
+    await expect(release).toContainText(/Sello\s*Sello ejemplo/);
+    await expect(release).toContainText('Publicado');
+    await expect(release.getByRole('link', { name: 'Ver la ficha pública' })).toHaveAttribute('href', '/lanzamiento/lanzamiento-4');
+    const fix = release.getByRole('link', { name: 'Corregir lanzamiento' });
+    await expect(fix).toHaveAttribute('href', `/estudio/catalogo?lanzamiento=${linkedRelease}&desde=reporte:r1`);
+    await expect(fix).toHaveClass(/ui-btn--primary/);
+    await expect(report.getByRole('button', { name: 'Guardar' })).toHaveClass(/ui-btn--secondary/);
+    // El aviso de adjuntos y correo pasó al tooltip de la nota interna.
+    await expect(page.getByText(/no envían correo/)).toHaveCount(0);
+    await expect(report.getByLabel('Nota interna')).toHaveAttribute('title', /no se envía a quien reportó ni sale por correo/);
+    await expect(report.getByLabel('Nota interna')).toHaveAttribute('placeholder', 'Solo la ve el equipo');
+
     await expect(report.getByLabel('Estado').locator('option')).toHaveText(['Nuevo', 'Clasificado', 'En curso', 'Resuelto', 'Cerrado']);
+    await expect(report.getByLabel('Asignado').locator('option')).toHaveText(['Sin asignar', 'A mí']);
+    await expect(report.getByLabel('Asignado')).toHaveValue(userIds.admin);
     await report.getByText('Contexto técnico').click();
     await expect(report.getByText('390 × 844')).toBeVisible();
     await capture(page, '10-reportes-1440');
 
     await report.getByLabel('Estado').selectOption('resolved');
-    await report.getByLabel(/^Respuesta interna/).fill('País corregido en el editor.');
-    await report.getByRole('button', { name: 'Guardar clasificación' }).click();
+    await report.getByLabel('Nota interna').fill('País corregido en el editor.');
+    await report.getByRole('button', { name: 'Guardar' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Reporte actualizado: Resuelto.' })).toBeVisible();
-    // Pasa a resueltos y sigue abierto en el detalle.
+    // Pasa a cerrados y sigue abierto en el detalle.
     await expect(page.getByRole('region', { name: 'Reportes' }).locator('section').nth(1).getByRole('link', { name: /^El país está mal/ })).toBeVisible();
-    await expect(detail(page, 'Error de catálogo').getByLabel('Estado')).toHaveValue('resolved');
+    await expect(detail(page, 'El país está mal: es de Ecuador.').getByLabel('Estado')).toHaveValue('resolved');
     expect(writes).toEqual([{
       rpc: 'admin_update_problem_report',
       body: { p_report_id: 'r1', p_status: 'resolved', p_assigned_to: userIds.admin, p_note: 'País corregido en el editor.' }
     }]);
+  });
 
-    // Del reporte al lanzamiento, sin salir del Estudio.
-    await detail(page).getByRole('link', { name: 'Abrir el lanzamiento en el Catálogo' }).click();
+  test('Asignado: «Sin asignar» guarda sin responsable', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const writes = await mockStudio(page, 'admin');
+    await page.goto('/estudio/reportes?reporte=r2');
+    const report = detail(page, 'El reproductor no carga.');
+    // Sin lanzamiento: no hay bloque y Guardar es la acción primaria.
+    await expect(report.getByRole('region', { name: 'Lanzamiento reportado' })).toHaveCount(0);
+    await expect(report.getByRole('button', { name: 'Guardar' })).toHaveClass(/ui-btn--primary/);
+    await expect(report.getByRole('list', { name: 'Datos del reporte' })).toContainText('Captura adjunta');
+    await report.getByLabel('Asignado').selectOption('');
+    await report.getByRole('button', { name: 'Guardar' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Reporte actualizado: Clasificado.' })).toBeVisible();
+    expect(writes).toEqual([{ rpc: 'admin_update_problem_report', body: { p_report_id: 'r2', p_status: 'triaged', p_assigned_to: null, p_note: '' } }]);
+  });
+
+  test('Corregir lanzamiento: al guardar vuelve al reporte con «Resuelto» elegido, sin guardarlo', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const writes = await mockStudio(page, 'admin');
+    await page.goto('/estudio/reportes?reporte=r1');
+    await detail(page, 'El país está mal: es de Ecuador.').getByRole('link', { name: 'Corregir lanzamiento' }).click();
+    await expect(page).toHaveURL(new RegExp(`/estudio/catalogo\\?lanzamiento=${linkedRelease}&desde=reporte:r1$`));
     await expect(page.getByRole('heading', { level: 1, name: 'Lanzamiento 4' })).toBeVisible();
+
+    // Volver sin guardar: al reporte, sin elegir nada.
+    await page.getByRole('button', { name: 'Volver al reporte' }).click();
+    await expect(page).toHaveURL(/\/estudio\/reportes\?reporte=r1$/);
+    await expect(detail(page, 'El país está mal: es de Ecuador.').getByLabel('Estado')).toHaveValue('new');
+
+    await detail(page).getByRole('link', { name: 'Corregir lanzamiento' }).click();
+    await page.getByLabel(/^Observación/).fill('País corregido: Ecuador.');
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect(page).toHaveURL(/\/estudio\/reportes\?reporte=r1$/);
+    await expect(page.getByRole('status').filter({ hasText: 'Lanzamiento guardado. Falta guardar el reporte.' })).toBeVisible();
+    await expect(detail(page, 'El país está mal: es de Ecuador.').getByLabel('Estado')).toHaveValue('resolved');
+    // Solo se guardó el lanzamiento; el reporte espera a «Guardar».
+    expect(writes.map((write) => write.rpc)).toEqual(['admin_update_catalog_release']);
+    // Recargar no lo vuelve a elegir.
+    await page.reload();
+    await expect(detail(page, 'El país está mal: es de Ecuador.').getByLabel('Estado')).toHaveValue('new');
   });
 
   test('a 390: lista y detalle con retorno, sin desborde', async ({ page }) => {
@@ -474,8 +562,8 @@ test.describe('U17 reportes', () => {
     await page.goto('/estudio/reportes');
     await expect(detail(page)).toHaveCount(0);
     await row(page, 'El reproductor no carga').click();
-    await expect(page.getByRole('heading', { level: 2, name: 'Problema técnico' })).toBeFocused();
-    await expect(detail(page).getByText('Adjunta (privada)')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'El reproductor no carga.' })).toBeFocused();
+    await expect(detail(page).getByText('Captura adjunta')).toBeVisible();
     await noHorizontalOverflow(page);
     await capture(page, '11-reporte-390');
     await page.getByRole('button', { name: 'Volver a los reportes' }).click();
@@ -488,7 +576,7 @@ test.describe('U17 matriz de anchos', () => {
     test(`propuestas y reportes con detalle abierto, sin desborde a ${width}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await mockStudio(page, 'admin');
-      for (const [path, title] of [[`/estudio/propuestas?propuesta=${ids.community}`, 'Propuesta comunitaria'], ['/estudio/reportes?reporte=r1', 'Error de catálogo']]) {
+      for (const [path, title] of [[`/estudio/propuestas?propuesta=${ids.community}`, 'Propuesta comunitaria'], ['/estudio/reportes?reporte=r1', 'El país está mal: es de Ecuador.']]) {
         await page.goto(path);
         await expect(detail(page, title)).toBeVisible();
         await noHorizontalOverflow(page);

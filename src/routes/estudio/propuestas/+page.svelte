@@ -4,26 +4,23 @@
   // detectado. Desde U19 (G3) la propuesta se corrige y se decide en el editor
   // del Estudio (?editar=<id>), el mismo para admin y colaborador. El layout ya
   // comprobó sesión y rol.
-  import { goto } from '$app/navigation';
+  // U23 (tableros 4 y 5): ítems con portada y punto de estado; el resumen con la
+  // cabecera del editor y las decisiones (D2); ‹ n de N › en el editor; y la
+  // transición entre el resumen y el editor sin mover la cabecera.
+  import { goto, onNavigate } from '$app/navigation';
   import { page } from '$app/state';
-  import { Button, Chip, Cover, EmptyState, ErrorState, Icon, LoadingIndicator, Notice } from '$lib/ui';
-  import { InboxDetail, InboxField, InboxItem, InboxLayout, ToolHeader } from '$lib/layouts';
+  import { Button, EmptyState, ErrorState, LoadingIndicator, Notice } from '$lib/ui';
+  import { InboxItem, InboxLayout, ToolHeader } from '$lib/layouts';
   import ProposalEditor, { type ProposalOutcome } from '$lib/components/estudio/ProposalEditor.svelte';
+  import ProposalSummary from '$lib/components/estudio/ProposalSummary.svelte';
   import { getStudioContext } from '$lib/components/estudio/context';
   import { InboxSelection } from '$lib/components/estudio/inboxSelection.svelte';
   import { studioProposalEditorHref, studioProposalsHref, studioReleaseHref, withParams } from '$lib/domain/studio';
-  import {
-    inboxNeighbor,
-    proposalAction,
-    proposalDetection,
-    proposalFields,
-    proposalGroups,
-    selectInboxItem
-  } from '$lib/domain/studioInbox';
-  import { CONTRIBUTION_ROW_TONES } from '$lib/domain/contributionRows';
+  import { inboxNeighbor, proposalGroups, relativeInboxDate, selectInboxItem } from '$lib/domain/studioInbox';
+  import { CONTRIBUTION_DOT_TONES } from '$lib/domain/contributionRows';
+  import { proposalCover } from '$lib/domain/proposalEditor';
   import {
     CONTRIBUTION_STATUS_LABELS,
-    RELEASE_TYPE_OPTIONS,
     loadEditorialQueue,
     loadReleaseContributions,
     type Contribution
@@ -34,7 +31,6 @@
   const userId = studio.userId;
   const catalogAvailable = studio.sections.includes('catalogo');
   const selection = new InboxSelection('propuesta');
-  const dateFormat = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
 
   let loaded = $state(false);
   let queue = $state<Contribution[]>([]);
@@ -74,12 +70,28 @@
   });
 
   const title = (item: Contribution) => item.payload.title?.trim() || 'Propuesta sin título';
-  const date = (value: string | null | undefined) => (value ? dateFormat.format(new Date(value)) : '');
-  const editedCount = (item: Contribution) => proposalFields(item, RELEASE_TYPE_OPTIONS).filter((field) => field.edited).length;
-  const provider = (item: Contribution) => {
-    const name = item.source_provider ?? '';
-    return name ? name.charAt(0).toLocaleUpperCase('es') + name.slice(1) : 'Fuente';
-  };
+  const editing = $derived(editingId ? (ordered.find((item) => item.id === editingId) ?? null) : null);
+  /** ‹ n de N › en el editor: la posición en la bandeja, si la propuesta está en ella. */
+  const position = $derived.by(() => {
+    const index = editingId ? ids.indexOf(editingId) : -1;
+    return index === -1 ? null : { index, total: ids.length, prev: ids[index - 1] ?? null, next: ids[index + 1] ?? null };
+  });
+
+  // Resumen ⇄ editor con View Transitions: portada y título se mueven a su sitio en lugar de
+  // saltar. Sin la API, o con movimiento reducido, cambia sin animación.
+  onNavigate((navigation) => {
+    if (typeof document === 'undefined' || !document.startViewTransition) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const from = navigation.from?.url.searchParams.get('editar') ?? null;
+    const to = navigation.to?.url.searchParams.get('editar') ?? null;
+    if (navigation.from?.url.pathname !== navigation.to?.url.pathname || !from === !to) return;
+    return new Promise((resolve) => {
+      document.startViewTransition(async () => {
+        resolve();
+        await navigation.complete;
+      });
+    });
+  });
 
   function openEditor(event: MouseEvent, id: string) {
     event.preventDefault();
@@ -87,6 +99,12 @@
     flash = '';
     approvedReleaseId = null;
     void goto(studioProposalEditorHref(id));
+  }
+
+  /** ‹ › del editor: otra propuesta de la bandeja, sin sumar historial («Volver» sigue llevando a la bandeja). */
+  function step(id: string) {
+    flash = '';
+    void goto(studioProposalEditorHref(id), { replaceState: true, noScroll: false });
   }
 
   function closeEditor() {
@@ -118,17 +136,19 @@
 
 {#if editingId}
   {@const id = editingId}
-  <ProposalEditor contributionId={id} {role} {userId} onclose={closeEditor} ondone={(outcome) => decided(id, outcome)} />
+  <ProposalEditor
+    contributionId={id}
+    {role}
+    {userId}
+    preview={editing ? { title: title(editing), cover: proposalCover(editing) } : null}
+    {position}
+    onstep={step}
+    onclose={closeEditor}
+    ondone={(outcome) => decided(id, outcome)}
+  />
 {:else}
 
-<ToolHeader
-  title="Propuestas"
-  description={releaseFilter
-    ? 'Propuestas que crearon este lanzamiento.'
-    : role === 'admin'
-      ? 'Revisa cada propuesta y ábrela en el editor para corregirla, aceptarla, pedir cambios o rechazarla.'
-      : 'Corrige propuestas de la comunidad en el editor y márcalas listas para administración.'}
->
+<ToolHeader title="Propuestas" count={loaded && !loadError ? ids.length : undefined}>
   {#snippet actions()}
     {#if releaseFilter}
       <Button size="sm" variant="secondary" href={studioProposalsHref()}>Ver todas</Button>
@@ -162,14 +182,14 @@
     onback={() => selection.back(selectedId)}
   >
     {#snippet item(entry: Contribution)}
-      {@const edited = editedCount(entry)}
       <InboxItem
         href={selection.href(entry.id)}
         title={title(entry)}
         current={entry.id === selectedId}
-        status={{ label: CONTRIBUTION_STATUS_LABELS[entry.status], tone: CONTRIBUTION_ROW_TONES[entry.status] }}
-        flag={edited ? (edited === 1 ? '1 campo editado' : `${edited} campos editados`) : undefined}
-        meta={[entry.payload.primary_artists?.join(', ') || 'Sin artistas', date(entry.submitted_at ?? entry.updated_at)].filter(Boolean)}
+        cover={proposalCover(entry)}
+        dot={{ label: CONTRIBUTION_STATUS_LABELS[entry.status], tone: CONTRIBUTION_DOT_TONES[entry.status] }}
+        ready={entry.status === 'ready_for_admin' ? CONTRIBUTION_STATUS_LABELS.ready_for_admin : undefined}
+        meta={[entry.payload.primary_artists?.join(', ') || 'Sin artistas', relativeInboxDate(entry.submitted_at ?? entry.updated_at)].filter(Boolean)}
         onselect={() => selection.select(entry.id)}
         data-inbox-item={entry.id}
       />
@@ -177,120 +197,28 @@
 
     {#snippet detail()}
       {#if selected}
-        {@render Detail(selected)}
+        <ProposalSummary
+          item={selected}
+          {role}
+          {userId}
+          group={releaseFilter ? "" : groupOf(selected)}
+          {catalogAvailable}
+          bind:heading={selection.heading}
+          editHref={studioProposalEditorHref(selected.id)}
+          onedit={(event) => openEditor(event, selected.id)}
+          ondone={(outcome) => decided(selected.id, outcome)}
+        />
+      {:else if ids.length}
+        <EmptyState size="inline" message="Elige una propuesta de la lista." />
       {:else}
-        <EmptyState size="inline" message={ids.length ? 'Elige una propuesta de la lista.' : 'No hay propuestas por revisar.'} />
+        <EmptyState size="inline" icon="bandeja" message="Sin propuestas" detail="No hay nada por revisar." />
       {/if}
     {/snippet}
   </InboxLayout>
 {/if}
 {/if}
 
-{#snippet Detail(item: Contribution)}
-  {@const fields = proposalFields(item, RELEASE_TYPE_OPTIONS)}
-  {@const detection = proposalDetection(item)}
-  {@const action = proposalAction(item, role, userId)}
-  {@const cover = typeof item.detected_metadata?.cover_url === 'string' ? item.detected_metadata.cover_url : ''}
-  <InboxDetail title={title(item)} bind:heading={selection.heading}>
-    {#snippet eyebrow()}
-      <Chip kind="status" label={CONTRIBUTION_STATUS_LABELS[item.status]} tone={CONTRIBUTION_ROW_TONES[item.status]} />
-      <span>{groupOf(item)}</span>
-      {#if item.submitted_at}<span>Enviada el {date(item.submitted_at)}</span>{/if}
-    {/snippet}
-    {#snippet meta()}
-      <a class="propuestas__link" href={item.source_url} target="_blank" rel="noreferrer">
-        Abrir la fuente en {provider(item)}<Icon name="flecha-externa" size="em" />
-      </a>
-      {#if item.release_id && catalogAvailable}
-        <a class="propuestas__link" href={studioReleaseHref(item.release_id)}>Abrir el lanzamiento en el Catálogo</a>
-      {/if}
-    {/snippet}
-
-    {#if detection === 'unavailable'}
-      <p class="propuestas__legend">La fuente no se pudo leer: todos los datos se escribieron a mano.</p>
-    {:else if fields.some((field) => field.edited)}
-      <p class="propuestas__legend"><Chip kind="status" tone="warning" label="Editado" /> difiere de lo que detectó la fuente.</p>
-    {:else}
-      <p class="propuestas__legend">Coincide con lo que detectó la fuente.</p>
-    {/if}
-
-    <div class="propuestas__data" class:propuestas__data--cover={!!cover}>
-      {#if cover}
-        <figure class="propuestas__cover">
-          <Cover src={cover} alt="Portada de la fuente para {title(item)}" radius="sm" />
-          <figcaption>De la fuente. Se publica con el lanzamiento.</figcaption>
-        </figure>
-      {/if}
-      <dl class="l-inbox-fields">
-        {#each fields as field (field.key)}
-          <InboxField
-            label={field.label}
-            value={field.value}
-            wide={field.key === 'title' || field.key === 'primary_artists'}
-            mark={field.edited ? { label: 'Editado', description: 'Difiere de lo que detectó la fuente.' } : undefined}
-          />
-        {/each}
-      </dl>
-    </div>
-
-    {#if item.payload.team_note?.trim()}
-      <div class="l-inbox-note"><strong>Nota de quien propone</strong><p>{item.payload.team_note}</p></div>
-    {:else}
-      <div class="l-inbox-note l-inbox-note--empty"><strong>Nota de quien propone</strong><p>Sin nota</p></div>
-    {/if}
-    {#if item.reviewer_note && action === 'none'}
-      <div class="l-inbox-note"><strong>Nota de la revisión</strong><p>{item.reviewer_note}</p></div>
-    {/if}
-
-    {#snippet actions()}
-      {#if action === 'review' || action === 'prepare'}
-        <div class="l-inbox-buttons">
-          <Button href={studioProposalEditorHref(item.id)} onclick={(event: MouseEvent) => openEditor(event, item.id)}>Abrir en el editor</Button>
-        </div>
-        <p class="propuestas__waiting">
-          {action === 'review'
-            ? 'En el editor la corriges y decides: aceptar como borrador o publicando, pedir cambios o rechazar.'
-            : 'En el editor la corriges y la marcas lista para administración.'}
-        </p>
-      {:else if action === 'waiting'}
-        <p class="propuestas__waiting">Pendiente de revisión administrativa.</p>
-      {/if}
-    {/snippet}
-  </InboxDetail>
-{/snippet}
-
 <style>
   :global(.propuestas__notice) { margin-bottom: var(--density-pad); }
   .propuestas__loading { display: grid; place-items: center; min-height: 16rem; }
-
-  .propuestas__link {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    min-height: var(--target-touch);
-    color: var(--color-acento);
-    font-size: var(--text-2xs);
-  }
-
-  .propuestas__legend {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2);
-    margin: 0;
-    color: var(--color-texto-tenue);
-    font-size: var(--text-2xs);
-  }
-
-  .propuestas__data { display: grid; gap: var(--density-pad); }
-  .propuestas__data--cover { grid-template-columns: var(--tool-cover) minmax(0, 1fr); align-items: start; }
-  .propuestas__cover { margin: 0; }
-  .propuestas__cover figcaption { margin-top: var(--space-2); color: var(--color-texto-tenue); font-size: var(--text-2xs); line-height: 1.4; }
-
-  .propuestas__waiting { margin: 0; color: var(--color-texto-medio); font-size: var(--density-text); }
-
-  @media (max-width: 679px) {
-    .propuestas__data--cover { grid-template-columns: minmax(0, 1fr); }
-    .propuestas__cover { width: var(--tool-cover); }
-  }
 </style>

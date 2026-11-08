@@ -18,13 +18,13 @@ const FORM_SECTIONS: ReadonlyArray<EditorSection> = [
   { id: 'medios', label: 'Medios' }
 ];
 
-/** Editor del catálogo: el formulario y el historial auditado. */
-export const EDITOR_SECTIONS: ReadonlyArray<EditorSection> = [...FORM_SECTIONS, { id: 'historial', label: 'Historial' }];
+/** Editor del catálogo: las secciones del formulario. Desde U22 el historial se abre desde la cabecera. */
+export const EDITOR_SECTIONS: ReadonlyArray<EditorSection> = FORM_SECTIONS;
 
 /** U19: el mismo editor con una propuesta abierta. En lugar del historial, la propuesta. */
 export const PROPOSAL_EDITOR_SECTIONS: ReadonlyArray<EditorSection> = [...FORM_SECTIONS, { id: 'propuesta', label: 'Propuesta' }];
 
-/** Id del elemento de cada sección en la página (ancla del índice). */
+/** Id del elemento de cada sección en la página. */
 export const editorSectionAnchor = (id: EditorSectionId) => `editor-${id}`;
 
 /** Nombre de cada campo pendiente y la sección donde se completa. */

@@ -431,16 +431,22 @@
   .ui-combobox__label { color: var(--color-texto-alto); font-size: var(--text-sm); font-weight: 600; line-height: 1.3; }
   .ui-combobox__optional { margin-left: .3em; color: var(--color-texto-tenue); font-weight: 400; }
 
-  /* Mismo aspecto que Field. Los chips (32) dejan 5 px arriba y abajo dentro de 44. */
+  /* Mismo aspecto que Field. Los chips (32) dejan 5 px arriba y abajo dentro de 44.
+     Altura y padding lateral de la densidad (U20): 44 y 16 por defecto, 36 y 12
+     en el Estudio. El texto empieza donde el de Field: el input ya suma 8. */
+  .ui-combobox {
+    --combobox-h: var(--density-control-h);
+    --combobox-px: calc(var(--density-control-px) - var(--space-2));
+  }
   .ui-combobox__control {
     position: relative;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-3) var(--space-2);
-    min-height: var(--field-h-md);
+    min-height: var(--combobox-h);
     box-sizing: border-box;
-    padding: calc((var(--field-h-md) - 2px - var(--chip-h-md)) / 2) calc(var(--space-3) + var(--icon-sm) + var(--space-2)) calc((var(--field-h-md) - 2px - var(--chip-h-md)) / 2) var(--space-2);
+    padding: calc((var(--combobox-h) - 2px - var(--chip-h-md)) / 2) calc(var(--space-3) + var(--icon-sm) + var(--space-2)) calc((var(--combobox-h) - 2px - var(--chip-h-md)) / 2) var(--combobox-px);
     border: 1px solid var(--color-linea-fuerte);
     border-radius: var(--control-radius);
     background: var(--color-superficie-1);
@@ -483,7 +489,7 @@
   /* Fuera del flujo: nunca baja de línea con los chips. Centrado en la primera fila. */
   .ui-combobox__chevron {
     position: absolute;
-    top: calc((var(--field-h-md) - 2px - var(--icon-sm)) / 2);
+    top: calc((var(--combobox-h) - 2px - var(--icon-sm)) / 2);
     right: var(--space-3);
     display: flex;
     color: var(--color-texto-tenue);

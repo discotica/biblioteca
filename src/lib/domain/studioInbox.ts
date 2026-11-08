@@ -131,8 +131,6 @@ export function proposalFields(
 export type InboxGroup<T> = {
   id: string;
   label: string;
-  /** Una línea bajo el nombre del grupo. */
-  help?: string;
   /** Texto cuando el grupo está vacío. */
   empty: string;
   items: T[];
@@ -157,16 +155,16 @@ export function proposalGroups<T extends ProposalLike>(
   const priority = items.filter((item) => item.queue_kind === 'collaborator' || item.status === 'ready_for_admin');
   if (role === 'admin') {
     return [
-      { id: 'priority', label: 'Cola prioritaria', help: 'Aportes de colaboración y propuestas ya preparadas.', empty: 'No hay propuestas en la cola prioritaria.', items: priority },
-      { id: 'community', label: 'Cola comunitaria', help: 'Propuestas pendientes de la comunidad.', empty: 'No hay propuestas comunitarias pendientes.', items: community }
+      { id: 'priority', label: 'Prioritaria', empty: 'No hay propuestas en la cola prioritaria.', items: priority },
+      { id: 'community', label: 'Comunidad', empty: 'No hay propuestas comunitarias pendientes.', items: community }
     ];
   }
   const groups: InboxGroup<T>[] = [
-    { id: 'community', label: 'Cola comunitaria', help: 'Prepara propuestas ajenas para la revisión final.', empty: 'No hay propuestas comunitarias pendientes.', items: community }
+    { id: 'community', label: 'Comunidad', empty: 'No hay propuestas comunitarias pendientes.', items: community }
   ];
   // Con la RLS de E09, lo prioritario que ve un colaborador son sus propios aportes.
   if (priority.length) {
-    groups.push({ id: 'own', label: 'Mis aportes prioritarios', help: 'Pasan directo a administración; no los revisas tú.', empty: '', items: priority });
+    groups.push({ id: 'own', label: 'Mis aportes', empty: '', items: priority });
   }
   return groups;
 }
@@ -183,6 +181,26 @@ export function proposalAction(item: ProposalLike, role: InboxRole, userId: stri
   if (role === 'admin') return 'review';
   if (item.queue_kind === 'community' && item.status === 'pending' && item.author_id !== userId) return 'prepare';
   return 'waiting';
+}
+
+/**
+ * Fecha corta de la bandeja (U23): «hoy», «ayer», «hace n días» hasta una semana; después el día
+ * y el mes, con el año solo si no es el actual. Por días del calendario de Bogotá.
+ */
+export function relativeInboxDate(value: string | null | undefined, now: Date = new Date()): string {
+  if (!value) return '';
+  const then = new Date(value);
+  if (Number.isNaN(then.getTime())) return '';
+  const day = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(date);
+  const days = Math.round((Date.parse(day(now)) - Date.parse(day(then))) / 86_400_000);
+  if (days <= 0) return 'hoy';
+  if (days === 1) return 'ayer';
+  if (days < 7) return `hace ${days} días`;
+  const sameYear = day(now).slice(0, 4) === day(then).slice(0, 4);
+  return new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }), timeZone: 'America/Bogota' })
+    .format(then)
+    .replace('.', '')
+    .replace(/ de /g, ' ');
 }
 
 // ---------------------------------------------------------------------------
@@ -211,22 +229,25 @@ export type ReportStatus = 'new' | 'triaged' | 'in_progress' | 'resolved' | 'clo
 
 export const OPEN_REPORT_STATUSES: ReadonlyArray<ReportStatus> = ['new', 'triaged', 'in_progress'];
 
-/** Tono del chip de estado: lo nuevo pide atención; lo resuelto, ninguna. */
-export const REPORT_STATUS_TONES: Record<ReportStatus, 'neutral' | 'accent' | 'warning' | 'danger'> = {
-  new: 'warning',
-  triaged: 'neutral',
-  in_progress: 'accent',
+/**
+ * Tono del punto de estado (U24, StatusDot): lo nuevo pide atención (ámbar), lo clasificado
+ * es un contorno, lo que está en curso va en acento y lo resuelto o cerrado, apagado.
+ */
+export const REPORT_STATUS_TONES: Record<ReportStatus, 'ok' | 'pending' | 'draft' | 'neutral'> = {
+  new: 'pending',
+  triaged: 'draft',
+  in_progress: 'ok',
   resolved: 'neutral',
   closed: 'neutral'
 };
 
-/** Abiertos (lo que cuenta la barra lateral) y resueltos o cerrados, cada uno en su orden. */
+/** Abiertos (lo que cuenta la barra lateral) y cerrados (resueltos o cerrados), cada uno en su orden. */
 export function reportGroups<T extends { id: string; status: string }>(reports: T[]): InboxGroup<T>[] {
   const open = reports.filter((report) => (OPEN_REPORT_STATUSES as readonly string[]).includes(report.status));
   const closed = reports.filter((report) => !(OPEN_REPORT_STATUSES as readonly string[]).includes(report.status));
   return [
     { id: 'open', label: 'Abiertos', empty: 'No hay reportes abiertos.', items: open },
-    { id: 'closed', label: 'Resueltos y cerrados', empty: 'Ninguno todavía.', items: closed }
+    { id: 'closed', label: 'Cerrados', empty: 'Ninguno todavía.', items: closed }
   ];
 }
 

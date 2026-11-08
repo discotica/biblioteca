@@ -120,18 +120,21 @@ test('E07 muestra una tabla amplia y un editor simplificado', async ({ page }) =
   await expect(page.getByText(snapshot.title, { exact: true })).toBeVisible();
   expect(listPayload).toMatchObject({ p_page: 1, p_page_size: 25, p_order_key: 'release_date', p_order_direction: 'desc' });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.getByPlaceholder('Buscar por título, artista, sello o ID').fill('densidad');
+  await page.getByPlaceholder('Título, artista, sello o ID').fill('densidad');
   await expect.poll(() => lastSearch).toBe('densidad');
 
   await page.getByRole('link', { name: `Editar ${snapshot.title}`, exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/estudio/catalogo\\?lanzamiento=${releaseId}$`));
-  // U16: una sola página con secciones e índice lateral, sin pestañas ni vista previa.
-  await expect(page.getByRole('navigation', { name: 'Secciones del lanzamiento' }).getByRole('link')).toHaveText([/^Datos/, /^Créditos/, /^Clasificación/, /^Medios/, /^Historial/]);
-  for (const name of ['Datos', 'Créditos', 'Clasificación', 'Medios', 'Historial']) await expect(page.getByRole('heading', { level: 2, name, exact: true })).toBeVisible();
+  // U16: una sola página con secciones, sin pestañas ni vista previa. U22 (D1): sin índice; el
+  // historial se abre desde la cabecera y deja de ser una sección.
+  await expect(page.getByRole('navigation', { name: 'Secciones del lanzamiento' })).toHaveCount(0);
+  for (const name of ['Datos', 'Créditos', 'Clasificación', 'Medios']) await expect(page.getByRole('heading', { level: 2, name, exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Historial' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Edición' })).toHaveCount(0);
   await expect(page.getByText(/vista previa/i)).toHaveCount(0);
   await expect(page.getByText('Calidad de créditos')).toHaveCount(0);
-  await expect(page.getByText('Reseña (opcional)')).toBeVisible();
+  // La reseña salió de la interfaz (rediseño del Estudio).
+  await expect(page.getByText(/reseña/i)).toHaveCount(0);
   await expect(page.getByText('Identificador interno')).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
@@ -144,11 +147,12 @@ test('E07 integra la búsqueda de artistas en cada grupo y edita también en mó
   await expect(primaryGroup.getByPlaceholder('Buscar artista…')).toBeVisible();
   await expect(page.getByText('Añadir créditos')).toHaveCount(0);
 
-  // U16: móvil ya no es consulta; el índice pasa a un selector.
+  // U16: móvil ya no es consulta. U22: sin selector de sección; el historial, en la cabecera.
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByText('Vista de consulta. Abre esta ficha en desktop para editar.')).toHaveCount(0);
   await expect(page.getByLabel('Título')).toBeEditable();
-  await expect(page.getByLabel('Ir a la sección')).toBeVisible();
+  await expect(page.getByLabel('Ir a la sección')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Historial/ })).toBeVisible();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
@@ -188,13 +192,13 @@ test('E07 valida en cliente y muestra el rechazo del servidor', async ({ page })
   });
 
   await page.getByPlaceholder('Título del lanzamiento').fill('');
-  await page.getByRole('button', { name: 'Guardar cambios' }).click();
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('El título es obligatorio.');
   expect(updateRequests).toBe(0);
 
   await page.getByPlaceholder('Título del lanzamiento').fill(snapshot.title);
   await page.getByPlaceholder('¿Qué cambió?').fill('Validación de contrato');
-  await page.getByRole('button', { name: 'Guardar cambios' }).click();
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('El servidor rechazó el payload de prueba.');
   expect(updateRequests).toBe(1);
 });
@@ -222,7 +226,7 @@ test('E07 edita un borrador, lo publica y lo archiva sin cambiar UUID ni slug', 
 
   await page.getByPlaceholder('https://bandcamp.com/…').fill('https://bandcamp.com/borrador');
   await page.getByLabel('Tipo').selectOption(typeId);
-  await page.getByLabel('Fecha de lanzamiento').fill('2026-09-17');
+  await page.getByLabel('Fecha', { exact: true }).fill('2026-09-17');
   // U19: el sello es un Combobox de un valor.
   await page.getByRole('combobox', { name: 'Sello' }).fill('Sello de');
   await page.getByRole('option', { name: 'Sello de prueba' }).click();
@@ -233,7 +237,9 @@ test('E07 edita un borrador, lo publica y lo archiva sin cambiar UUID ni slug', 
   await page.getByRole('option', { name: 'Colombia' }).click();
   await page.getByPlaceholder('https://…').fill('https://images.example.test/borrador.jpg');
   await page.getByPlaceholder('¿Qué cambió?').fill('Publicación completa');
-  await page.getByRole('button', { name: 'Publicar' }).click();
+  // U22: Publicar está en «Más acciones», con Archivar.
+  await page.getByRole('button', { name: 'Más acciones' }).click();
+  await page.getByRole('menuitem', { name: 'Publicar lanzamiento' }).click();
   await page.getByRole('dialog', { name: 'Publicar lanzamiento' }).getByRole('button', { name: 'Confirmar publicación' }).click();
   await expect(page.locator('.editor__feedback')).toContainText('Lanzamiento publicado.');
   expect(writes[0]).toMatchObject({ p_release_id: releaseId, p_expected_version: 1, p_operation: 'publish', p_payload: { slug: canonicalSlug, title: 'Borrador de prueba' } });
@@ -260,7 +266,9 @@ test('U19: sello y artista nuevos se crean al guardar, sin diálogos; los géner
   // Sello nuevo: se escribe y queda pendiente, con aviso de parecidos.
   await page.getByRole('combobox', { name: 'Sello' }).fill('Sello confirmado');
   await page.getByRole('option', { name: 'Añadir «Sello confirmado» como sello nuevo' }).click();
-  await expect(page.getByText('«Sello confirmado» es nuevo: se crea al guardar.')).toBeVisible();
+  // U22: la marca «Nuevo» junto al sello, con la regla en el tooltip.
+  await expect(page.locator('.editor__new--label')).toHaveAttribute('title', 'No está en el catálogo: se crea al guardar.');
+  await expect(page.locator('.editor__new--label')).toContainText('«Sello confirmado» se crea al guardar');
   await expect(page.getByText('«Sello confirmado» no está en el catálogo y se creará como nuevo.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Usar «Sello de prueba»' })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -275,10 +283,12 @@ test('U19: sello y artista nuevos se crean al guardar, sin diálogos; los géner
   await principal.getByRole('combobox').fill('Artista nueva');
   await page.getByRole('option', { name: 'Añadir «Artista nueva» como artista nuevo' }).click();
   await expect(principal.locator('.credit')).toHaveCount(2);
-  await expect(principal.locator('.credit').last()).toContainText('Nuevo · se crea al guardar');
+  await expect(principal.locator('.credit').last().locator('.credit__new')).toHaveText('Nuevo');
+  await expect(principal.locator('.credit').last().locator('.credit__new')).toHaveAttribute('title', 'No está en el catálogo: se crea al guardar.');
+  await expect(principal.getByRole('button', { name: 'Seleccionar Artista nueva, nuevo, se crea al guardar' })).toBeVisible();
 
   await page.getByPlaceholder('¿Qué cambió?').fill('Créditos y sello nuevos');
-  await page.getByRole('button', { name: 'Guardar cambios' }).click();
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
   await expect(page.locator('.editor__feedback')).toContainText('Cambios guardados.');
   // Una sola escritura: el servidor crea artista y sello en la misma transacción que guarda.
   expect(calls.map((call) => call.rpc)).toEqual(['admin_update_catalog_release']);
@@ -294,7 +304,7 @@ test('E07 recupera el snapshot ante un conflicto de versión', async ({ page }) 
   }));
 
   await page.getByPlaceholder('¿Qué cambió?').fill('Edición concurrente');
-  await page.getByRole('button', { name: 'Guardar cambios' }).click();
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Otra persona editó este lanzamiento');
   await expect(page.locator('.editor__version')).toHaveText('v4');
 });
@@ -307,9 +317,11 @@ test('E07 presenta auditoría, conserva foco y ejecuta reversión confirmada', a
     await json(route, { release_id: releaseId, catalog_version: 5, change_set_id: '99999999-9999-4999-8999-999999999999' });
   });
 
-  // U16: el historial es la última sección; el índice lleva a ella.
-  await page.getByRole('navigation', { name: 'Secciones del lanzamiento' }).getByRole('link', { name: /Historial/ }).click();
-  await expect(page.getByText('Corrección editorial')).toBeVisible();
+  // U22: el historial se abre en una hoja desde el icono de la cabecera.
+  const historyButton = page.getByRole('button', { name: /^Historial/ });
+  await historyButton.click();
+  const sheet = page.getByRole('dialog', { name: 'Historial' });
+  await expect(sheet.getByText('Corrección editorial')).toBeVisible();
   await expect(page.locator('.history__meta')).toContainText('JM Amanche · versión 3 → 4');
   const trigger = page.getByRole('button', { name: 'Revertir este cambio' });
   await trigger.click();
@@ -321,8 +333,12 @@ test('E07 presenta auditoría, conserva foco y ejecuta reversión confirmada', a
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
 
-  // Lo escrito en la barra se trae como punto de partida.
+  // Lo escrito en la barra se trae como punto de partida. La hoja se cierra para escribir en ella.
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+  await expect(historyButton).toBeFocused();
   await page.getByPlaceholder('¿Qué cambió?').fill('Restaurar estado anterior');
+  await historyButton.click();
   await trigger.click();
   await expect(dialog.getByLabel('Observación de la reversión')).toHaveValue('Restaurar estado anterior');
   await dialog.getByRole('button', { name: 'Revertir cambio', exact: true }).click();

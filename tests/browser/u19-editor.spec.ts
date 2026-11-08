@@ -212,7 +212,7 @@ for (const width of [1440, 390]) {
     await server.attach(page, 'admin');
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
     await page.goto(`/estudio/propuestas?propuesta=${ids.compilado}`);
-    await page.getByRole('article', { name: 'Compilado de la radio' }).getByRole('link', { name: 'Abrir en el editor' }).click();
+    await page.getByRole('article', { name: 'Compilado de la radio' }).getByRole('link', { name: 'Editar' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Compilado de la radio' })).toBeVisible();
 
     // El que existe, con su nombre; los nuevos, marcados: se crean al aceptar (U19-01).
@@ -220,20 +220,28 @@ for (const width of [1440, 390]) {
     await expect(credits(page, 'Artistas principales').locator('.credit__name')).toHaveText(['Artista del catálogo', 'Artista nueva uno', 'Artista nueva dos']);
     await expect(credits(page, 'Artistas principales').nth(0)).not.toContainText('Nuevo');
     await expect(credits(page, 'Artistas principales').nth(1)).toContainText('Artista nueva uno');
-    await expect(credits(page, 'Artistas principales').nth(1)).toContainText('Nuevo · se crea al aceptar');
-    await expect(credits(page, 'Artistas principales').nth(2)).toContainText('Nuevo · se crea al aceptar');
-    await expect(page.getByText('«Sello nuevo» es nuevo: se crea al aceptar.')).toBeVisible();
-    // Lo que no está en la cola del editor del catálogo: el historial pasa a ser la propuesta.
-    await expect(page.getByRole('heading', { level: 2, name: 'Propuesta' })).toBeVisible();
-    await expect(page.getByText('Todavía puede editarla.', { exact: false })).toBeVisible();
-    await expect(page.getByText('Lo escuché en la radio.').first()).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Guardar' })).toBeVisible();
-    for (const name of ['Pedir cambios', 'Rechazar', 'Aceptar como borrador', 'Aceptar y publicar']) await expect(page.getByRole('button', { name })).toBeVisible();
+    // U22: marca «Nuevo» con la regla en el tooltip (el editor de propuestas la hereda de EditorCredits).
+    for (const index of [1, 2]) {
+      await expect(credits(page, 'Artistas principales').nth(index).locator('.credit__new')).toHaveText('Nuevo');
+      await expect(credits(page, 'Artistas principales').nth(index).locator('.credit__new')).toHaveAttribute('title', 'No está en el catálogo: se crea al aceptar.');
+    }
+    await expect(page.locator('.editor__new--label')).toHaveAttribute('title', 'No está en el catálogo: se crea al aceptar.');
+    // U23: sin bloque «Propuesta»; la nota como comentario bajo la cabecera y la marca «Sin tomar»,
+    // con la regla en el tooltip.
+    await expect(page.getByRole('heading', { level: 2, name: 'Propuesta' })).toHaveCount(0);
+    await expect(page.locator('.proposal__taken')).toHaveText(/^Sin tomar/);
+    await expect(page.locator('.proposal__taken')).toHaveAttribute('title', /Abrirla no la toma/);
+    await expect(page.locator('.proposal__note').getByText('Lo escuché en la radio.')).toBeVisible();
+    for (const name of ['Guardar', 'Devolver', 'Aceptar y publicar', 'Más formas de aceptar']) await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
     await noHorizontalOverflow(page);
     await shot(page, `editor-propuesta-admin-${width}`);
 
-    await page.getByRole('textbox', { name: 'Nota para quien propone' }).fill('Gracias, lo completamos en el catálogo.');
-    await page.getByRole('button', { name: 'Aceptar como borrador' }).click();
+    // Aceptar como borrador está en el menú de la acción principal; su diálogo lleva la nota opcional.
+    await page.getByRole('button', { name: 'Más formas de aceptar' }).click();
+    await page.getByRole('menuitem', { name: 'Aceptar como borrador…' }).click();
+    const draftDialog = page.getByRole('dialog', { name: 'Aceptar como borrador' });
+    await draftDialog.getByRole('textbox', { name: /Nota para quien propone/ }).fill('Gracias, lo completamos en el catálogo.');
+    await draftDialog.getByRole('button', { name: 'Aceptar como borrador' }).click();
     const notice = page.getByRole('status').filter({ hasText: 'Compilado de la radio: aceptada como borrador del catálogo.' });
     await expect(notice).toBeVisible();
     await expect(notice.getByRole('link', { name: 'Abrir el lanzamiento en el Catálogo' })).toHaveAttribute('href', `/estudio/catalogo?lanzamiento=${ids.created}`);
@@ -253,18 +261,20 @@ test('admin: corrige, guarda y acepta publicando; el segundo guardado usa la ver
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/estudio/propuestas?editar=${ids.compilado}`);
   await expect(page.getByRole('heading', { level: 1, name: 'Compilado de la radio' })).toBeVisible();
-  await expect(page.locator('.editor__dirty')).toHaveText('Sin cambios. Abrirla no la toma.');
+  await expect(page.locator('.editor__dirty')).toHaveText('Sin cambios');
+  await expect(page.locator('.proposal__taken')).toHaveText(/^Sin tomar/);
 
   await page.getByLabel('Título').fill('Compilado de la radio, vol. 1');
   await page.getByRole('group', { name: 'Artistas principales' }).getByRole('button', { name: 'Quitar Artista nueva dos' }).click();
   await page.getByRole('combobox', { name: 'Sello' }).fill('Sello del');
   await page.getByRole('option', { name: 'Sello del catálogo' }).click();
-  await page.getByRole('button', { name: 'Guardar' }).click();
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
   await expect(page.locator('.editor__feedback')).toHaveText('Corrección guardada. Desde ahora quien la propuso ya no puede editarla.');
-  await expect(page.locator('.proposal__facts')).toContainText('Ya no puede editarla: el equipo la tomó');
+  await expect(page.locator('.proposal__taken')).toHaveText(/^Tomada/);
+  await expect(page.locator('.proposal__taken')).toHaveAttribute('title', /quien la propuso ya no puede editarla/);
 
-  await page.getByLabel('Fecha de lanzamiento').fill('2026-09-19');
-  await page.getByRole('button', { name: 'Aceptar y publicar' }).click();
+  await page.getByLabel('Fecha', { exact: true }).fill('2026-09-19');
+  await page.getByRole('button', { name: 'Aceptar y publicar', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Aceptar y publicar' });
   await expect(dialog).toContainText('Artista del catálogo, Artista nueva uno');
   await expect(dialog).toContainText('Sello del catálogo');
@@ -278,7 +288,8 @@ test('admin: corrige, guarda y acepta publicando; el segundo guardado usa la ver
     p_payload: {
       version: 3, title: 'Compilado de la radio, vol. 1', primary_artists: ['Artista del catálogo', 'Artista nueva uno'], collaborators: [],
       release_type: 'compilado', release_date: '2026-09-18', genres: ['Techno'], countries: ['Colombia'], label: 'Sello del catálogo',
-      team_note: 'Lo escuché en la radio.', review: 'Lo escuché en la radio.', cover_url: 'https://images.example.test/compilado.jpg'
+      // U23 (D7b): la reseña ya no se precarga con la nota; sin reseña guardada, no viaja.
+      team_note: 'Lo escuché en la radio.', cover_url: 'https://images.example.test/compilado.jpg'
     }
   });
   // Cada guardado parte del updated_at que devolvió el anterior, tal cual (texto con microsegundos).
@@ -298,9 +309,10 @@ for (const width of [1440, 390]) {
     // Sin Catálogo en la barra lateral (en móvil, la barra lateral es el selector de sección).
     if (width === 1440) await expect(studioNav(page).getByRole('link')).toHaveText([/^\s*Propuestas/]);
     await expect(page.getByRole('link', { name: /^Catálogo/ })).toHaveCount(0);
-    // Reseña y portada en solo lectura; sin decisiones de admin.
-    await expect(page.getByLabel('URL de portada')).toHaveAttribute('readonly', '');
-    await expect(page.locator('.editor__media').getByText('Solo admin cambia la reseña y la portada.')).toBeVisible();
+    // Portada en solo lectura (la reseña salió de la interfaz en U22); sin decisiones de admin.
+    await expect(page.getByLabel('Portada · URL HTTPS')).toHaveAttribute('readonly', '');
+    await expect(page.locator('.editor__media').getByText('Solo admin cambia la portada.')).toBeVisible();
+    await expect(page.getByText(/reseña/i)).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Aceptar|Rechazar|Pedir cambios/ })).toHaveCount(0);
     await noHorizontalOverflow(page);
     await shot(page, `editor-propuesta-colaborador-${width}`);
@@ -311,8 +323,10 @@ for (const width of [1440, 390]) {
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Guardar corrección' }).click();
     await expect(page.locator('.editor__feedback')).toHaveText('Corrección guardada. Desde ahora quien la propuso ya no puede editarla.');
-    await page.getByRole('textbox', { name: 'Nota interna para admin' }).fill('Créditos revisados en Bandcamp.');
     await page.getByRole('button', { name: 'Marcar lista para admin' }).click();
+    const ready = page.getByRole('dialog', { name: 'Marcar lista para admin' });
+    await ready.getByRole('textbox', { name: /Nota interna para admin/ }).fill('Créditos revisados en Bandcamp.');
+    await ready.getByRole('button', { name: 'Marcar lista', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Compilado de la radio (corregido) quedó lista para administración.' })).toBeVisible();
 
     const correction = server.calls.find((call) => call.rpc === 'save_contribution_correction')!.body;
@@ -363,7 +377,7 @@ test('el autor edita lo enviado hasta que el equipo lo toma: dos sesiones, el si
   // …mientras, en otra sesión, el colaborador guarda una corrección: la toma.
   await collaborator.goto(`/estudio/propuestas?editar=${ids.compilado}`);
   await expect(collaborator.getByRole('heading', { level: 1, name: 'Compilado de la radio (autor)' })).toBeVisible();
-  await collaborator.getByLabel('Fecha de lanzamiento').fill('2026-09-20');
+  await collaborator.getByLabel('Fecha', { exact: true }).fill('2026-09-20');
   await collaborator.getByRole('button', { name: 'Guardar corrección' }).click();
   await expect(collaborator.locator('.editor__feedback')).toHaveText('Corrección guardada. Desde ahora quien la propuso ya no puede editarla.');
 

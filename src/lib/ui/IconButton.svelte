@@ -8,7 +8,7 @@
     /** Nombre accesible y texto de la ayuda emergente. Obligatorio. */
     label: string;
     variant?: 'ghost' | 'secondary' | 'primary' | 'destructive';
-    /** sm 32 · md 44 · lg 52, siempre cuadrado. sm amplía su área táctil a 44. */
+    /** sm 32 · md 44 (36 en la densidad compacta) · lg 52, siempre cuadrado. sm amplía su área táctil a 44. */
     size?: ButtonSize;
     href?: string;
     type?: 'button' | 'submit' | 'reset';

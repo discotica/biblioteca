@@ -168,9 +168,7 @@
         {/if}
       </dl>
 
-      {#if release.review}
-        <blockquote class="release-detail__review">“{release.review}”</blockquote>
-      {/if}
+      <!-- La reseña salió de la interfaz (rediseño del Estudio, D7a): `review` sigue en los datos, pero la ficha no la muestra. -->
 
       {#key release.slug}
         <ReleasePlayer {release} />
@@ -327,18 +325,6 @@
   .release-detail__sep { margin-inline: var(--space-1); color: var(--color-texto-tenue); }
 
   .release-detail__genres { display: flex; flex-wrap: wrap; gap: var(--space-1); align-self: center; }
-
-  .release-detail__review {
-    margin: 0;
-    padding-left: var(--space-3);
-    border-left: 2px solid var(--color-acento-suave);
-    color: var(--color-texto-medio);
-    font-size: var(--text-sm);
-    font-style: italic;
-    line-height: 1.7;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
 
   .release-detail__recommendations:empty { display: none; }
 
