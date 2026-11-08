@@ -37,7 +37,7 @@
         checked={option.value === value}
         onchange={() => onchange?.(option.value)}
       />
-      <span class="ui-seg__label">{option.label}</span>
+      <span class="ui-seg__label">{option.label}{#if option.title && option.title !== option.label}<span class="sr-only">: {option.title}</span>{/if}</span>
     </label>
   {/each}
 </div>

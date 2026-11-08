@@ -199,10 +199,10 @@
     <IconButton icon="flecha-izquierda" label={backLabel} variant="secondary" tooltip="bottom" tooltipAlign="start" onclick={onclose} />
     <span class="editor__thumb" style={transition ? 'view-transition-name: proposal-cover' : undefined}><Cover src={release.cover_url} alt="" radius="sm" loading="eager" /></span>
     <div class="editor__identity">
-      <h1 class="editor__title" style={transition ? 'view-transition-name: proposal-title' : undefined}>{release.title || 'Sin título'}</h1>
+      <h1 class="editor__title" title={release.title || undefined} style={transition ? 'view-transition-name: proposal-title' : undefined}>{release.title || 'Sin título'}</h1>
       <p class="editor__line">
         {#if status}{@render status()}<span class="editor__sep" aria-hidden="true">·</span>{/if}
-        <span class="editor__artists">{artistLine || 'Añade un artista principal'}</span>
+        <span class="editor__artists" title={artistLine || undefined}>{artistLine || 'Añade un artista principal'}</span>
       </p>
     </div>
     <div class="editor__meta">
@@ -494,7 +494,7 @@
   .editor__content { display: flex; flex-direction: column; gap: var(--tool-gap-row); min-width: 0; }
 
   .editor__row { display: grid; gap: var(--tool-gap-row) var(--tool-gap-col); align-items: start; }
-  .editor__row--data { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); }
+  .editor__row--data { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(var(--tool-date-min), 1fr); }
   .editor__row--pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .editor__stack { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
 

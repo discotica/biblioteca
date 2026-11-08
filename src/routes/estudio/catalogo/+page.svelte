@@ -480,6 +480,7 @@
                   {@const lacksData = missing.filter((field) => field !== 'Portada')}
                   {@const reports = item.signals?.open_report_count ?? 0}
                   {@const href = withParams($pageStore.url, { lanzamiento: item.id, nuevo: null })}
+                  {@const artists = item.artist_ids.map((id) => artistNames.get(id) ?? 'Artista sin resolver').join(', ') || 'Sin artista'}
                   <tr class:is-picked={!!picked[item.id]}>
                     {#if !mobile}
                       <td class="col-check">
@@ -493,9 +494,9 @@
                         <strong>{item.title || 'Sin título'}</strong>
                       </a>
                     </td>
-                    <td class="col-artists">{item.artist_ids.map((id) => artistNames.get(id) ?? 'Artista sin resolver').join(', ') || 'Sin artista'}</td>
-                    <td class="col-type">{nameOf(types, item.release_type_id)}</td>
-                    <td class="col-label">{nameOf(labels, item.label_id)}</td>
+                    <td class="col-artists" title={artists}>{artists}</td>
+                    <td class="col-type" title={nameOf(types, item.release_type_id)}>{nameOf(types, item.release_type_id)}</td>
+                    <td class="col-label" title={nameOf(labels, item.label_id)}>{nameOf(labels, item.label_id)}</td>
                     <td class="col-date">{formatDate(item.release_date)}</td>
                     <td class="col-status"><StatusDot tone={statusTones[item.status]} label={statusLabels[item.status]} /></td>
                     <td class="col-signals">
@@ -676,13 +677,14 @@
   .catalogo__table tbody tr.is-picked { background: var(--color-acento-tinte); }
 
   .catalogo__table .col-check { width: calc(var(--target-touch) + var(--space-2)); padding: 0 0 0 var(--space-2); }
-  .catalogo__table .col-release { width: 24%; }
-  .catalogo__table .col-artists { width: 15%; }
-  .catalogo__table .col-type { width: 7%; }
-  .catalogo__table .col-label { width: 11%; }
-  .catalogo__table .col-date { width: 14%; font-variant-numeric: tabular-nums; }
-  .catalogo__table .col-status { width: 10%; }
-  .catalogo__table .col-signals { width: 6rem; padding-inline: 0; }
+  /* U25: fecha y estado tienen ancho propio para no cortarse nunca (sin contar el padding de celda);
+     el título se queda con el resto. */
+  .catalogo__table .col-artists { width: 11%; }
+  .catalogo__table .col-type { width: 4.75%; }
+  .catalogo__table .col-label { width: 8%; }
+  .catalogo__table .col-date { width: 7.75rem; font-variant-numeric: tabular-nums; }
+  .catalogo__table .col-status { width: 5.75rem; }
+  .catalogo__table .col-signals { width: 5.5rem; padding-inline: 0; }
   .catalogo__table .col-action { width: calc(var(--target-touch) + var(--space-2)); padding: 0 var(--space-1); text-align: right; }
 
   .release-cell {
@@ -763,15 +765,18 @@
   .batch__summary:focus { outline: none; }
 
 
+  /* U25: sin ancho para todo, quedan las mismas columnas que en móvil: tipo, sello y fecha ceden su
+     sitio para que título y estado no se corten (el filtro y el editor los conservan). */
+  @media (max-width: 1279px) {
+    .catalogo__table .col-type,
+    .catalogo__table .col-label,
+    .catalogo__table .col-date { display: none; }
+    .catalogo__table .col-artists { width: 18%; }
+  }
+
   /* Tablet: sin barra lateral (ToolLayout), la vista rápida va en el selector. */
   @media (max-width: 1023px) {
     .catalogo__vista { display: block; }
-    /* El tipo cede su sitio para que estado y señales no se corten. */
-    .catalogo__table .col-type { display: none; }
-    .catalogo__table .col-release { width: 28%; }
-    .catalogo__table .col-artists { width: 17%; }
-    .catalogo__table .col-label { width: 12%; }
-    .catalogo__table .col-status { width: 12%; }
   }
 
   /* Móvil: consulta, como el editor de E07. Sin selección ni lote; la vista

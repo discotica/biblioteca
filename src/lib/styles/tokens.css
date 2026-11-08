@@ -229,7 +229,8 @@
   --tool-badge-h: 0.9375rem;   /* 15 · insignia del conteo sobre el icono */
   --tool-row-h: 3.5rem;
   --tool-thumb: 2.5rem;
-  --tool-table-min-w: 48rem;
+  --tool-table-min-w: 44rem;
+  --tool-date-min: 9.75rem;    /* 156 · la fecha completa junto al icono de calendario */
   /* Tablas del Estudio en el rediseño (U21): fila de 48 con portada de 32 (Catálogo) y de 44 (Diccionarios). */
   --tool-table-row-h: 3rem;
   --tool-table-row-h-dense: 2.75rem;

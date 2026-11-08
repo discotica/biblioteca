@@ -502,6 +502,31 @@ Las decidió el usuario en cinco rondas de preguntas, a partir de su lista de co
 - en «Editor del Estudio (U16)»: el alta de géneros desde el Combobox;
 - en «Bandeja del Estudio (U17)»: «las acciones no cambian» del colaborador.
 
+### Rediseño del Estudio (U20–U25, 2026-11-07 y 2026-11-08)
+
+Plan: [`plan-estudio-rediseno-2026-11-07.md`](../producto/plan-estudio-rediseno-2026-11-07.md). QA: [expediente de U25](./u25-estudio-rediseno-2026-11-08.md).
+
+**Decididas sobre el lienzo (2026-11-07):**
+
+- **D1.** Se quita el índice lateral del editor; las etiquetas del margen hacen de índice. Sustituye a «una sola página con secciones e índice lateral» de U16.
+- **D2.** Se puede aceptar o devolver desde el resumen de la bandeja, sin abrir el editor.
+- **D3.** El slug sale de la fila del Catálogo y queda en el tooltip del título. La búsqueda por slug o ID no cambia.
+- **D4.** La barra lateral arranca desplegada y la preferencia se recuerda por navegador.
+- **D5.** El colaborador hereda las mismas pantallas con sus acciones, sin diseño propio.
+- **D6.** Móvil se adapta con las reglas de U18, sin tableros a 390.
+- **D7.** La reseña sale de la interfaz. (a) También se oculta en la ficha pública. (b) La migración `20261107120000` deja de copiar `team_note` a `review`: es el único cambio de servidor del plan.
+
+**Por etapa:**
+
+- **U20.** La densidad compacta llega a los controles solo dentro del Estudio. `StatusDot`, `SplitButton` y `SourceLink` son primitivas nuevas.
+- **U21.** Sellos y Artistas no tienen «Nuevo»: se crean al guardar un lanzamiento. Los conteos de pestaña de Diccionarios son lecturas extra; una RPC propia queda para después si pesan.
+- **U22.** Editor sin tarjetas y Radar con puntos (`RadarPips`, compartido con la búsqueda). El historial se abre en una hoja desde el icono.
+- **U23.** El popover de Devolver y Marcar lista es un `Dialog` pequeño: no hay popover anclado en `$lib/ui`. «Aceptar como borrador…» también abre diálogo, para no perder la nota. «Tomada» no dice por quién porque no hay ese dato.
+- **U24.** Quien reporta no lleva nombre (leer `profiles` era tocar el servicio) y la captura no lleva miniatura (necesita una URL firmada). Si nadie tiene el reporte, Asignado arranca en «A mí», como E18. Guardar en el editor vuelve al reporte con «Resuelto» elegido, pero el reporte no se guarda solo.
+- **U25.**
+  - Por debajo de 1280 el Catálogo muestra las mismas columnas que móvil: título, artistas, estado y señales. Tipo, Sello y Fecha ceden su sitio porque el estado no se puede cortar; la alternativa, hacer scroll en la caja, dejaba el estado fuera de la vista.
+  - Las marcas que no son controles llevan su explicación en `sr-only`, no en `aria-describedby`, que un lector no anuncia en un elemento sin foco.
+
 ### Manual
 
 - Sigue como página, con mejor tipografía.

@@ -57,12 +57,12 @@
   {#if leadingDot && dot}<StatusDot class="l-inbox-item__dot" label={dot.label} tone={dot.tone ?? 'neutral'} hideLabel aria-hidden="true" />{/if}
   {#if cover !== undefined}<Cover class="l-inbox-item__cover" src={cover} alt="" radius="sm" />{/if}
   <span class="l-inbox-item__text">
-    <span class="l-inbox-item__title">{title}</span>
+    <span class="l-inbox-item__title" {title}>{title}</span>
     {#if status || meta.length || flag}
       <span class="l-inbox-item__meta">
         {#if status}<Chip kind="status" label={status.label} tone={status.tone ?? 'neutral'} />{/if}
         {#if flag}<span class="l-inbox-item__part l-inbox-item__flag">{flag}</span>{/if}
-        {#each meta as part}<span class="l-inbox-item__part">{part}</span>{/each}
+        {#each meta as part}<span class="l-inbox-item__part" title={part}>{part}</span>{/each}
       </span>
     {/if}
   </span>

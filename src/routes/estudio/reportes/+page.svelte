@@ -243,13 +243,13 @@
     {#snippet meta()}
       <ul class="reporte__facts" aria-label="Datos del reporte">
         <li title="Página desde la que se reportó">
-          <Icon name="enlace" size="sm" /><a class="reporte__route" href={route(report.page_url)}>{route(report.page_url)}</a>
+          <Icon name="enlace" size="sm" /><span class="sr-only">Página desde la que se reportó: </span><a class="reporte__route" href={route(report.page_url)}>{route(report.page_url)}</a>
         </li>
         <li title={report.screenshot_path ? 'Privada: solo la ve administración.' : undefined}>
-          <Icon name={report.screenshot_path ? 'imagen' : 'imagen-off'} size="sm" />{report.screenshot_path ? 'Captura adjunta' : 'Sin captura'}
+          <Icon name={report.screenshot_path ? 'imagen' : 'imagen-off'} size="sm" />{report.screenshot_path ? 'Captura adjunta' : 'Sin captura'}{#if report.screenshot_path}<span class="sr-only">. Privada: solo la ve administración.</span>{/if}
         </li>
         <li title="Quien reporta">
-          <Icon name="persona" size="sm" />
+          <Icon name="persona" size="sm" /><span class="sr-only">Quien reporta: </span>
           {#if others}
             <a href={withParams(page.url, { autor: report.author_id, reporte: null, lanzamiento: null })}>{others} {others === 1 ? 'reporte más' : 'reportes más'}</a>
           {:else}
@@ -341,9 +341,11 @@
   :global(.reportes__notice) { margin-bottom: var(--density-pad); }
   .reportes__loading { display: grid; place-items: center; min-height: 16rem; }
 
-  /* Estado · tipo · fecha: el punto va con lo que sigue, así al partir la línea no queda suelto. */
-  .reporte__part { white-space: nowrap; }
-  .reporte__part::before { content: '·'; margin-right: var(--space-3); }
+  /* Estado · tipo · fecha: el punto vive en el hueco, a la izquierda de cada parte. Si la parte
+     abre línea, el punto cae fuera de la caja y el recorte lo oculta: nunca queda suelto. */
+  :global(.reporte .l-inbox-detail__eyebrow) { overflow: hidden; }
+  .reporte__part { position: relative; white-space: nowrap; }
+  .reporte__part::before { content: '·'; position: absolute; left: calc(var(--space-3) / -2); transform: translateX(-50%); }
 
   /* Página, captura y quién reporta, en una fila de iconos. */
   .reporte__facts {
@@ -357,7 +359,8 @@
   }
   .reporte__facts li { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; }
   .reporte__facts a { color: var(--color-acento); font-weight: 600; }
-  .reporte__route { min-width: 0; overflow-wrap: anywhere; }
+  /* 27 de alto: el objetivo mínimo de 24 (WCAG 2.5.8) en un enlace que va solo en su fila. */
+  .reporte__route { display: inline-block; min-width: 0; padding-block: var(--space-1); overflow-wrap: anywhere; }
 
   /* El lanzamiento como bloque de acción: portada, datos y «Corregir lanzamiento». */
   .reporte__release {

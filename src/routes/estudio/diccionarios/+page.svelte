@@ -464,7 +464,7 @@
                     </td>
                   {/if}
                   <td class="col-name">
-                    <strong>{item.name}</strong>
+                    <strong title={item.name}>{item.name}</strong>
                     {#if item.aliases.length}<span class="dic__alias" title={`alias: ${item.aliases.join(', ')}`}>alias: {item.aliases.join(', ')}</span>{/if}
                   </td>
                   {#if can.status && item.status}
@@ -656,7 +656,7 @@
   .dic__table .col-count { width: 9rem; text-align: right; font-variant-numeric: tabular-nums; }
   .dic__table .col-url { width: 34%; }
   /* Sin recorte: el área táctil de 44 del disparador sm sale de su caja (::after). */
-  .dic__table .col-action { width: calc(var(--target-touch) + var(--space-2)); padding: 0 var(--space-1); overflow: visible; text-align: right; }
+  .dic__table .col-action { width: calc(var(--target-touch) + var(--space-2)); padding: 0 var(--space-2) 0 var(--space-1); overflow: visible; text-align: right; }
   .col-count.is-empty { color: var(--color-texto-tenue); }
 
   /* El nombre y su alias, en la misma línea; el alias cede con puntos suspensivos. */

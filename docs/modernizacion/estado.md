@@ -1,6 +1,6 @@
 # Estado operativo
 
-Actualizado: 2026-10-25.
+Actualizado: 2026-11-08.
 
 > **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:**
 >
@@ -13,6 +13,13 @@ Actualizado: 2026-10-25.
 > RC2-P0-01 (enlaces de Auth) quedó corregido y verificado en staging con un correo real el 2026-10-15, con las plantillas nuevas ya en el dashboard ([expediente](./e21-rc2-2026-10-15.md#rc2-p0-01--los-enlaces-de-auth-terminan-en-el-enlace-venció)).
 >
 > El paso 11 (E21-rc2) dio **NO-GO** el 2026-10-15 ([expediente](./e21-rc2-2026-10-15.md)). Los pasos 1 a 10 están cerrados: el 8 se aceptó con la hoja tal como está y el 10 se decidió por delegación ([decisiones](./decisiones.md#pasos-8-y-10-del-lanzamiento-2026-10-15)). La QA manual en dispositivos conviene hacerla después de la corrección.
+
+## Rediseño del Estudio, U20–U25 (2026-11-08)
+
+U20 a U25 aceptadas y en la rama `estudio-rediseno` ([expediente de U25](./u25-estudio-rediseno-2026-11-08.md)): sin P0, dos P1 corregidos, suite en verde (`test:browser` ×3: 374/374/374).
+
+- **Línea base:** recapturada sobre U25 (193 capturas, 54 cambian).
+- **Falta antes de producción:** el recorrido en staging con admin y `colaborador_qa` y aplicar la migración `20261107120000` en staging y producción.
 
 ## Paso 12 — E22-A: ensayo del corte sobre una copia de producción (2026-10-25)
 

@@ -65,8 +65,8 @@
       <p class="summary__artists">{artists || 'Sin artistas'}{@render edited(field('primary_artists')?.edited, 'Artistas principales')}</p>
       <p class="summary__line">
         <StatusDot label={CONTRIBUTION_STATUS_LABELS[item.status]} tone={CONTRIBUTION_DOT_TONES[item.status]} />
-        {#if group}<span aria-hidden="true">·</span><span>{group}</span>{/if}
-        {#if sent}<span aria-hidden="true">·</span><span>{sent}</span>{/if}
+        {#if group}<span class="summary__part">{group}</span>{/if}
+        {#if sent}<span class="summary__part">{sent}</span>{/if}
       </p>
     </div>
     <div class="summary__icons">
@@ -170,11 +170,15 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--space-1) var(--space-4);
     margin: var(--space-1) 0 0;
+    overflow: hidden;
     color: var(--color-texto-medio);
     font-size: var(--text-2xs);
   }
+  /* El punto vive en el hueco: si la parte abre línea, cae fuera de la caja y no queda suelto. */
+  .summary__part { position: relative; }
+  .summary__part::before { content: '·'; position: absolute; left: calc(var(--space-4) / -2); transform: translateX(-50%); }
   .summary__line :global(.ui-status) { color: var(--color-texto-medio); }
   .summary__icons { display: flex; flex: none; gap: var(--space-2); align-self: flex-start; }
 

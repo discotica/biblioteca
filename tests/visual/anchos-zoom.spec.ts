@@ -12,7 +12,7 @@ import { prepareContext, waitRendered } from './support/stabilize';
 import { ARTIST_SLUG, LABEL_SLUG, pick, sample, type Role } from './support/data';
 
 const BASE = `http://127.0.0.1:${process.env.VISUAL_PORT}`;
-const OUT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../docs/modernizacion/capturas-e21rc2');
+const OUT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../docs/modernizacion', process.env.ANCHOS_DIR ?? 'capturas-e21rc2');
 const CATALOG_READY = '.resultados__grid, .resultados__vacio, .resultados__error';
 
 const MODES = {
