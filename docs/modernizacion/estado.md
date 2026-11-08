@@ -1,6 +1,6 @@
 # Estado operativo
 
-Actualizado: 2026-10-25.
+Actualizado: 2026-11-08.
 
 > **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:**
 >
@@ -13,6 +13,42 @@ Actualizado: 2026-10-25.
 > RC2-P0-01 (enlaces de Auth) quedó corregido y verificado en staging con un correo real el 2026-10-15, con las plantillas nuevas ya en el dashboard ([expediente](./e21-rc2-2026-10-15.md#rc2-p0-01--los-enlaces-de-auth-terminan-en-el-enlace-venció)).
 >
 > El paso 11 (E21-rc2) dio **NO-GO** el 2026-10-15 ([expediente](./e21-rc2-2026-10-15.md)). Los pasos 1 a 10 están cerrados: el 8 se aceptó con la hoja tal como está y el 10 se decidió por delegación ([decisiones](./decisiones.md#pasos-8-y-10-del-lanzamiento-2026-10-15)). La QA manual en dispositivos conviene hacerla después de la corrección.
+
+## Rediseño del Estudio, U20 a U25: publicado (2026-11-08)
+
+[Plan](../producto/plan-estudio-rediseno-2026-11-07.md). U20 a U24 están en producción desde el 2026-11-08 ([PR 2](https://github.com/discotica/biblioteca/pull/2)). Registros en `../discotica-backups/2026-11-08-u23/`.
+
+**Migraciones.** Producción y staging quedan en 38. Staging estaba pausado cuando se migró producción: U23 se ensayó antes sobre una copia local del dump del día. Staging las recibió después.
+
+| Migración | Qué cambia | Datos |
+| --- | --- | --- |
+| `20261107120000` (U23, D7b) | Al aceptar, la nota de quien propone ya no se copia a `review` | No escribe filas |
+| `20261108120000` | `resolve_catalog_artist` y `resolve_catalog_label` también buscan por `normalized_name` | No escribe filas |
+
+**Correcciones durante la publicación.**
+- **Aceptar abortaba con `Canonical artist conflict could not be resolved`** ([PR 3](https://github.com/discotica/biblioteca/pull/3)). La importación de agosto guardó claves que el normalizador actual no produce (`Azogiař` → `azogiar`): el nombre no se hallaba y el alta chocaba con `artists_normalized_name_key`. Afectaba a 15 artistas y 1 sello. Verificación: `tests/sql/resolve-stored-key-verify.sql`.
+- **Sugerir arrastraba los datos del álbum anterior al pegar otro enlace** y guardar pisaba su borrador ([PR 4](https://github.com/discotica/biblioteca/pull/4)). Un enlace distinto empieza limpio; al retomar un borrador con `?draft=`, cambiarlo es corregirlo.
+- **CI fijado en `ubuntu-24.04`:** Playwright 1.57 no soporta `ubuntu-latest` (26.04).
+
+**QA de U25.**
+
+| Comprobación | Resultado |
+| --- | --- |
+| `npm test` | 199/199 |
+| `lint:tokens` y `build` | OK |
+| `test:browser` ×3 | 374 pasan, 5 omitidas, 0 fallos en cada corrida |
+| `test:anchos` (1024 px y zoom 200) | 40/40 |
+| `tests/visual/u25-estudio.spec.ts` (390 px y zoom 200, 10 estados; nombres accesibles, contraste AA, foco visible; `SplitButton` con teclado) | 21/21 |
+| `visual:compare` | 139 iguales, 54 diferentes: 43 del Estudio, 10 de `/lab` y `modal-review-D` (sale la cita de la reseña, D7a). Aceptadas por el usuario como línea base. Después, 192 iguales; `estudio-propuesta-editor-D` es intermitente (3 a 5 px, 2 de 4 corridas) |
+| Recorrido admin en staging | Catálogo, editor, Sugerir con enlaces reales, Propuestas, Reportes y Diccionarios |
+
+Guardar en el editor conserva la reseña oculta: comprobado en staging contra la base. Capturas en [`capturas-u25/`](./capturas-u25/).
+
+**Sin cubrir.** El recorrido real como colaborador: esa vista está cubierta solo con datos simulados. Aceptar y devolver desde la bandeja no se recorrió en staging por falta de propuestas en cola; aceptar quedó comprobado con el uso real en producción.
+
+**Hallazgos abiertos (P3).**
+- U25-P3-01: la pestaña Propuestas cuenta 1 de más. `EL RITMO CHANCLETA +remixes` (agosto, payload v1, sin `queue_kind`) está `pending` pero no entra en ningún grupo de la bandeja, en staging y en producción.
+- U25-P3-02: hacia 800 px de ancho, la columna Estado del Catálogo corta «Publicado» y el icono de señal monta sobre «Archivado».
 
 ## Paso 12 — E22-A: ensayo del corte sobre una copia de producción (2026-10-25)
 
