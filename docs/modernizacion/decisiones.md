@@ -502,6 +502,26 @@ Las decidió el usuario en cinco rondas de preguntas, a partir de su lista de co
 - en «Editor del Estudio (U16)»: el alta de géneros desde el Combobox;
 - en «Bandeja del Estudio (U17)»: «las acciones no cambian» del colaborador.
 
+### Rediseño del Estudio, U20 a U25 (2026-11-07 y 2026-11-08)
+
+Lienzo aprobado el 2026-11-07; D1 a D7 en el [plan](../producto/plan-estudio-rediseno-2026-11-07.md#5-decisiones-de-u20-0).
+
+**U20 — Densidad y primitivas.** Controles del Estudio a 36 px visibles con área táctil de 44. Barra lateral plegable (220/60 px), desplegada por defecto y recordada por navegador (D4). Primitivas nuevas: `StatusDot`, `SplitButton`, `SourceLink`.
+
+**U21 — Catálogo y Diccionarios.** El slug sale de la fila; la búsqueda por slug o ID sigue igual (D3). Sellos y artistas se crean en el editor.
+
+**U22 — Editor.** Sin tarjetas ni índice lateral: las etiquetas del margen hacen de índice (D1, sustituye a U16). Radar con puntos, el mismo control de la búsqueda. La reseña sale de la interfaz, también de la ficha pública (D7a); `review` sigue en el esquema y guardar la conserva.
+
+**U23 — Propuestas.** Aceptar y devolver desde el resumen, sin abrir el editor (D2). Pedir cambios y Rechazar exigen nota. La nota de quien propone ya no se publica como reseña (D7b, migración `20261107120000`). El colaborador hereda las mismas pantallas (D5).
+
+**U24 — Reportes.** El lanzamiento es el bloque de acción; «Corregir lanzamiento» abre el editor y vuelve al reporte.
+
+**U25 — QA y cierre.** Publicado antes de la QA por decisión del usuario, el 2026-11-08, con el riesgo dicho. Solo se aceptó migrar producción sin pasar por staging porque staging estaba pausado y hubo ensayo sobre una copia del dump del día.
+
+**Resolución por clave guardada (2026-11-08).** Si un nombre coincide con la `normalized_name` de un artista o sello, resuelve a esa fila aunque su nombre actual se normalice distinto: es la clave que impone la unicidad. No se reescriben las claves antiguas.
+
+**Otro enlace, otro lanzamiento (2026-11-08).** En Sugerir, un enlace distinto vacía el formulario y empieza un borrador nuevo. Al retomar un borrador con `?draft=`, cambiar el enlace es corregirlo y conserva los datos.
+
 ### Manual
 
 - Sigue como página, con mejor tipografía.
