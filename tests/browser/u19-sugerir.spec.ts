@@ -58,7 +58,7 @@ function ilike(url: URL, rows: Entry[]) {
   return rows.filter((row) => term.startsWith('%') ? row.name.toLowerCase().includes(value) : row.name.toLowerCase() === value);
 }
 
-async function mock(page: Page, role: Role, options: { duplicate?: Duplicate; submitError?: { message: string; details?: string } } = {}) {
+async function mock(page: Page, role: Role, options: { duplicate?: Duplicate; submitError?: { message: string; details?: string }; detections?: Array<Record<string, unknown>> } = {}) {
   const { user, userId } = await authenticate(page, role);
   const calls = { create: [] as any[], submit: [] as any[], adminDraft: [] as any[], dictionaryQueries: [] as string[] };
   const artists: Entry[] = ['Artista del catálogo', 'Artista invitada', 'Artista detectado', 'Los Pirañas'].map(entry('artist'));
@@ -133,7 +133,7 @@ async function mock(page: Page, role: Role, options: { duplicate?: Duplicate; su
     if (rpc === 'admin_get_catalog_history') return json(route, { release_id: ids.release, items: [] });
     if (rpc === 'admin_list_catalog_releases') return json(route, { items: release ? [release] : [], total: release ? 1 : 0, page: 1, page_size: 25 });
     if (rpc === 'admin_catalog_quick_view_counts') return json(route, { draft: 1, incomplete: 0, missing_cover: 0, open_reports: 0, total: 1, statuses: null });
-    if (path.includes('/functions/v1/inspect-release-source')) return json(route, detected);
+    if (path.includes('/functions/v1/inspect-release-source')) return json(route, options.detections?.shift() ?? detected);
     return json(route, []);
   });
   await page.route('https://images.example.test/**', (route) => route.fulfill({
@@ -302,6 +302,42 @@ test('U19 duplicado: el enlace publicado se avisa en el paso 1, enlaza a la fich
   await page.getByRole('button', { name: 'Atrás' }).click();
   await page.getByLabel('Enlace de la fuente').fill('https://otra.bandcamp.com/album/x');
   await expect(notice).toHaveCount(0);
+});
+
+test('Sugerir: otro enlace empieza un lanzamiento limpio y no pisa el borrador anterior', async ({ page }) => {
+  const otro = { provider: 'bandcamp', source_available: true, title: 'Otro disco', artists: ['Otro artista'], type: 'EP', release_date: '2024-02-03', cover_url: 'https://images.example.test/otro.jpg' };
+  const calls = await mock(page, 'comunidad', { detections: [detected, otro] });
+  await detect(page);
+  await completeData(page);
+  await page.getByRole('button', { name: 'Guardar borrador' }).click();
+  await expect(page.getByText('Borrador guardado.')).toBeVisible();
+  expect(calls.create).toHaveLength(1);
+
+  // Volver al paso 1 sin cambiar el enlace conserva lo escrito.
+  await page.getByRole('button', { name: 'Atrás' }).click();
+  await page.getByRole('button', { name: 'Continuar' }).click();
+  await expect(page.getByLabel('Título')).toHaveValue('Pulso I');
+  await expect(page.getByLabel(/^Tipo/)).toHaveValue('compilado');
+  await expect(page.getByRole('button', { name: 'Quitar Ambient' })).toBeVisible();
+
+  // Otro enlace: lo detectado es del disco nuevo y lo escrito a mano no se arrastra.
+  await page.getByRole('button', { name: 'Atrás' }).click();
+  await page.getByLabel('Enlace de la fuente').fill('https://otra.bandcamp.com/album/otro-disco');
+  await page.getByRole('button', { name: 'Detectar' }).click();
+  await expect(currentStep(page)).toContainText('Revisar datos');
+  await expect(page.getByLabel('Título')).toHaveValue('Otro disco');
+  await expect(page.getByRole('button', { name: 'Quitar Otro artista' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Quitar Artista detectado' })).toHaveCount(0);
+  await expect(page.getByLabel('Fecha')).toHaveValue('2024-02-03');
+  await expect(page.getByLabel(/^Tipo/)).toHaveValue('');
+  await expect(page.getByRole('button', { name: 'Quitar Ambient' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Quitar Colombia' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Quitar Independiente' })).toHaveCount(0);
+
+  // Guardar crea otro borrador: el del disco anterior sigue siendo el suyo.
+  await page.getByRole('button', { name: 'Guardar borrador' }).click();
+  await expect.poll(() => calls.create.length).toBe(2);
+  expect(calls.create[1].p_source_url).toBe('https://otra.bandcamp.com/album/otro-disco');
 });
 
 test('U19 duplicado: una propuesta ajena en la cola se avisa sin exponerla', async ({ page }) => {
