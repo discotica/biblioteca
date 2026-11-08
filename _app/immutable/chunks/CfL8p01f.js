@@ -1,0 +1,1 @@
+import"./Bzak7iHL.js";import"./QuODKKP0.js";import{o as i}from"./6Kx2seHe.js";import{p as e,a as p}from"./DN2YTCyP.js";import{i as m}from"./BuIR8WND.js";import{g as s}from"./BY12_mVh.js";import{l as n}from"./ugtuX2ev.js";function w(c,o){e(o,!1),i(()=>{const{pathname:t,search:a,hash:r}=window.location;s(n(t,a,r)??"/estudio",{replaceState:!0})}),m(),p()}export{w as L};
