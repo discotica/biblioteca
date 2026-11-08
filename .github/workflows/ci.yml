@@ -11,7 +11,8 @@ permissions:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # Fijo: Playwright 1.57 no soporta ubuntu 26.04, al que apunta ubuntu-latest.
+    runs-on: ubuntu-24.04
     # Valores ficticios solo para que el build y el servidor de Playwright no
     # lancen en client.ts. El ref coincide con el de las pruebas, que simulan
     # Supabase con page.route. Las pruebas de navegador asumen catálogo
