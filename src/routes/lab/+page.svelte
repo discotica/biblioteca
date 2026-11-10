@@ -18,6 +18,7 @@
     EmptyState,
     ErrorState,
     Field,
+    FormPanel,
     Icon,
     IconButton,
     LoadingIndicator,
@@ -64,7 +65,10 @@
 
   const variants = ['primary', 'secondary', 'accent', 'ghost', 'destructive', 'link'] as const;
   const variantNames = { primary: 'Primario', secondary: 'Secundario', accent: 'Acento', ghost: 'Ghost', destructive: 'Destructivo', link: 'Enlace' };
-  const sizes = ['sm', 'md', 'lg'] as const;
+  const sizes = ['sm', 'md', 'form', 'lg'] as const;
+  /** U26: iconos de la dirección de arte. menu y flecha-externa ya existían. */
+  const U26_ICONS = ['menu', 'estudio', 'ajustes', 'pin', 'flecha-externa'] as const;
+  const U26_WEIGHTS = [400, 500, 600, 700] as const;
   const iconVariants = ['ghost', 'secondary', 'primary', 'destructive'] as const;
 
   /** U8: la tarjeta y la fila llaman a onabrir en lugar de abrir el modal. */
@@ -219,6 +223,82 @@
   </header>
 
   <!-- ================================================================ -->
+  <div class="lab__u26">
+    <section class="lab__section" id="direccion-arte" aria-labelledby="t-u26">
+      <h2 id="t-u26">Dirección de arte: base (U26)</h2>
+      <p class="lab__note">Work Sans alojada en <code>static/fonts</code>, botones a 600, el tamaño <code>form</code> de 48, los iconos nuevos y <code>FormPanel</code>.</p>
+
+      <h3>Work Sans</h3>
+      <ul class="lab__u26-type">
+        {#each U26_WEIGHTS as weight}
+          <li style:font-weight={weight}><span class="lab__label">{weight}</span>Biblioteca de electrónica sudaca · Ñandú, Pájaros, ¿Qué?</li>
+        {/each}
+      </ul>
+
+      <h3>Button: peso antes y después</h3>
+      <div class="lab__matrix">
+        <div class="lab__row lab__u26-antes">
+          <span class="lab__label">Antes · 700</span>
+          <Button icon="agregar">Sugerir</Button>
+          <Button variant="secondary" icon="estudio">Estudio</Button>
+          <Button variant="accent">Crear cuenta</Button>
+          <Button variant="ghost" icon="ajustes">Ajustes</Button>
+        </div>
+        <div class="lab__row">
+          <span class="lab__label">Después · 600</span>
+          <Button icon="agregar">Sugerir</Button>
+          <Button variant="secondary" icon="estudio">Estudio</Button>
+          <Button variant="accent">Crear cuenta</Button>
+          <Button variant="ghost" icon="ajustes">Ajustes</Button>
+        </div>
+        <div class="lab__row">
+          <span class="lab__label">44 · 48</span>
+          <Button variant="secondary" icon="flecha-izquierda">Atrás</Button>
+          <Button iconEnd="flecha-derecha">Seguir</Button>
+          <Button variant="secondary" size="form" icon="flecha-izquierda">Atrás</Button>
+          <Button size="form" iconEnd="flecha-derecha">Seguir</Button>
+        </div>
+      </div>
+
+      <h3>Iconos nuevos</h3>
+      <ul class="lab__icons">
+        {#each U26_ICONS as name}
+          <li><Icon {name} size="lg" /><span>{name}</span></li>
+        {/each}
+      </ul>
+      <div class="lab__row">
+        <IconButton icon="ajustes" label="Ajustes de la cuenta" variant="secondary" />
+        <IconButton icon="pin" label="Fijada" />
+        <IconButton icon="flecha-externa" label="Abrir en otra pestaña" />
+        <span class="lab__note">Solo icono: siempre con nombre accesible y ayuda emergente.</span>
+      </div>
+
+      <h3>FormPanel</h3>
+      <p class="lab__note">Fondo #121212, borde de 12 %, radio 14 y padding 32 (24 en móvil, 20 por debajo de 480). 22 entre bloques y 36 hasta las acciones. narrow 480 · wide 576.</p>
+      <div class="lab__u26-panels">
+        <FormPanel as="section" aria-label="FormPanel narrow, 480">
+          <p class="lab__u26-title">Entrar</p>
+          <Field label="Correo o usuario" placeholder="tu@correo.com" />
+          <Field label="Clave" type="password" hint="Mínimo 8 caracteres." />
+          {#snippet actions()}
+            <Button variant="link" href="/lab#direccion-arte">Recuperar acceso</Button>
+            <Button size="form">Seguir</Button>
+          {/snippet}
+        </FormPanel>
+        <FormPanel as="section" size="wide" aria-label="FormPanel wide, 576">
+          <p class="lab__u26-title">Tu usuario</p>
+          <Field label="Usuario" placeholder="nombre" hint="No se podrá cambiar después." />
+          <Field label="Nombre visible" placeholder="Como quieres aparecer" />
+          {#snippet actions()}
+            <Button variant="secondary" size="form" icon="flecha-izquierda">Atrás</Button>
+            <Button size="form" iconEnd="flecha-derecha">Seguir</Button>
+          {/snippet}
+        </FormPanel>
+      </div>
+    </section>
+  </div>
+
+  <!-- ================================================================ -->
   <section class="lab__section" id="iconos" aria-labelledby="t-iconos">
     <h2 id="t-iconos">Iconos</h2>
     <p class="lab__note">SVG con <code>currentColor</code>; tamaños sm 16 · md 20 · lg 24.</p>
@@ -239,7 +319,7 @@
   <!-- ================================================================ -->
   <section class="lab__section" id="botones" aria-labelledby="t-botones">
     <h2 id="t-botones">Button</h2>
-    <p class="lab__note">sm 32 (área táctil 44) · md 44, como Comprar · lg 52.</p>
+    <p class="lab__note">sm 32 (área táctil 44) · md 44, como Comprar · form 48, acción de formulario (U26) · lg 52. Peso 600.</p>
     <div class="lab__matrix">
       {#each variants as variant}
         <div class="lab__row">
@@ -1051,6 +1131,14 @@
     letter-spacing: var(--nav-letter-spacing);
   }
   .lab__narrow { max-width: 24rem; }
+
+  /* U26 */
+  .lab__u26-type { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; font-size: var(--text-2xl); line-height: var(--leading-heading); }
+  .lab__u26-type .lab__label { display: inline-block; width: 4rem; }
+  /* Muestra del peso anterior: solo aquí, para comparar. */
+  .lab__u26-antes :global(.ui-btn) { font-weight: 700; }
+  .lab__u26-panels { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-5); }
+  .lab__u26-title { margin: 0; font-size: var(--text-3xl); font-weight: 700; line-height: var(--leading-heading); }
   /* La paginación completa es de desktop; a 390 se desplaza en lugar de ensanchar la página. */
   .lab__scroll { display: flex; flex-direction: column; gap: var(--space-3); overflow-x: auto; padding: var(--space-2); }
   .lab__accent { color: var(--color-acento); }

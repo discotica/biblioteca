@@ -79,6 +79,17 @@
   --color-cat-sello-borde: rgba(251, 191, 36, 0.3);
   --color-cat-lanzamiento-borde: rgba(248, 113, 113, 0.3);
 
+  /* Roles (U26, plan de dirección de arte §2). Solo en huellas y su cenefa:
+     verdes para usuarios y grises para colaboradores salen de la paleta;
+     admin es el único tono propio. Nunca en controles ni superficies grandes. */
+  --color-rol-admin: #682cc6;
+
+  /* Contenedor de formulario (U26, §3): un punto más claro que el fondo y un
+     borde entre --color-linea y --color-linea-fuerte, para apoyarse sobre el
+     campo de puntos sin perderse. */
+  --color-panel-formulario: #121212;
+  --color-linea-formulario: rgba(248, 255, 238, 0.12);
+
   /* ---- Tipografía: 9 pasos -------------------------------------------------
      El paso menor (12px) sube los metadatos de la tarjeta de 10.7px a 12px
      (+12 %); con --color-texto-tenue su contraste pasa de ~2.6:1 a ≥ 4.5:1. */
@@ -124,14 +135,16 @@
   --radius-lg: 20px;
   --radius-pill: 999px;
 
-  /* ---- Controles: 32 · 36 · 40 · 44 · 52 -------------------------------------
+  /* ---- Controles: 32 · 36 · 40 · 44 · 48 · 52 --------------------------------
      Padding horizontal mayor que el vertical. Referencia: Comprar (44px,
      1.5rem a los lados, radio sm). 36 es la altura de la densidad compacta
-     (Estudio, U20); ningún control la usa fuera de [data-density='compact']. */
+     (Estudio, U20); ningún control la usa fuera de [data-density='compact'].
+     48 es la acción de un formulario (U26): Button size="form". */
   --control-h-sm: 32px;
   --control-h-compact: 36px;
   --control-h-md: 40px;
   --control-h-lg: 44px;
+  --control-h-form: 48px;
   --control-h-xl: 52px;
   --control-px-sm: var(--space-3);
   --control-px-md: var(--space-4);
@@ -142,14 +155,20 @@
   --target-touch: var(--control-h-lg);
 
   /* ---- Primitivas (U5) --------------------------------------------------------
-     Botón: sm 32 · md 44 (Comprar) · lg 52. Cualquier control más bajo que
-     --target-touch amplía su área táctil hasta 44 sin cambiar su caja visible. */
+     Botón: sm 32 · md 44 (Comprar) · form 48 · lg 52. Cualquier control más
+     bajo que --target-touch amplía su área táctil hasta 44 sin cambiar su caja
+     visible. Peso 600 en todas las variantes (U26; antes 700).
+     form (U26): la acción de un formulario, con el texto y el padding de md;
+     no sigue la densidad. */
   --button-h-sm: var(--control-h-sm);
   --button-h-md: var(--control-h-lg);
+  --button-h-form: var(--control-h-form);
   --button-h-lg: var(--control-h-xl);
   --button-px-sm: var(--control-px-sm);
   --button-px-md: var(--control-px-lg);
+  --button-px-form: var(--control-px-lg);
   --button-px-lg: var(--control-px-xl);
+  --button-font-weight: 600;
   /* Campo: md 44 · lg 52 (el texto de búsqueda del panel) */
   --field-h-md: var(--control-h-lg);
   --field-h-lg: var(--control-h-xl);
@@ -266,6 +285,26 @@
   --tool-pad-panel-y: 1.25rem;            /* 20 · panel (resumen, detalle, barra de acciones), arriba y abajo */
   --tool-pad-panel-x: var(--space-5);     /* 24 · panel, a los lados */
   --tool-pad-section: 1.75rem;            /* 28 · sección del editor, arriba y abajo */
+  /* Cabecero de la dirección de arte (U26, §3): opaco, 72 en desktop y 60 por
+     debajo de --breakpoint-mobile. Los usa el cabecero nuevo de U28; el de hoy
+     sigue con --header-pad-block. */
+  --header-h: 72px;
+  --header-h-mobile: 60px;
+  /* Contenedor de formulario (U26, §3; FormPanel). Ancho 480 en las vistas
+     cortas (entrar, recuperar, contraseña nueva, enlace vencido, 404) y 576 en
+     onboarding, Editar perfil, Ajustes, Reportar y Sugerir. Padding 32; 24 por
+     debajo de --breakpoint-mobile y 20 por debajo de --breakpoint-compact.
+     Ritmo: 22 entre bloques de campos y 36 entre los campos y las acciones. */
+  --form-panel-w: 30rem;       /* 480 */
+  --form-panel-w-wide: 36rem;  /* 576 */
+  --form-panel-bg: var(--color-panel-formulario);
+  --form-panel-border: var(--color-linea-formulario);
+  --form-panel-radius: var(--radius-base);
+  --form-panel-pad: var(--space-6);           /* 32 */
+  --form-panel-pad-mobile: var(--space-5);    /* 24 */
+  --form-panel-pad-compact: 1.25rem;          /* 20 */
+  --form-gap-block: 1.375rem;                 /* 22 · entre bloques de campos */
+  --form-gap-actions: 2.25rem;                /* 36 · campos → acciones */
   /* Header: avatar del menú de cuenta y logo */
   --avatar-sm: 28px;
   --header-logo-h: 22px;

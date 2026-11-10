@@ -105,6 +105,33 @@ export const ICONS = {
   imagen: { paths: ['M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z', 'M3 16l5-5 4 4 3-3 6 6', circle(15.5, 8.5, 1.5)] },
   persona: { paths: [circle(12, 8, 4), 'M4 21a8 8 0 0 1 16 0'] },
 
+  // ---- Dirección de arte (U26, plan §3) -------------------------------------
+  // `menu` (tres barras) y `flecha-externa` (el `externo` del plan) ya existían.
+  // Estudio en el cabecero (U28): tres faders con su mando a distinta altura.
+  estudio: {
+    paths: [
+      'M6 4v9', 'M6 17v3', circle(6, 15, 2),
+      'M12 4v2', 'M12 10v10', circle(12, 8, 2),
+      'M18 4v7', 'M18 15v5', circle(18, 13, 2)
+    ]
+  },
+  // Ajustes (panel de cuenta y perfil, tableros F y J): engranaje de ocho dientes.
+  ajustes: {
+    paths: [
+      circle(12, 12, 2.5),
+      circle(12, 12, 6),
+      'M12 2.8V6', 'M12 18v3.2', 'M2.8 12H6', 'M18 12h3.2',
+      'M5.5 5.5l2.3 2.3', 'M16.2 16.2l2.3 2.3', 'M5.5 18.5l2.3-2.3', 'M16.2 7.8l2.3-2.3'
+    ]
+  },
+  // Colección fijada (Mis aportes en el perfil, tableros F y K): chincheta.
+  pin: {
+    paths: [
+      'M12 17v5',
+      'M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1Z'
+    ]
+  },
+
   // ---- Redes (perfil, D1) -------------------------------------------------
   bandcamp: { filled: true, paths: ['M2 18 8.5 6H22l-6.5 12H2Z'] },
   soundcloud: {
