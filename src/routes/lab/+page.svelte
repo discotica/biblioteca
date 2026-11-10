@@ -60,8 +60,11 @@
     RELEASE_SAMPLES,
     SOCIAL_SAMPLE,
     SORTABLE_SAMPLES,
+    sampleArtwork,
     sampleCover
   } from './samples';
+  import { page as pagina } from '$app/state';
+  import { CampoPulso, Cenefa, Huella, tonosDe, type Rol } from '$lib/generative';
 
   const variants = ['primary', 'secondary', 'accent', 'ghost', 'destructive', 'link'] as const;
   const variantNames = { primary: 'Primario', secondary: 'Secundario', accent: 'Acento', ghost: 'Ghost', destructive: 'Destructivo', link: 'Enlace' };
@@ -70,6 +73,18 @@
   const U26_ICONS = ['menu', 'estudio', 'ajustes', 'pin', 'flecha-externa'] as const;
   const U26_WEIGHTS = [400, 500, 600, 700] as const;
   const iconVariants = ['ghost', 'secondary', 'primary', 'destructive'] as const;
+
+  /** U27: tres huellas por rol, con nombres del tablero B. */
+  const U27_HUELLAS: { rol: Rol; titulo: string; nombres: string[] }[] = [
+    { rol: 'usuario', titulo: 'Usuario · verdes', nombres: ['comunidad', 'laura_rios', 'pachanga'] },
+    { rol: 'colaborador', titulo: 'Colaborador · grises', nombres: ['colaboradora', 'archivo_sur', 'cinta_lenta'] },
+    { rol: 'admin', titulo: 'Admin · alrededor de --color-rol-admin', nombres: ['jmamanche', 'curaduria', 'mesa_central'] }
+  ];
+  const U27_PORTADA = sampleArtwork();
+  /** Media de coste por cuadro del campo, en ms (avanzar + dibujar). */
+  let campoMs = $state(0);
+  /** `/lab?campo=pantalla`: el campo ocupa el viewport, para medirlo a 1440×900 (§4). */
+  const campoPantalla = pagina.url.searchParams.get('campo') === 'pantalla';
 
   /** U8: la tarjeta y la fila llaman a onabrir en lugar de abrir el modal. */
   let opened = $state('');
@@ -294,6 +309,70 @@
             <Button size="form" iconEnd="flecha-derecha">Seguir</Button>
           {/snippet}
         </FormPanel>
+      </div>
+    </section>
+  </div>
+
+  <!-- ================================================================ -->
+  <div class="lab__u27">
+    <section class="lab__section" id="motor-generativo" aria-labelledby="t-u27">
+      <h2 id="t-u27">Motor generativo (U27)</h2>
+      <p class="lab__note">Huella por nombre y rol, cenefa con portada y sin ella, y el campo de pulso del tablero A2. Todo en <code>$lib/generative</code>.</p>
+
+      <h3>Huellas por rol</h3>
+      <p class="lab__note">El mismo nombre da siempre la misma forma y el mismo tono. Avatar de 96, 40 y 32, cacheado como dataURL.</p>
+      {#each U27_HUELLAS as grupo}
+        <h4 class="lab__u27-rol">{grupo.titulo}</h4>
+        <ul class="lab__u27-huellas">
+          {#each grupo.nombres as nombre}
+            <li>
+              <Cenefa {nombre} rol={grupo.rol} alto={192} paso={6} velo={false} class="lab__u27-muestra" />
+              <div class="lab__row">
+                <Huella {nombre} rol={grupo.rol} tamano={96} />
+                <Huella {nombre} rol={grupo.rol} tamano={40} />
+                <Huella {nombre} rol={grupo.rol} tamano={32} alt="@{nombre}" />
+              </div>
+              <p class="lab__u27-nombre">@{nombre}</p>
+              <p class="lab__u27-tonos">
+                {#each tonosDe(nombre, grupo.rol) as tono}<span class="lab__u27-tono" style:background={tono}></span>{/each}
+              </p>
+            </li>
+          {/each}
+        </ul>
+      {/each}
+
+      <h3>Cenefa con portada</h3>
+      <p class="lab__note">Portada de prueba local, desenfocada al máximo con saturate(1.3) brightness(1.4), troquelada por la máscara de puntos de «Para abrir el set». Velo vertical y zona derecha atenuada desde el 62 %.</p>
+      <Cenefa nombre="Para abrir el set" portada={U27_PORTADA} alto={400} zonaDerecha={0.62} class="lab__u27-cenefa">
+        <div class="lab__u27-ficha">
+          <div>
+            <p class="lab__u27-titulo">Para abrir el set</p>
+            <p class="lab__u27-bajada">Intros lentas, texturas y percusión que crece.</p>
+          </div>
+          <dl class="lab__u27-datos">
+            <div><dt>Curada por</dt><dd>@comunidad</dd></div>
+            <div><dt>Lanzamientos</dt><dd>6</dd></div>
+            <div><dt>Actualizada</dt><dd>nov 2026</dd></div>
+          </dl>
+        </div>
+      </Cenefa>
+
+      <h3>Cenefa sin portada</h3>
+      <p class="lab__note">Perfil y panel: la huella con el color del rol, sobre el fondo, con el velo vertical.</p>
+      <Cenefa nombre="comunidad" alto={380} class="lab__u27-cenefa">
+        <div class="lab__u27-ficha">
+          <p class="lab__u27-titulo">@comunidad</p>
+        </div>
+      </Cenefa>
+
+      <h3>Campo de pulso (A2)</h3>
+      <p class="lab__note">Una sola instancia viva por pantalla, sin eventos propios y dibujada en un worker (OffscreenCanvas): el hilo principal solo le pasa el puntero. Quieto, respira; al mover el cursor encima, late donde estuvo y despierta los nodos. Se pausa fuera de pantalla y con la pestaña oculta. Con <code>?campo=pantalla</code> ocupa el viewport, para medirlo. Coste medio por cuadro en el worker: <output class="lab__u27-ms">{campoMs ? `${campoMs.toFixed(2)} ms` : '—'}</output>.</p>
+      <div class="lab__u27-campo" class:lab__u27-campo--pantalla={campoPantalla} data-ms={campoMs.toFixed(3)}>
+        <CampoPulso bind:ms={campoMs} />
+      </div>
+      <p class="lab__note">Fotograma fijo, el que se ve con movimiento reducido o Save-Data:</p>
+      <div class="lab__u27-campo lab__u27-campo--fijo">
+        <CampoPulso fijo />
       </div>
     </section>
   </div>
@@ -1138,6 +1217,23 @@
   /* Muestra del peso anterior: solo aquí, para comparar. */
   .lab__u26-antes :global(.ui-btn) { font-weight: 700; }
   .lab__u26-panels { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-5); }
+  .lab__u27-rol { margin: var(--space-5) 0 var(--space-3); font-size: var(--text-sm); font-weight: 600; color: var(--color-texto-tenue); }
+  .lab__u27-huellas { display: grid; grid-template-columns: repeat(auto-fill, 12rem); gap: var(--space-5); margin: 0; padding: 0; list-style: none; }
+  .lab__u27-huellas li { display: flex; flex-direction: column; gap: var(--space-3); }
+  .lab__u27-huellas :global(.lab__u27-muestra) { border-radius: var(--radius-base); }
+  .lab__u27-nombre { margin: 0; font-weight: 600; }
+  .lab__u27-tonos { display: flex; gap: var(--space-1); margin: 0; }
+  .lab__u27-tono { width: var(--space-5); height: var(--space-3); border-radius: var(--radius-xs); }
+  .lab__u27 :global(.lab__u27-cenefa) { border-radius: var(--radius-base); }
+  .lab__u27-ficha { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-5); height: 100%; box-sizing: border-box; padding: var(--space-6); }
+  .lab__u27-titulo { margin: 0; font-size: var(--text-display); font-weight: 700; line-height: 1; letter-spacing: -0.035em; }
+  .lab__u27-bajada { margin: var(--space-3) 0 0; }
+  .lab__u27-datos { width: min(100%, 23rem); margin: 0; }
+  .lab__u27-datos div { display: flex; justify-content: space-between; align-items: center; min-height: 44px; border-top: 1px solid var(--color-linea-fuerte); }
+  .lab__u27-datos dd { margin: 0; font-weight: 600; }
+  .lab__u27-campo { position: relative; height: 30rem; border-radius: var(--radius-base); overflow: hidden; }
+  .lab__u27-campo--fijo { height: 15rem; }
+  .lab__u27-campo--pantalla { position: fixed; inset: 0; z-index: var(--layer-overlay); height: auto; border-radius: 0; }
   .lab__u26-title { margin: 0; font-size: var(--text-3xl); font-weight: 700; line-height: var(--leading-heading); }
   /* La paginación completa es de desktop; a 390 se desplaza en lugar de ensanchar la página. */
   .lab__scroll { display: flex; flex-direction: column; gap: var(--space-3); overflow-x: auto; padding: var(--space-2); }

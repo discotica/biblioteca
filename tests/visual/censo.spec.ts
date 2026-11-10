@@ -554,7 +554,7 @@ add('privacidad-D', 'D', '/privacidad', { full: true, maxH: 3600 });
 each(['D', 'M'], '404', '/ruta-que-no-existe');
 
 // Primitivas (U5): catálogo interno /lab, fuera de la navegación. Página completa.
-each(['D', 'M'], 'lab', '/lab', { full: true, maxH: 10000, ready: '.lab', supplementary: true });
+each(['D', 'M'], 'lab', '/lab', { full: true, maxH: 10000, ready: '.lab .ui-cenefa__superficie--lista', supplementary: true }); // U27: la máscara de la cenefa con portada se genera aparte
 // Primitivas compuestas (U6): solo sus secciones, para que no dependan del largo de las de U5.
 each(['D', 'M'], 'lab-u6', '/lab', { selector: '.lab__u6', ready: '.lab__u6', supplementary: true });
 each(['D', 'M'], 'lab-u7', '/lab', { selector: '.lab__u7', ready: '.lab__u7', supplementary: true });

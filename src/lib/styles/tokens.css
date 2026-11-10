@@ -84,6 +84,12 @@
      admin es el único tono propio. Nunca en controles ni superficies grandes. */
   --color-rol-admin: #682cc6;
 
+  /* Cenefa (U27, §4): velos de lectura sobre la huella. Vertical de 0,66 a
+     0,46 y la zona derecha, detrás de la columna de datos, al 72 %. */
+  --color-velo-cenefa-arriba: rgba(14, 14, 14, 0.66);
+  --color-velo-cenefa-abajo: rgba(14, 14, 14, 0.46);
+  --color-velo-cenefa-zona: rgba(14, 14, 14, 0.72);
+
   /* Contenedor de formulario (U26, §3): un punto más claro que el fondo y un
      borde entre --color-linea y --color-linea-fuerte, para apoyarse sobre el
      campo de puntos sin perderse. */

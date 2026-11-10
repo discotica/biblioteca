@@ -19,6 +19,21 @@ export function sampleCover(width: number, height: number, tone: string, label =
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
+/**
+ * Portada de prueba para la cenefa (U27): manchas de color como las de una
+ * portada real, para que el desenfoque tenga algo que mezclar. Local, sin red.
+ */
+export function sampleArtwork(size = 600): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 100 100">
+<rect width="100" height="100" fill="#1d3f9a"/>
+<circle cx="30" cy="34" r="30" fill="#2f6bff"/>
+<circle cx="74" cy="66" r="26" fill="#ff7a3d"/>
+<rect x="52" y="6" width="40" height="22" fill="#f8ffee"/>
+<path d="M0 100 L40 58 L64 100 Z" fill="#96f719"/>
+</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 export const COVER_TONES = ['#96f719', '#7dd3fc', '#c4b5fd', '#fcd34d', '#fca5a5', '#baff4e'];
 
 const credit = (name: string, position: number, slug: string | null = name.toLowerCase().replace(/[^a-z0-9]+/g, '-')): ArtistCredit => ({
