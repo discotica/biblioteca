@@ -366,17 +366,28 @@
   --switch-h: var(--icon-lg);
   --switch-inset: 3px;
 
-  /* ---- Bienvenida del inicio (U11) -------------------------------------------
-     Bloque editorial: ilustración a la izquierda e información a la derecha,
-     como la ficha. Por debajo de --breakpoint-mobile, la información primero y
-     la ilustración como banda al pie del bloque.
-     --welcome-art-ratio: proporción del hueco de la ilustración en dos columnas.
-     --welcome-art-ratio-narrow: la banda en una columna.
-     El arte se recorta (object-fit: cover) para llenar el hueco. */
-  --welcome-art-ratio: 4 / 3;
-  --welcome-art-ratio-narrow: 5 / 2;
-  --welcome-title-measure: 16ch;
-  --welcome-copy-measure: 46ch;
+  /* ---- Franja de entrada del inicio (U29, tablero D) -------------------------
+     Campo de pulso a todo el ancho, bajo el cabecero. Bienvenida y nota beta
+     comparten un solo hueco (FranjaCabeza): título 102/92 en desktop y 48/46
+     en móvil, texto de 20/28 (16/24) y, en la nota beta, los enlaces de
+     contacto. Sin bienvenida ni nota, la franja se reduce a una banda de
+     --franja-h-reducida con el título (28/32) y el buscador encima.
+     --franja-beta-*: la nota beta usa los mismos tokens de acento que el resto
+     del sitio (el «beta» del cabecero es --color-acento); no tiene color propio. */
+  --franja-h: 460px;
+  --franja-h-reducida: 120px;
+  --franja-pad-top: var(--space-8);
+  --franja-titulo-medida: 56.25rem;           /* 900 */
+  --franja-texto-medida: 40rem;               /* 640 */
+  --text-franja: clamp(3.5rem, 7.0833vw, 6.375rem);   /* 56–102px */
+  --text-franja-lh: 0.902;                    /* 92 / 102 */
+  --text-franja-m: 3rem;                      /* 48 · móvil */
+  --text-franja-m-lh: 2.875rem;               /* 46 */
+  --text-franja-reducida: 1.75rem;            /* 28 */
+  --franja-buscador-w: 560px;
+  --franja-buscador-w-reducida: 420px;
+  --franja-buscador-h: 56px;
+  --franja-buscador-h-reducida: var(--control-h-form);
 
   /* ---- Ficha de lanzamiento (U9) ---------------------------------------------
      decisiones.md, "Ficha (2026-10-07, durante U9)". Dos columnas desde

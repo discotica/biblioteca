@@ -23,7 +23,7 @@
   };
 
   export let lanzamientos = [];
-  export let placeholder = 'País, género, artista, sello o álbum…';
+  export let placeholder = 'Buscar por país, género, artista, sello o álbum';
   /** lg: 52 px (desktop) · md: 44 px (barra móvil). */
   export let size = 'lg';
   /** Base de los id del listbox y sus opciones: única por instancia montada. */

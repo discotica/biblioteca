@@ -522,6 +522,17 @@ Lienzo aprobado el 2026-11-07; D1 a D7 en el [plan](../producto/plan-estudio-red
 
 **Otro enlace, otro lanzamiento (2026-11-08).** En Sugerir, un enlace distinto vacía el formulario y empieza un borrador nuevo. Al retomar un borrador con `?draft=`, cambiar el enlace es corregirlo y conserva los datos.
 
+### Franja de entrada reducida (2026-11-10, U29b)
+
+Tablero D, variante «Reducida»: tras el primer scroll, solo en el catálogo y conservando la búsqueda.
+
+- **Cuándo.** Solo en desktop (>768). La primera vez que el scroll baja y pasa de 48 px (`FRANJA_UMBRAL_SCROLL`), la franja con bienvenida o nota beta pasa a la banda de 120: título 28, campo de 420 y chips a la derecha. Subir antes del umbral no cuenta. En móvil no hay banda reducida y el scroll no cambia nada.
+- **Al volver arriba no se reexpande.** Se queda reducida mientras la página siga montada (una visita). El tablero dice «tras el primer scroll», no «mientras se está abajo»; reexpandir ligaría la altura de la franja a la posición del scroll, y esa realimentación (la altura cambia el scroll y el scroll cambia la altura) es la fuente de saltos y bucles. Un solo sentido lo evita. Recargar o volver a la página desde otra ruta monta una visita nueva.
+- **Reducir no es cerrar.** El texto de la bienvenida o la nota sigue montado, oculto (`visibility`, fuera del tabulador y del árbol de accesibilidad), con su sesión (`welcomeSession`) y sus cierres sin tocar. `beta` y `nombre` siguen en la URL, así que recargar la muestra otra vez; el historial no se escribe. Si el foco estaba dentro del texto, pasa al campo de búsqueda.
+- **Solo lectura del scroll.** `franjaReduccion.ts` escucha `scroll` pasivo y lo suelta al reducir; no hay `scrollTo` ni `scrollBy` por la reducción. La transición es un FLIP con WAAPI sobre un estado ya aplicado: la grilla parte donde estaba y llega donde la deja el CSS (altura y margen inferior de la franja de partida absorben lo que el buscador ocupa de más en la banda); el texto se desvanece, el título aparece y el campo se estrecha de 560 a 420. Con `prefers-reduced-motion` no se crea ninguna animación. El lienzo del campo de pulso no se remonta ni se remuestrea: se queda con su alto de partida y la banda lo recorta.
+- **Paginación y orden.** `desplazarAGrilla` reduce la franja al instante (sin animar) y espera a que el DOM esté en su forma final antes de `scrollIntoView`. Así la grilla aterriza igual haya o no scroll previo, con `scroll-padding` (`--header-reserve` + `--search-reserve`) y `scroll-margin` sin cambios. Si no, un scroll suave iniciado con la franja a medio encoger aterrizaría tantos píxeles más abajo como hubiera encogido.
+- **Salto fuera de vista.** Si la franja ya está entera fuera de la vista al decidir (End, restauración del scroll), la reducción es instantánea. El navegador compensa con su anclaje de scroll (Chromium, Firefox); donde no existe (Safari) el contenido sube lo que ocupaba la franja. No se corrige reescribiendo el scroll.
+
 ### Manual
 
 - Sigue como página, con mejor tipografía.

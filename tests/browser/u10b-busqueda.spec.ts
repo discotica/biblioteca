@@ -69,14 +69,14 @@ for (const width of [1440, 1024, 834]) {
       const input = searchInput(page);
       const row = page.locator('.home-search__row');
 
-      // Cerrado: centrado, min(100%, 24rem), sin ×.
+      // Cerrado (U29, con la bienvenida a la vista): a la izquierda de la fila, de 560 × 56, sin ×.
       await expect(filterPanel(page)).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Cerrar búsqueda' })).toHaveCount(0);
       const closed = (await page.locator('.home-search__field').boundingBox())!;
       const rowBox = (await row.boundingBox())!;
-      expect(Math.abs(closed.x + closed.width / 2 - (rowBox.x + rowBox.width / 2))).toBeLessThanOrEqual(1);
-      expect(Math.round(closed.width)).toBe(Math.min(Math.round(rowBox.width), 384));
-      expect(Math.round((await page.locator('.home-search .busqueda-input-row').boundingBox())!.height)).toBe(52);
+      expect(Math.abs(closed.x - rowBox.x)).toBeLessThanOrEqual(1);
+      expect(Math.round(closed.width)).toBe(Math.min(Math.round(rowBox.width), 560));
+      expect(Math.round((await page.locator('.home-search .busqueda-input-row').boundingBox())!.height)).toBe(56);
 
       await input.click();
       await expect(input).toBeFocused();
@@ -124,23 +124,34 @@ for (const width of [1440, 1024, 834]) {
 test.describe('desktop', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test('U10b: las chips van centradas bajo el campo cerrado y al inicio con el panel abierto', async ({ page }) => {
+  test('U10b/U29: las chips van en la fila del campo, a la derecha, y al inicio con el panel abierto', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await ready(page, '/?pais=Colombia&genero=Techno');
     const field = page.locator('.home-search__field');
     const pills = page.locator('.home-search .pills');
-    const center = (box: { x: number; width: number }) => box.x + box.width / 2;
+    const row = page.locator('.home-search__row');
     const chipsBox = async () => {
-      const boxes = await page.locator('.home-search .chip-activo').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect()).map((r) => ({ x: r.left, right: r.right })));
-      return { x: Math.min(...boxes.map((b) => b.x)), width: Math.max(...boxes.map((b) => b.right)) - Math.min(...boxes.map((b) => b.x)) };
+      const boxes = await page.locator('.home-search .chip-activo').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect()).map((r) => ({ x: r.left, right: r.right, cy: r.top + r.height / 2 })));
+      return { x: Math.min(...boxes.map((b) => b.x)), right: Math.max(...boxes.map((b) => b.right)), cy: boxes[0].cy };
     };
 
-    expect(Math.abs(center(await chipsBox()) - center((await field.boundingBox())!))).toBeLessThanOrEqual(1);
+    // Cerrado: misma línea que el campo (centros alineados) y pegadas al borde derecho de la fila.
+    const fieldBox = (await field.boundingBox())!;
+    const rowBox = (await row.boundingBox())!;
+    const closed = await chipsBox();
+    expect(Math.abs(closed.cy - (fieldBox.y + fieldBox.height / 2))).toBeLessThanOrEqual(1);
+    expect(closed.x).toBeGreaterThanOrEqual(fieldBox.x + fieldBox.width);
+    expect(Math.abs(closed.right - (rowBox.x + rowBox.width))).toBeLessThanOrEqual(1);
+
     await searchInput(page).click();
     await panelSettled(page);
+    // Abierto: debajo del campo y al inicio, alineadas con el formulario (en la banda
+    // reducida el campo empieza tras el título; el panel y las chips, en el borde).
     const pillsBox = (await pills.boundingBox())!;
-    expect(Math.abs((await chipsBox()).x - pillsBox.x)).toBeLessThanOrEqual(1);
-    expect(Math.abs(pillsBox.x - (await field.boundingBox())!.x)).toBeLessThanOrEqual(1);
+    const open = await chipsBox();
+    expect(Math.abs(open.x - pillsBox.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(pillsBox.x - (await page.locator('.filtros-caja').boundingBox())!.x)).toBeLessThanOrEqual(1);
+    expect(open.cy).toBeGreaterThan((await field.boundingBox())!.y + (await field.boundingBox())!.height);
   });
 
   test('U10b: escribir abre el panel; la × lo cierra y conserva texto, chips y radar', async ({ page }) => {

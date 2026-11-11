@@ -51,37 +51,23 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 
   test.describe(`${viewport.width}px`, () => {
     test.use({ viewport });
 
-    test('U11: la bienvenida es un bloque del catálogo con el hueco de la ilustración y acciones del sistema', async ({ page }) => {
+    test('U11/U29: la bienvenida es el hueco de texto de la franja, a todo el ancho y alineada con la grilla', async ({ page }) => {
       await page.goto('/');
       const welcome = page.locator('[data-welcome-banner]');
       await expect(welcome).toBeVisible();
-      await expect(welcome.getByRole('heading', { level: 1, name: 'Explora la biblioteca de Discótica' })).toBeVisible();
-
-      // Hueco de la ilustración: sin arte, el logo atenuado y oculto al lector.
-      const art = welcome.locator('[data-welcome-illustration]');
-      await expect(art).toBeVisible();
-      await expect(art.locator('.cover-fallback')).toHaveAttribute('aria-hidden', 'true');
-      // La proporción es el alto mínimo (el hueco se estira si el texto es más
-      // alto), así que depende de la fuente: Work Sans no se carga y en Linux
-      // (CI) cae a la sans genérica, que da un texto más alto. Se comprueba la
-      // proporción declarada y que el hueco nunca sea más ancho que ella.
-      const ratio = viewport.width > 768 ? 4 / 3 : 5 / 2;
-      await expect(art).toHaveCSS('aspect-ratio', viewport.width > 768 ? '4 / 3' : '5 / 2');
-      const artBox = await art.boundingBox();
-      expect(artBox!.width / artBox!.height).toBeLessThanOrEqual(ratio + 0.05);
-
-      // Botones del sistema (U5) y el bloque alineado con la grilla.
-      await expect(welcome.getByRole('button', { name: 'Explorar' })).toHaveClass(/ui-btn--primary/);
+      await expect(welcome.getByRole('heading', { level: 1, name: 'Explora la biblioteca' })).toBeVisible();
+      // Sin ilustración ni botón de acción: el campo de pulso es el arte (U29).
+      await expect(welcome.locator('[data-welcome-illustration]')).toHaveCount(0);
+      await expect(welcome.getByRole('button', { name: 'Explorar' })).toHaveCount(0);
       await expect(welcome.getByRole('button', { name: 'Cerrar bienvenida' })).toHaveClass(/ui-btn--square/);
-      const block = await welcome.locator('.welcome__block').boundingBox();
-      const grid = await page.locator('.resultados__grid').boundingBox();
-      expect(Math.round(block!.x)).toBe(Math.round(grid!.x));
-      expect(Math.round(block!.width)).toBe(Math.round(grid!.width));
 
-      // Desktop: ilustración a la izquierda, como la portada de la ficha. Móvil: debajo del texto.
-      const copy = await welcome.locator('.welcome__copy').boundingBox();
-      if (viewport.width > 768) expect(artBox!.x).toBeLessThan(copy!.x);
-      else expect(artBox!.y).toBeGreaterThan(copy!.y);
+      // La franja llega de borde a borde y el texto empieza donde la grilla.
+      const franja = await page.locator('.franja').boundingBox();
+      expect(Math.round(franja!.x)).toBe(0);
+      expect(Math.round(franja!.width)).toBe(viewport.width);
+      const title = await welcome.getByRole('heading', { level: 1 }).boundingBox();
+      const grid = await page.locator('.resultados__grid').boundingBox();
+      expect(Math.round(title!.x)).toBe(Math.round(grid!.x));
 
       await noHorizontalScroll(page);
     });
