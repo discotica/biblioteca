@@ -313,36 +313,45 @@ test('E04: la hoja móvil cierra por Escape y devuelve el foco a su disparador',
 test('E04: el menú móvil inicia foco y Escape devuelve el foco al botón', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  const trigger = page.getByRole('button', { name: 'Abrir menú' });
+  const trigger = page.getByRole('button', { name: 'Menú' });
   await trigger.click();
 
-  const menu = page.getByRole('navigation', { name: 'Menú' });
+  // U28: el panel (role="menu") a pantalla; la visita empieza en Entrar.
+  const menu = page.getByRole('menu', { name: 'Menú' });
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole('link', { name: 'Manual' })).toBeFocused();
+  await expect(menu.getByRole('menuitem', { name: 'Entrar' })).toBeFocused();
   await page.keyboard.press('Escape');
 
   await expect(menu).toHaveCount(0);
   await expect(trigger).toBeFocused();
 });
 
-test('E04: el menú contiene Tab y se cierra al pulsar fuera sin perder su disparador', async ({ page }) => {
+test('E04: el menú contiene el foco y se cierra al pulsar fuera sin perder su disparador', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  const trigger = page.getByRole('button', { name: 'Abrir menú' });
+  const trigger = page.getByRole('button', { name: 'Menú' });
   await trigger.click();
 
-  const menu = page.getByRole('navigation', { name: 'Menú' });
-  const first = menu.getByRole('link', { name: 'Manual' });
-  const last = menu.getByRole('link', { name: 'Instagram' });
-  // El menú enfoca su primer enlace en un requestAnimationFrame. Sin esperarlo,
-  // en una CI lenta ese foco llegaba después de Shift+Tab y lo deshacía.
+  // U28: el panel es un role="menu" como el Menu del sistema: las flechas
+  // recorren en círculo sin salir y Tab lo cierra devolviendo el foco al botón.
+  const menu = page.getByRole('menu', { name: 'Menú' });
+  const first = menu.getByRole('menuitem', { name: 'Entrar' });
+  const last = menu.getByRole('menuitem', { name: 'Reportar un problema' });
+  // El menú enfoca su primer elemento en un requestAnimationFrame. Sin esperarlo,
+  // en una CI lenta ese foco llegaba después de la tecla y lo deshacía.
   await expect(first).toBeFocused();
-  await first.press('Shift+Tab');
+  await first.press('ArrowUp');
   await expect(last).toBeFocused();
-  await last.press('Tab');
+  await last.press('ArrowDown');
   await expect(first).toBeFocused();
+  await first.press('Tab');
+  await expect(menu).toHaveCount(0);
+  await expect(trigger).toBeFocused();
 
-  await page.locator('main').click({ position: { x: 10, y: 10 } });
+  await trigger.click();
+  await expect(first).toBeFocused();
+  // A pantalla, lo único fuera del panel es el cabecero: un toque en su hueco libre.
+  await page.locator('header.site-header').click({ position: { x: 150, y: 30 } });
   await expect(menu).toHaveCount(0);
   await expect(trigger).toBeFocused();
 });
@@ -428,26 +437,26 @@ test('E14: jerarquiza acciones y secundarios sin perder el retorno de Sugerir', 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
 
+  // U28: Sugerir manda; Entrar y Crear cuenta pasan al panel, y las redes al pie.
   const header = page.locator('header.site-header');
   await expect(header.getByRole('link', { name: 'Sugerir' })).toHaveAttribute('href', /\/auth\/login\?redirect=%2Fsugerir$/);
-  await expect(header.getByRole('link', { name: 'Entrar' })).toBeVisible();
+  await expect(header.getByRole('link', { name: 'Entrar' })).toHaveCount(0);
   await expect(header.getByRole('link', { name: 'Instagram' })).toHaveCount(0);
 
   const menuButton = header.getByRole('button', { name: 'Menú' });
-  await expect(menuButton).toHaveCSS('min-height', '44px');
+  await expect(menuButton).toHaveCSS('height', '40px');
   await menuButton.press('Enter');
-  const menu = page.getByRole('navigation', { name: 'Menú' });
-  await expect(menu.getByRole('link', { name: 'Manual' })).toBeFocused();
-  await expect(menu.getByRole('link', { name: 'Blog' })).toBeVisible();
-  await expect(menu.getByRole('link', { name: 'Substack' })).toBeVisible();
-  await expect(menu.getByRole('link', { name: 'Instagram' })).toBeVisible();
+  const menu = page.getByRole('menu', { name: 'Menú' });
+  await expect(menu.getByRole('menuitem', { name: 'Entrar' })).toBeFocused();
+  await expect(menu.getByRole('menuitem', { name: 'Crear cuenta' })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Manual' })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Reportar un problema' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(menuButton).toBeFocused();
 
   await page.setViewportSize({ width: 360, height: 844 });
   await expect(header.getByRole('link', { name: 'Sugerir' })).toBeVisible();
-  await expect(header.getByRole('link', { name: 'Entrar' })).toBeVisible();
-  await expect(header.getByRole('button', { name: 'Abrir menú' })).toHaveCSS('width', '44px');
+  await expect(header.getByRole('button', { name: 'Menú' })).toHaveCSS('width', '40px');
 });
 
 test('E14: en móvil se oculta al bajar, vuelve solo al inicio y se congela para menú/campo', async ({ page }) => {
@@ -479,7 +488,7 @@ test('E14: en móvil se oculta al bajar, vuelve solo al inicio y se congela para
   await scrollTo(0);
   await expect(header).toHaveAttribute('data-header-visible', 'true');
 
-  await header.getByRole('button', { name: 'Abrir menú' }).click();
+  await header.getByRole('button', { name: 'Menú' }).click();
   await scrollTo(180);
   await expect(header).toHaveAttribute('data-header-visible', 'true');
   await page.keyboard.press('Escape');
@@ -493,9 +502,9 @@ test('E14: en móvil se oculta al bajar, vuelve solo al inicio y se congela para
   await expect(header).toHaveAttribute('data-header-visible', 'false');
 });
 
-// U7 reemplaza el grupo de enlaces de E14 por el avatar con menú de cuenta
-// (Perfil, Mis colecciones, Mis aportes, Salir). El orden y el móvil se conservan.
-test('E14/U7: con sesión, el avatar abre el menú de cuenta y el móvil lo muestra dentro del menú', async ({ page }) => {
+// U7 reemplazó el grupo de enlaces de E14 por el avatar con menú de cuenta; U28
+// lo convierte en el panel único (tablero J): el mismo en desktop y, a pantalla, en móvil.
+test('E14/U7/U28: con sesión, el avatar abre el panel de cuenta en desktop y en móvil', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await authenticateHeaderFixture(page);
   await page.goto('/');
@@ -509,23 +518,24 @@ test('E14/U7: con sesión, el avatar abre el menú de cuenta y el móvil lo mues
   await account.press('Enter');
   const accountMenu = page.getByRole('menu', { name: 'Cuenta @persona' });
   const items = accountMenu.getByRole('menuitem');
-  await expect(items.first()).toHaveText('Perfil');
+  await expect(items.first()).toHaveText('Perfil y colecciones');
   await expect(items.first()).toBeFocused();
   await expect(items.first()).toHaveAttribute('href', '/perfil/persona');
-  await expect(accountMenu.getByRole('menuitem', { name: 'Mis colecciones' })).toHaveAttribute('href', '/mis-colecciones');
-  await expect(items.last()).toHaveText('Salir');
-  const aportes = accountMenu.getByRole('menuitem', { name: 'Mis aportes' });
-  if (await aportes.count()) await expect(aportes).toHaveAttribute('href', '/mis-aportes');
+  // El perfil sustituye a Mis colecciones; Mis aportes vive en el perfil.
+  await expect(accountMenu.locator('a[href="/mis-colecciones"]')).toHaveCount(0);
+  await expect(accountMenu.locator('a[href="/mis-aportes"]')).toHaveCount(0);
+  await expect(accountMenu.getByRole('menuitem', { name: 'Salir' })).toBeVisible();
+  await expect(items.last()).toHaveText('Reportar un problema');
   await page.keyboard.press('Escape');
   await expect(accountMenu).toHaveCount(0);
   await expect(account).toBeFocused();
 
   await page.setViewportSize({ width: 360, height: 844 });
-  await header.getByRole('button', { name: 'Abrir menú' }).click();
-  const menu = page.getByRole('navigation', { name: 'Menú' });
-  await expect(menu.getByRole('link', { name: 'Perfil' })).toBeFocused();
-  await expect(menu.getByRole('link', { name: 'Mis colecciones' })).toBeVisible();
-  await expect(menu.getByRole('button', { name: 'Salir' })).toBeVisible();
+  await expect(header.getByRole('button', { name: 'Menú' })).toHaveCount(0);
+  await account.click();
+  await expect(accountMenu.getByRole('menuitem', { name: 'Perfil y colecciones' })).toBeFocused();
+  await expect(accountMenu.getByRole('menuitem', { name: 'Salir' })).toBeVisible();
+  expect((await accountMenu.boundingBox())?.width).toBe(360);
 });
 
 test('E14: el header móvil queda por debajo de overlays y no recupera foco', async ({ page }) => {

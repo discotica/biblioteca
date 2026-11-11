@@ -54,110 +54,158 @@ async function noHorizontalOverflow(page: Page) {
   expect(scroll).toBeLessThanOrEqual(width);
 }
 
-test.describe('U7 header', () => {
+// U28 (tablero J) sustituye el header de U7: barra opaca de 72/60, Sugerir
+// verde con +, hamburguesa sin texto para la visita y un panel de cuenta único.
+test.describe('U7/U28 header', () => {
   for (const width of [360, 390, 1440]) {
-    test(`anónimo a ${width}: mayúsculas, botones más anchos que altos, Entrar lleno y Sugerir con borde del mismo tamaño`, async ({ page }) => {
+    test(`anónimo a ${width}: barra opaca, Sugerir verde con + y la hamburguesa «Menú» sin texto`, async ({ page }) => {
       await page.setViewportSize({ width, height: 844 });
       await mockSupabase(page, 'anonimo');
       await page.goto('/manual');
       const header = page.locator('header.site-header');
-      const sugerir = header.getByRole('link', { name: 'Sugerir' }).locator('visible=true');
-      const entrar = header.getByRole('link', { name: 'Entrar' }).locator('visible=true');
+      await expect(header).toHaveCSS('height', width < 769 ? '60px' : '72px');
+      await expect(header).toHaveCSS('background-color', 'rgb(14, 14, 14)');
+      await expect(header.getByText('beta', { exact: true })).toBeVisible();
+
+      const sugerir = header.getByRole('link', { name: 'Sugerir' });
       await expect(sugerir).toHaveCount(1);
-      await expect(entrar).toHaveCount(1);
+      await expect(sugerir).toHaveAttribute('href', '/auth/login?redirect=%2Fsugerir');
+      await expect(sugerir).toHaveCSS('background-color', 'rgb(150, 247, 25)');
+      await expect(sugerir).toHaveCSS('height', '40px');
+      await expect(sugerir.locator('svg')).toHaveCount(1);
+      // Entrar y Crear cuenta viven en el panel.
+      await expect(header.getByRole('link', { name: 'Entrar' })).toHaveCount(0);
 
-      const [s, e] = [await sugerir.boundingBox(), await entrar.boundingBox()];
-      if (!s || !e) throw new Error('Sin caja');
-      expect(s.height).toBe(e.height);
-      expect(s.width).toBeGreaterThan(s.height);
-      expect(e.width).toBeGreaterThan(e.height);
-      for (const link of [sugerir, entrar]) await expect(link).toHaveCSS('text-transform', 'uppercase');
-      // Entrar es el lleno; Sugerir lleva borde y fondo transparente.
-      await expect(entrar).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-      await expect(sugerir).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-      await expect(sugerir).toHaveCSS('border-top-width', '1px');
-
-      if (width < 769) {
-        const menu = header.getByRole('button', { name: 'Abrir menú' });
-        await expect(menu).toHaveCSS('width', '44px');
-        await expect(menu.locator('svg path')).toHaveCount(3);
-        const m = await menu.boundingBox();
-        expect(m!.x + m!.width).toBeLessThanOrEqual(width);
-      } else {
-        const menu = header.getByRole('button', { name: 'Menú' });
-        await expect(menu).toHaveCSS('text-transform', 'uppercase');
-        await expect(menu.locator('svg')).toHaveCount(1);
-      }
+      const menu = header.getByRole('button', { name: 'Menú' });
+      await expect(menu).toHaveCount(1);
+      await expect(menu).toHaveText('');
+      await expect(menu).toHaveCSS('width', '40px');
+      await expect(menu.locator('svg path')).toHaveCount(3);
+      const m = await menu.boundingBox();
+      expect(m!.x + m!.width).toBeLessThanOrEqual(width);
       await noHorizontalOverflow(page);
     });
   }
 
-  test('menú de cuenta con teclado: APG completo, Salir con icono y cierre de sesión', async ({ page }) => {
+  test('panel de cuenta con teclado: APG completo, grupos, Salir con icono y cierre de sesión', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await mockSupabase(page, 'comunidad');
     await page.goto('/manual');
     const trigger = page.getByRole('button', { name: 'Cuenta @comunidad' });
     await expect(trigger).toHaveAttribute('aria-haspopup', 'menu');
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    // Avatar de huella con chevron.
+    await expect(trigger.locator('img.header-avatar')).toHaveCount(1);
 
     await trigger.focus();
     await page.keyboard.press('Enter');
     const menu = page.getByRole('menu', { name: 'Cuenta @comunidad' });
     await expect(trigger).toHaveAttribute('aria-expanded', 'true');
-    await expect(menu.getByRole('group', { name: '@comunidad' })).toBeVisible();
+    await expect(menu).toHaveCSS('width', '320px');
+    await expect(menu.getByText('@comunidad', { exact: true })).toHaveCSS('font-size', '24px');
+    await expect(menu.getByRole('group', { name: 'Tu cuenta' })).toBeVisible();
+    await expect(menu.getByRole('group', { name: 'El sitio' })).toBeVisible();
     const item = (name: string) => menu.getByRole('menuitem', { name });
-    await expect(item('Perfil')).toBeFocused();
+    await expect(menu.getByRole('menuitem')).toHaveText(['Perfil y colecciones', 'Editar perfil', 'Ajustes', 'Salir', 'Manual', 'Reportar un problema']);
+    await expect(item('Perfil y colecciones')).toHaveAttribute('href', '/perfil/comunidad');
+    await expect(item('Editar perfil')).toHaveAttribute('href', '/cuenta');
+    await expect(item('Ajustes')).toHaveAttribute('href', '/cuenta');
+    await expect(item('Perfil y colecciones')).toHaveCSS('height', '44px');
+    await expect(item('Perfil y colecciones')).toHaveCSS('font-weight', '500');
+    await expect(menu.locator('a[href="/mis-colecciones"]')).toHaveCount(0);
+
+    await expect(item('Perfil y colecciones')).toBeFocused();
     await page.keyboard.press('ArrowDown');
-    await expect(item('Mis colecciones')).toBeFocused();
+    await expect(item('Editar perfil')).toBeFocused();
     await page.keyboard.press('End');
-    await expect(item('Salir')).toBeFocused();
+    await expect(item('Reportar un problema')).toBeFocused();
     await expect(item('Salir').locator('svg')).toHaveCount(1);
     await page.keyboard.press('ArrowDown');
-    await expect(item('Perfil')).toBeFocused();
+    await expect(item('Perfil y colecciones')).toBeFocused();
     await page.keyboard.press('ArrowUp');
-    await expect(item('Salir')).toBeFocused();
+    await expect(item('Reportar un problema')).toBeFocused();
     await page.keyboard.press('Home');
-    await expect(item('Perfil')).toBeFocused();
+    await expect(item('Perfil y colecciones')).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
     await expect(trigger).toBeFocused();
 
     // ↑ abre en el último; Tab cierra y devuelve el foco al disparador.
     await page.keyboard.press('ArrowUp');
-    await expect(item('Salir')).toBeFocused();
+    await expect(item('Reportar un problema')).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(menu).toHaveCount(0);
     await expect(trigger).toBeFocused();
 
-    // Con el menú abierto el header no se oculta al hacer scroll (congelación E14).
+    // Con el panel abierto el header no se oculta al hacer scroll (congelación E14).
     await page.keyboard.press('Enter');
-    await expect(item('Perfil')).toBeFocused();
+    await expect(item('Perfil y colecciones')).toBeFocused();
     await page.evaluate(() => window.scrollTo(0, 600));
     await expect(page.locator('header.site-header')).toHaveAttribute('data-header-visible', 'true');
     await page.evaluate(() => window.scrollTo(0, 0));
 
-    await page.keyboard.press('End');
+    // Primera letra: «S» va a Salir.
+    await page.keyboard.press('s');
+    await expect(item('Salir')).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.locator('header.site-header').getByRole('link', { name: 'Entrar' }).locator('visible=true')).toHaveCount(1);
+    await expect(page.locator('header.site-header').getByRole('button', { name: 'Menú' })).toHaveCount(1);
   });
 
-  test('móvil con sesión: sin Entrar, la cuenta vive dentro del menú con Salir e icono', async ({ page }) => {
+  test('visitante: el panel lleva Entrar, Crear cuenta y «El sitio»', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockSupabase(page, 'anonimo');
+    await page.goto('/manual');
+    await page.locator('header.site-header').getByRole('button', { name: 'Menú' }).click();
+    const menu = page.getByRole('menu', { name: 'Menú' });
+    await expect(menu.getByRole('menuitem')).toHaveText(['Entrar', 'Crear cuenta', 'Manual', 'Reportar un problema']);
+    await expect(menu.getByRole('menuitem', { name: 'Entrar' })).toBeFocused();
+    await expect(menu.getByRole('menuitem', { name: 'Entrar' })).toHaveAttribute('href', '/auth/login');
+    await expect(menu.getByRole('menuitem', { name: 'Entrar' })).toHaveCSS('background-color', 'rgb(150, 247, 25)');
+    await expect(menu.getByRole('menuitem', { name: 'Crear cuenta' })).toHaveAttribute('href', '/auth/registro');
+    await expect(menu.getByRole('group', { name: 'El sitio' })).toBeVisible();
+  });
+
+  test('móvil con sesión: avatar en la barra y el panel a pantalla bajo ella', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockSupabase(page, 'comunidad');
     await page.goto('/manual');
     const header = page.locator('header.site-header');
-    await expect(header.getByRole('link', { name: 'Entrar' }).locator('visible=true')).toHaveCount(0);
-    await expect(header.getByRole('button', { name: /^Cuenta/ }).locator('visible=true')).toHaveCount(0);
-    await header.getByRole('button', { name: 'Abrir menú' }).click();
-    const nav = page.getByRole('navigation', { name: 'Menú' });
-    const account = nav.getByRole('group', { name: 'Cuenta' });
-    await expect(account.getByText('@comunidad')).toBeVisible();
-    await expect(account.getByRole('link', { name: 'Perfil' })).toBeFocused();
-    await expect(account.getByRole('link', { name: 'Mis colecciones' })).toHaveAttribute('href', '/mis-colecciones');
-    await expect(account.getByRole('button', { name: 'Salir' }).locator('svg')).toHaveCount(1);
-    await expect(header.getByRole('button', { name: 'Cerrar menú' })).toBeVisible();
+    await expect(header.getByRole('link', { name: 'Entrar' })).toHaveCount(0);
+    await expect(header.getByRole('link', { name: 'Sugerir' })).toBeVisible();
+    const trigger = header.getByRole('button', { name: 'Cuenta @comunidad' });
+    await trigger.click();
+    const menu = page.getByRole('menu', { name: 'Cuenta @comunidad' });
+    const box = await menu.boundingBox();
+    expect(box).toMatchObject({ x: 0, y: 60, width: 390, height: 844 - 60 });
+    await expect(menu.getByText('@comunidad', { exact: true })).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: 'Perfil y colecciones' })).toBeFocused();
+    await expect(menu.getByRole('menuitem', { name: 'Salir' }).locator('svg')).toHaveCount(1);
+    await expect(page.locator('a[href="/mis-colecciones"]').locator('visible=true')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+    await expect(trigger).toBeFocused();
     await noHorizontalOverflow(page);
+  });
+
+  test('excepciones: en Entrar, Sugerir en contorno; en Crear cuenta, barra mínima con Entrar en contorno', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockSupabase(page, 'anonimo');
+    const header = page.locator('header.site-header');
+    await page.goto('/auth/login');
+    await expect(header).toHaveAttribute('data-header-mode', 'acceso');
+    await expect(header.getByRole('link', { name: 'Sugerir' })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(header.getByRole('link', { name: 'Sugerir' })).toHaveCSS('border-top-width', '1px');
+    await expect(header.getByRole('button', { name: 'Menú' })).toHaveCount(1);
+
+    await page.goto('/auth/registro');
+    await expect(header).toHaveAttribute('data-header-mode', 'minimo');
+    await expect(header.getByRole('link', { name: 'Sugerir' })).toHaveCount(0);
+    await expect(header.getByRole('button', { name: 'Menú' })).toHaveCount(0);
+    const entrar = header.getByRole('link', { name: 'Entrar' });
+    await expect(entrar).toHaveAttribute('href', '/auth/login');
+    await expect(entrar).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(entrar).toHaveCSS('border-top-width', '1px');
   });
 });
 
@@ -181,13 +229,12 @@ test.describe('U7 roles: header y acceso al Estudio desde el header y el perfil 
         const header = page.locator('header.site-header');
         // El header lleva «Estudio» solo a quien ve alguna sección (sustituye a I3
         // "solo desde el perfil"); nunca enlaces sueltos a las secciones.
-        await expect(header.getByRole('link', { name: 'Estudio', exact: true }).locator('visible=true')).toHaveCount(studio[role].length ? 1 : 0);
+        await expect(header.getByRole('link', { name: 'Estudio', exact: true })).toHaveCount(studio[role].length ? 1 : 0);
         await expect(header.getByRole('link', { name: /Catálogo|Propuestas|Reportes|Editorial/ })).toHaveCount(0);
-        const entrar = header.getByRole('link', { name: 'Entrar' }).locator('visible=true');
-        await expect(entrar).toHaveCount(role === 'anonimo' ? 1 : 0);
-        if (width > 768) {
-          await expect(header.getByRole('button', { name: /^Cuenta/ })).toHaveCount(role === 'anonimo' ? 0 : 1);
-        }
+        // U28: Entrar vive en el panel; la visita tiene la hamburguesa y la sesión, el avatar.
+        await expect(header.getByRole('link', { name: 'Entrar' })).toHaveCount(0);
+        await expect(header.getByRole('button', { name: 'Menú' })).toHaveCount(role === 'anonimo' ? 1 : 0);
+        await expect(header.getByRole('button', { name: /^Cuenta/ })).toHaveCount(role === 'anonimo' ? 0 : 1);
 
         const section = page.getByRole('region', { name: 'Estudio' });
         if (!studio[role].length) {

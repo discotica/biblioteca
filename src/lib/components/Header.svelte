@@ -2,42 +2,33 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { dropdownMenu } from '$lib/ui/overlay';
   import { MOBILE_QUERY } from '$lib/ui/breakpoints';
   import Button from '$lib/ui/Button.svelte';
   import IconButton from '$lib/ui/IconButton.svelte';
-  import Icon from '$lib/ui/Icon.svelte';
-  import Menu, { type MenuGroup } from '$lib/ui/Menu.svelte';
+  import Menu, { type MenuGroup, type MenuItem } from '$lib/ui/Menu.svelte';
+  import { Cenefa, Huella, type Rol } from '$lib/generative';
   import { supabase } from '$lib/supabase';
   import { user } from '$lib/stores/authStore';
   import { loadProfileRole, profileRole } from '$lib/stores/profileRole';
   import { STUDIO_BASE, studioSectionsFor } from '$lib/domain/studio';
+  import { headerModeFor } from './headerMode';
 
+  // Cabecero único (U28, tablero J): la misma barra opaca y el mismo ancho en
+  // todas las páginas, Estudio incluido. Variante por ruta en headerMode.ts.
   const suggestionReturn = '/sugerir';
-  // "Mis aportes" es una página propia (U14); sin la función editorial no hay
-  // aportes que mostrar.
   const editorialEnabled = import.meta.env.VITE_EDITORIAL_ENABLED === 'true';
   const adminCatalogEnabled = import.meta.env.VITE_ADMIN_CATALOG_ENABLED === 'true';
-  const menuItems = [
-    { label: 'Manual', href: '/manual', icon: '/img/manual.svg' },
-    { label: 'Reportar un problema', href: '/reportar', icon: '/img/sugerir.svg' },
-    { label: 'Blog', href: 'https://www.discotica.com', icon: '/img/us.svg', external: true },
-    { label: 'Substack', href: 'https://discotica.substack.com', icon: '/img/substack.svg', external: true },
-    { label: 'Instagram', href: 'https://instagram.com/discotica_', icon: '/img/insta.svg', external: true }
-  ];
 
-  // En el Estudio (U15) el header acompaña al layout de herramienta: ancho
-  // completo, con el logo sobre la barra lateral.
   $: toolRoute = $page.url.pathname.startsWith('/estudio');
+  $: mode = headerModeFor($page.url.pathname, ($page.data as { header?: unknown } | undefined)?.header);
 
-  let menuAbierto = false;
-  let accountMenuOpen = false;
+  let panelOpen = false;
   let headerVisible = true;
   let headerHeight = 0;
   // El header es sticky (U16 en el Estudio, U18 en todo el sitio) y tapa lo que
   // también lo es. Publica cuánto ocupa mientras se ve para que el índice del
   // manual y del editor, el selector y la barra lateral se coloquen debajo
-  // (--header-offset, tokens.css).
+  // (--header-offset, tokens.css); el panel a pantalla también empieza ahí.
   // Además publica cuánto reservar arriba al desplazarse a un elemento: al subir
   // el header vuelve en escritorio y tapa los primeros píxeles; en móvil solo
   // vuelve al inicio del documento (--header-reserve, scroll-padding de styles.css).
@@ -48,47 +39,92 @@
   let lastScroll = 0;
   let keyboardViewport = false;
   let viewportHeight = 0;
-  let desktopMenuTrigger: HTMLButtonElement | HTMLAnchorElement | undefined;
-  let mobileMenuTrigger: HTMLButtonElement | HTMLAnchorElement | undefined;
-  // Solo existe el menú del ancho actual (U13). Con los dos montados, el oculto
-  // tomaba el toque en el visible por un clic fuera, lo cancelaba y cerraba el
-  // menú antes del clic: ningún enlace del menú global navegaba.
-  let menuMovil = false;
+  // Un solo menú montado (U13): el panel es el mismo en los dos anchos y solo
+  // cambia su presentación (anclado en desktop, a pantalla en móvil). Con dos
+  // montados, el oculto tomaba el toque en el visible por un clic fuera y
+  // ningún enlace navegaba. Se lee ya al montar para no pintar primero desktop.
+  let menuMovil = typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches;
 
-  // Acceso al Estudio desde el header para admin y colaborador (sustituye "desde
-  // el perfil" de I3). Sale solo si el rol ve alguna sección; dentro del Estudio
-  // no hace falta.
-  $: if ($user && (editorialEnabled || adminCatalogEnabled)) void loadProfileRole($user.id).catch(() => {});
-  $: sessionRole = $user && $profileRole?.userId === $user.id ? $profileRole.role : '';
-  $: showStudio = !toolRoute && studioSectionsFor(sessionRole, { adminCatalog: adminCatalogEnabled, editorial: editorialEnabled }).length > 0;
+  // El rol da el color de la huella (§2) y decide el acceso al Estudio, que sale
+  // solo si el rol ve alguna sección.
+  $: if ($user) void loadProfileRole($user.id).catch(() => {});
+  $: roleKnown = Boolean($user && $profileRole?.userId === $user.id);
+  $: sessionRole = roleKnown ? $profileRole?.role ?? '' : '';
+  let huellaRol: Rol = 'usuario';
+  $: huellaRol = sessionRole === 'admin' ? 'admin' : sessionRole === 'colaborador' ? 'colaborador' : 'usuario';
+  $: staff = studioSectionsFor(sessionRole, { adminCatalog: adminCatalogEnabled, editorial: editorialEnabled }).length > 0;
+  // Dentro del Estudio, la misma barra con «Volver al catálogo» en su lugar.
+  $: studioLink = !staff ? null
+    : toolRoute ? { label: 'Volver al catálogo', href: '/', icon: 'flecha-izquierda' as const }
+    : { label: 'Estudio', href: STUDIO_BASE, icon: 'estudio' as const };
 
   $: suggestionHref = $user ? suggestionReturn : `/auth/login?redirect=${encodeURIComponent(suggestionReturn)}`;
   $: username = ($user?.user_metadata?.username as string | undefined) ?? '';
-  $: profileHref = `/perfil/${username}`;
-  const contributionsHref = '/mis-aportes';
-  $: initial = (username || $user?.email || '?')[0].toUpperCase();
+  $: huellaName = username || $user?.email || '';
   $: accountName = username ? `@${username}` : 'Tu cuenta';
-  // Menú de cuenta: Perfil, Mis colecciones, Mis aportes (ronda 3); Editar cuenta
-  // (pedido del equipo en U12) va junto a Salir, con lo que afecta a la cuenta.
+
+  // Panel de cuenta (§3): la fila del perfil, «Tu cuenta» y «El sitio». Ajustes
+  // lleva a /cuenta hasta que U33 le dé página propia.
+  const siteGroup: MenuGroup = {
+    label: 'El sitio',
+    items: [
+      { label: 'Manual', href: '/manual', icon: 'ayuda' },
+      { label: 'Reportar un problema', href: '/reportar', icon: 'reportar' }
+    ]
+  };
   $: accountGroups = [
+    { items: [{ label: 'Perfil y colecciones', href: `/perfil/${username}`, icon: 'persona' }] },
     {
-      label: accountName,
+      label: 'Tu cuenta',
       items: [
-        { label: 'Perfil', href: profileHref },
-        { label: 'Mis colecciones', href: '/mis-colecciones' },
-        ...(editorialEnabled ? [{ label: 'Mis aportes', href: contributionsHref }] : [])
+        { label: 'Editar perfil', href: '/cuenta', icon: 'editar' },
+        { label: 'Ajustes', href: '/cuenta', icon: 'ajustes' },
+        { label: 'Salir', icon: 'salir', onselect: cerrarSesion }
+      ] satisfies MenuItem[]
+    },
+    siteGroup
+  ] satisfies MenuGroup[];
+  const visitorGroups: MenuGroup[] = [
+    {
+      appearance: 'buttons',
+      items: [
+        { label: 'Entrar', href: '/auth/login' },
+        { label: 'Crear cuenta', href: '/auth/registro' }
       ]
     },
-    {
-      items: [
-        { label: 'Editar cuenta', href: '/cuenta' },
-        { label: 'Salir', icon: 'salir', onselect: cerrarSesion }
-      ]
-    }
-  ] satisfies MenuGroup[];
-  $: if (menuAbierto && typeof window !== 'undefined') lastScroll = window.scrollY;
+    siteGroup
+  ];
+  // Si la barra no cabe (equipo en un teléfono de 320), Sugerir queda en icono
+  // con su nombre y ayuda. Se mide en lugar de usar un corte: la escala de
+  // breakpoints no tiene uno para 320 y a 360 todo cabe con texto.
+  let innerEl: HTMLDivElement | undefined;
+  let logoEl: HTMLAnchorElement | undefined;
+  let navEl: HTMLElement | undefined;
+  let sugerirEl: HTMLButtonElement | HTMLAnchorElement | undefined;
+  let sugerirFull = 0;
+  let compacto = false;
+  function encaja() {
+    if (!innerEl || !logoEl || !navEl) return;
+    // Con texto se mide; en icono mide lo que un control (--header-control-h).
+    if (!compacto && sugerirEl?.isConnected) sugerirFull = sugerirEl.offsetWidth;
+    const style = getComputedStyle(innerEl);
+    const disponible = innerEl.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    const icono = parseFloat(getComputedStyle(navEl).getPropertyValue('--header-control-h'));
+    const recupera = compacto ? sugerirFull - icono : 0;
+    compacto = logoEl.offsetWidth + parseFloat(style.columnGap) + navEl.scrollWidth + recupera > disponible + 0.5;
+  }
 
-  const cerrarMenu = () => { menuAbierto = false; };
+  // bind:this llega después de onMount: se observa en cuanto existen.
+  let fit: ResizeObserver | undefined;
+  $: if (fit && innerEl && navEl) {
+    fit.disconnect();
+    fit.observe(innerEl);
+    fit.observe(navEl);
+  }
+
+  // El panel sale 8 por debajo del cabecero, no del botón: (72 − 40) / 2 + 8.
+  const panelGutter = 24;
+  $: if (panelOpen && typeof window !== 'undefined') lastScroll = window.scrollY;
 
   function hasFocusedField() {
     const active = document.activeElement;
@@ -96,11 +132,11 @@
   }
 
   function freezeScrollDetection() {
-    return menuAbierto || accountMenuOpen || hasFocusedField() || keyboardViewport;
+    return panelOpen || hasFocusedField() || keyboardViewport;
   }
 
   async function cerrarSesion() {
-    cerrarMenu();
+    panelOpen = false;
     await supabase.auth.signOut();
     await goto('/');
   }
@@ -143,10 +179,12 @@
     const onFocusChange = () => window.setTimeout(resetBaseline, 0);
     const onBreakpointChange = () => {
       menuMovil = mobileQuery.matches;
-      menuAbierto = false;
+      panelOpen = false;
       headerVisible = true;
       resetBaseline();
     };
+
+    fit = new ResizeObserver(() => encaja());
 
     window.addEventListener('scroll', onScroll, { passive: true });
     document.addEventListener('focusin', onFocusChange);
@@ -154,6 +192,8 @@
     visualViewport?.addEventListener('resize', onViewportResize);
     mobileQuery.addEventListener('change', onBreakpointChange);
     return () => {
+      fit?.disconnect();
+      fit = undefined;
       window.removeEventListener('scroll', onScroll);
       document.removeEventListener('focusin', onFocusChange);
       document.removeEventListener('focusout', onFocusChange);
@@ -163,120 +203,140 @@
   });
 </script>
 
-{#snippet avatar()}
-  <span class="avatar-circle" aria-hidden="true">{initial}</span>
-{/snippet}
+<header class="site-header" class:oculto={!headerVisible} data-header-visible={headerVisible} data-header-mode={mode} bind:offsetHeight={headerHeight}>
+  <div class="l-container l-container--wide inner" class:inner--crowded={Boolean(studioLink) && mode !== 'minimo'} bind:this={innerEl}>
+    <a class="logo" href="/" aria-label="Discótica inicio" bind:this={logoEl}>
+      <img src="/img/logo.svg" alt="Discótica" />
+      <span class="beta" aria-hidden="true">beta</span>
+    </a>
 
-<header class="site-header" class:oculto={!headerVisible} data-header-visible={headerVisible} bind:offsetHeight={headerHeight}>
-  <div class="l-container inner" class:l-container--wide={!toolRoute} class:l-container--full={toolRoute}>
-    <a class="logo" href="/" aria-label="Discótica inicio"><img src="/img/logo.svg" alt="Discótica" /></a>
-
-    <nav class="desktop-nav" aria-label="Principal">
-      {#if showStudio}<Button variant="secondary" href={STUDIO_BASE} class="nav-btn">Estudio</Button>{/if}
-      <Button variant="secondary" href={suggestionHref} class="nav-btn">Sugerir</Button>
-      {#if $user}
-        <Menu label={`Cuenta ${accountName}`} groups={accountGroups} bind:open={accountMenuOpen} class="account-menu">
-          {#snippet trigger()}{@render avatar()}{/snippet}
-        </Menu>
+    <nav class="nav" aria-label="Principal" bind:this={navEl}>
+      {#if mode === 'minimo'}
+        {#if !$user}<Button variant="secondary" href="/auth/login">Entrar</Button>{/if}
       {:else}
-        <Button href="/auth/login" class="nav-btn">Entrar</Button>
-      {/if}
-      <div class="menu-wrap">
-        <Button
-          variant="ghost"
-          icon="menu"
-          class="nav-btn menu-trigger"
-          bind:element={desktopMenuTrigger}
-          aria-expanded={menuAbierto}
-          aria-controls="global-menu"
-          onclick={() => (menuAbierto = !menuAbierto)}
-        >Menú</Button>
-        {#if menuAbierto && !menuMovil}
-          <nav id="global-menu" class="global-menu" aria-label="Menú" use:dropdownMenu={{ onClose: cerrarMenu, trigger: desktopMenuTrigger }}>
-            {#each menuItems as item}
-              <a class="menu-link" href={item.href} target={item.external ? '_blank' : undefined} rel={item.external ? 'noopener noreferrer' : undefined} on:click={cerrarMenu}>
-                <img class="nav-icon" src={item.icon} alt="" aria-hidden="true" /> {item.label}
-              </a>
-            {/each}
-          </nav>
-        {/if}
-      </div>
-    </nav>
-
-    <div class="mobile-nav">
-      {#if showStudio}<Button variant="secondary" size="sm" href={STUDIO_BASE} class="nav-btn">Estudio</Button>{/if}
-      <Button variant="secondary" size="sm" href={suggestionHref} class="nav-btn">Sugerir</Button>
-      {#if !$user}<Button size="sm" href="/auth/login" class="nav-btn">Entrar</Button>{/if}
-      <IconButton
-        icon={menuAbierto ? 'cerrar' : 'menu'}
-        label={menuAbierto ? 'Cerrar menú' : 'Abrir menú'}
-        tooltip="bottom"
-        tooltipAlign="end"
-        class="hamburger"
-        bind:element={mobileMenuTrigger}
-        aria-expanded={menuAbierto}
-        aria-controls="global-menu"
-        onclick={() => (menuAbierto = !menuAbierto)}
-      />
-      {#if menuAbierto && menuMovil}
-        <nav id="global-menu" class="global-menu" aria-label="Menú" use:dropdownMenu={{ onClose: cerrarMenu, trigger: mobileMenuTrigger }}>
-          {#if $user}
-            <div class="mobile-account-group" role="group" aria-label="Cuenta">
-              <p class="mobile-account-name">{@render avatar()} {accountName}</p>
-              <a class="menu-link menu-link--indent" href={profileHref} on:click={cerrarMenu}>Perfil</a>
-              <a class="menu-link menu-link--indent" href="/mis-colecciones" on:click={cerrarMenu}>Mis colecciones</a>
-              {#if editorialEnabled}<a class="menu-link menu-link--indent" href={contributionsHref} on:click={cerrarMenu}>Mis aportes</a>{/if}
-              <a class="menu-link menu-link--indent" href="/cuenta" on:click={cerrarMenu}>Editar cuenta</a>
-              <button class="menu-link menu-link--button menu-link--salir" on:click={cerrarSesion}><Icon name="salir" size="sm" /> Salir</button>
-            </div>
+        {#if studioLink}
+          <!-- En móvil, solo el icono: no caben los tres controles con texto. -->
+          {#if menuMovil}
+            <IconButton variant="secondary" icon={studioLink.icon} label={studioLink.label} href={studioLink.href} tooltip="bottom" />
+          {:else}
+            <Button variant="secondary" icon={studioLink.icon} href={studioLink.href}>{studioLink.label}</Button>
           {/if}
-          {#each menuItems as item}
-            <a class="menu-link" href={item.href} target={item.external ? '_blank' : undefined} rel={item.external ? 'noopener noreferrer' : undefined} on:click={cerrarMenu}>
-              <img class="nav-icon" src={item.icon} alt="" aria-hidden="true" /> {item.label}
-            </a>
-          {/each}
-        </nav>
+        {/if}
+        {#if compacto}
+          <IconButton variant={mode === 'acceso' ? 'secondary' : 'primary'} icon="agregar" label="Sugerir" href={suggestionHref} tooltip="bottom" bind:element={sugerirEl} />
+        {:else}
+          <Button variant={mode === 'acceso' ? 'secondary' : 'primary'} icon="agregar" href={suggestionHref} bind:element={sugerirEl}>Sugerir</Button>
+        {/if}
+        {#if $user}
+          <Menu
+            label={`Cuenta ${accountName}`}
+            groups={accountGroups}
+            presentation="panel"
+            fullscreen={menuMovil}
+            gutter={panelGutter}
+            bind:open={panelOpen}
+            class="header-panel"
+          >
+            {#snippet trigger()}
+              {#if roleKnown}
+                <Huella nombre={huellaName} rol={huellaRol} tamano={32} class="header-avatar" />
+              {:else}
+                <span class="header-avatar header-avatar--pending"></span>
+              {/if}
+            {/snippet}
+            {#snippet header()}
+              <Cenefa nombre={huellaName} rol={huellaRol} alto={96} velo={false} class="panel-cenefa">
+                <span class="panel-cenefa__name">{accountName}</span>
+              </Cenefa>
+            {/snippet}
+          </Menu>
+        {:else}
+          <Menu
+            label="Menú"
+            icon={panelOpen && menuMovil ? 'cerrar' : 'menu'}
+            tooltip="bottom"
+            groups={visitorGroups}
+            presentation="panel"
+            fullscreen={menuMovil}
+            gutter={panelGutter}
+            bind:open={panelOpen}
+            class="header-panel"
+          />
+        {/if}
       {/if}
-    </div>
+    </nav>
   </div>
 </header>
 
 <style>
-  .site-header { position:sticky; top:0; z-index:calc(var(--layer-overlay) - 1); width:100%; background:var(--color-velo); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); border-bottom:1px solid var(--color-linea-sutil); padding:var(--header-pad-block) 0; transition:transform var(--motion-slow) var(--ease-emphasized); }
-  .site-header.oculto { transform:translateY(-100%); }
-  .inner { display:flex; align-items:center; justify-content:space-between; gap:var(--space-4); }
-  .logo { display:flex; align-items:center; flex-shrink:0; text-decoration:none; }
-  .logo img { height:var(--header-logo-h); display:block; transition:opacity var(--motion-fast) ease; }
-  .logo:hover img { opacity:.75; }
-
-  /* Navegación principal: botones del sistema, más anchos que altos, en mayúsculas sostenidas. */
-  .desktop-nav { display:flex; align-items:center; gap:var(--space-2); }
-  .site-header :global(.nav-btn) { font-size:var(--nav-font-size); font-weight:var(--nav-font-weight); letter-spacing:var(--nav-letter-spacing); text-transform:var(--nav-text-transform); }
-  .menu-wrap,.mobile-nav { position:relative; }
-
-  /* Avatar del menú de cuenta */
-  .site-header :global(.account-menu .ui-menu__trigger) { padding-inline:var(--space-2); gap:var(--space-1); }
-  .avatar-circle { width:var(--avatar-sm); height:var(--avatar-sm); flex:none; display:inline-grid; place-items:center; border:1px solid var(--color-acento-border); border-radius:50%; color:var(--color-acento); background:var(--color-acento-suave); font-size:var(--text-2xs); font-weight:700; letter-spacing:0; line-height:1; text-transform:none; }
-
-  /* Menú secundario (navegación, no role="menu") */
-  .nav-icon { width:var(--icon-sm); height:var(--icon-sm); flex-shrink:0; filter:brightness(0) invert(1); opacity:.58; }
-  .global-menu { position:absolute; z-index:var(--layer-dropdown); top:calc(100% + var(--space-2)); right:0; min-width:var(--menu-min-w); display:flex; flex-direction:column; gap:2px; padding:var(--space-1); border:1px solid var(--color-linea); border-radius:var(--radius-base); background:var(--color-velo-opaco); box-shadow:var(--shadow-flotante); }
-  .menu-link { min-height:var(--target-touch); box-sizing:border-box; display:flex; align-items:center; gap:var(--space-2); width:100%; padding:0 var(--space-3); border:0; border-radius:var(--radius-sm); background:transparent; color:var(--color-texto-medio); font:600 var(--text-xs)/1 var(--font-ui); letter-spacing:.04em; text-align:left; text-decoration:none; cursor:pointer; }
-  .menu-link:hover { color:var(--color-acento); background:var(--color-acento-dim); }
-  .menu-link--button { font-family:inherit; }
-  /* Sin icono: el texto se alinea con el de los elementos que sí lo llevan. */
-  .menu-link--indent { padding-left:calc(var(--space-3) + var(--icon-sm) + var(--space-2)); }
-  .menu-link--salir:hover { color:var(--color-danger-texto); background:var(--color-danger-dim); }
-
-  .mobile-nav { display:none; align-items:center; gap:var(--space-2); }
-  .mobile-account-group { display:flex; flex-direction:column; gap:2px; margin-bottom:var(--space-1); padding-bottom:var(--space-1); border-bottom:1px solid var(--color-linea); }
-  .mobile-account-name { display:flex; align-items:center; gap:var(--space-2); margin:0; padding:var(--space-2) var(--space-3); color:var(--color-texto); font-size:var(--text-xs); font-weight:700; }
-
-  @media (max-width:768px) {
-    .desktop-nav { display:none; }
-    .mobile-nav { display:flex; }
-    .logo img { height:var(--header-logo-h-mobile); }
-    .global-menu { min-width:var(--menu-min-w); }
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: calc(var(--layer-overlay) - 1);
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: var(--header-h);
+    box-sizing: border-box;
+    background: var(--color-fondo);
+    border-bottom: 1px solid var(--color-linea);
+    transition: transform var(--motion-slow) var(--ease-emphasized);
   }
-  @media (prefers-reduced-motion:reduce) { .site-header { transition:none; } }
+  .site-header.oculto { transform: translateY(-100%); }
+  .inner { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+
+  .logo { display: flex; align-items: flex-end; gap: var(--space-2); flex: none; text-decoration: none; }
+  .logo img { height: var(--header-logo-h); display: block; transition: opacity var(--motion-fast) ease; }
+  .logo:hover img { opacity: .75; }
+  .beta { color: var(--color-acento); font-size: var(--text-2xs); font-weight: 500; line-height: 1; }
+
+  /* Controles de 40 separados 8, iconos de 18 (§3). */
+  .nav { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+  .nav :global(.ui-btn) { --btn-h: var(--header-control-h); --btn-px: var(--space-4); }
+  .nav :global(.ui-btn .ui-icon) { width: var(--icon-nav); height: var(--icon-nav); }
+  .nav :global(.ui-btn--ghost) { color: var(--color-texto); }
+
+  /* Avatar de huella con chevron. */
+  .nav :global(.header-panel .ui-menu__trigger) { padding: 0 var(--header-avatar-pad-end) 0 var(--header-avatar-pad-start); }
+  .nav :global(.header-avatar) { width: var(--control-h-sm); height: var(--control-h-sm); }
+  .header-avatar--pending { display: block; flex: none; border-radius: 50%; background: var(--color-superficie-2); }
+
+  /* Cenefa del panel: huella con el color del rol y el nombre sobre un velo. */
+  :global(.panel-cenefa.panel-cenefa) { border-radius: var(--radius-sm); }
+  :global(.panel-cenefa)::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, var(--color-velo-panel), var(--color-velo-panel-medio) 60%, var(--color-velo-panel-nada));
+  }
+  .panel-cenefa__name {
+    position: absolute;
+    z-index: var(--layer-raised);
+    left: var(--space-3);
+    right: var(--space-3);
+    bottom: var(--space-2);
+    overflow: hidden;
+    color: var(--color-texto);
+    font-size: var(--text-2xl);
+    font-weight: 700;
+    line-height: 1.167;
+    letter-spacing: -.01em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 768px) {
+    .site-header { height: var(--header-h-mobile); }
+    .logo { gap: var(--space-1); }
+    .logo img { height: var(--header-logo-h-mobile); }
+    .nav :global(.ui-btn:not(.ui-btn--square)) { --btn-px: var(--space-3); }
+  }
+  /* Equipo en un teléfono estrecho: tres controles junto al logo. Se ajustan
+     los huecos para que todo quepa dentro del margen del contenedor a 360. */
+  @media (max-width: 480px) {
+    .inner--crowded { gap: var(--space-2); }
+    .inner--crowded :global(.ui-btn) { gap: var(--space-1); }
+    .inner--crowded :global(.header-panel .ui-menu__trigger) { padding-inline-end: var(--space-1); }
+  }
+  @media (prefers-reduced-motion: reduce) { .site-header { transition: none; } }
 </style>

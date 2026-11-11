@@ -17,6 +17,12 @@
   export type MenuGroup = {
     /** Encabezado visible del grupo y nombre del role="group". */
     label?: string;
+    /**
+     * buttons (U28): los elementos se dibujan como botones apilados, el primero
+     * lleno y el resto con borde (Entrar y Crear cuenta en el panel). Siguen
+     * siendo menuitem: el teclado los recorre igual.
+     */
+    appearance?: 'list' | 'buttons';
     items: MenuItem[];
   };
 </script>
@@ -26,7 +32,7 @@
   import Button, { type ButtonSize, type ButtonVariant } from './Button.svelte';
   import Icon from './Icon.svelte';
   import IconButton from './IconButton.svelte';
-  import { anchoredLayer, dropdownMenu, layerFor } from './overlay';
+  import { anchoredLayer, dropdownMenu, layerFor, type AnchoredLayerOptions } from './overlay';
 
   type Props = {
     /** Elementos sin grupos. Usa `groups` para secciones con encabezado. */
@@ -51,6 +57,22 @@
     size?: ButtonSize;
     /** Alineación del menú con el disparador. "end" para un "…" pegado a la derecha. */
     align?: 'start' | 'end';
+    /** Dónde sale la ayuda del disparador de icono solo. "bottom" en el cabecero. */
+    tooltip?: 'top' | 'bottom';
+    /**
+     * panel (U28, panel de cuenta): 320 de ancho, opaco, grupos con encabezado
+     * en minúscula y sin separadores, iconos de 18 y chevron que gira al abrir.
+     */
+    presentation?: 'popover' | 'panel';
+    /**
+     * A pantalla (panel en móvil): ocupa el viewport bajo el cabecero
+     * (--header-offset) en lugar de anclarse al disparador.
+     */
+    fullscreen?: boolean;
+    /** Contenido fijo sobre los grupos (la cenefa de la cuenta). No recibe foco. */
+    header?: Snippet;
+    /** Distancia al disparador y a los bordes (8 por defecto, anchoredLayer). */
+    gutter?: number;
     disabled?: boolean;
     open?: boolean;
     class?: string;
@@ -66,6 +88,11 @@
     variant = 'ghost',
     size = 'md',
     align = 'end',
+    tooltip = 'top',
+    presentation = 'popover',
+    fullscreen = false,
+    header,
+    gutter,
     disabled = false,
     open = $bindable(false),
     class: className = ''
@@ -86,6 +113,32 @@
     const enabled = flat.map((item, index) => (isEnabled(item) ? index : -1)).filter((index) => index >= 0);
     return (openAt === 'last' ? enabled.at(-1) : enabled[0]) ?? -1;
   });
+
+  /**
+   * Coloca el menú en el portal: anclado al disparador (anchoredLayer) o, a
+   * pantalla, en <body> y a todo el ancho bajo el cabecero (lo resuelve el
+   * CSS). La capa de página (--layer-dropdown) queda bajo las barras sticky, y
+   * el panel a pantalla debe taparlas, como el cabecero.
+   */
+  function place(node: HTMLElement, initial: AnchoredLayerOptions & { fullscreen: boolean }) {
+    let anchored: ReturnType<typeof anchoredLayer> | undefined;
+    const apply = (options: AnchoredLayerOptions & { fullscreen: boolean }) => {
+      if (!options.fullscreen) {
+        if (anchored) anchored.update(options);
+        else anchored = anchoredLayer(node, options);
+        return;
+      }
+      anchored?.destroy();
+      anchored = undefined;
+      for (const key of ['left', 'top', 'width', 'minWidth', 'maxWidth', 'maxHeight', 'overflowY'] as const) node.style[key] = '';
+      if (node.parentElement !== document.body) document.body.appendChild(node);
+    };
+    apply(initial);
+    return {
+      update: apply,
+      destroy: () => anchored?.destroy()
+    };
+  }
 
   function isEnabled(item: MenuItem) {
     return !item.disabled && Boolean(item.href || item.onselect);
@@ -160,7 +213,7 @@
   }
 </script>
 
-<span class="ui-menu {className}">
+<span class="ui-menu {className}" class:ui-menu--panel={presentation === 'panel'}>
   {#if triggerContent}
     <Button
       bind:element={trigger}
@@ -202,6 +255,7 @@
       variant={variant === 'link' ? 'ghost' : variant}
       {size}
       {disabled}
+      {tooltip}
       tooltipAlign={align === 'end' ? 'end' : 'start'}
       aria-haspopup="menu"
       aria-expanded={open}
@@ -215,18 +269,27 @@
     <div
       bind:this={menu}
       class="ui-menu__popup"
+      class:ui-menu__popup--panel={presentation === 'panel'}
+      class:ui-menu__popup--screen={fullscreen}
       id={menuId}
       role="menu"
       aria-label={name}
       tabindex="-1"
       onkeydown={onMenuKeydown}
-      use:anchoredLayer={{ target: layerFor(trigger), trigger, align }}
+      use:place={{ target: layerFor(trigger), trigger, align, gutter, fullscreen }}
       use:dropdownMenu={{ onClose: close, trigger, tabCloses: true, initialFocus: '[data-menu-initial]' }}
     >
+      {#if header}<div class="ui-menu__header">{@render header()}</div>{/if}
       {#each sections as section, sectionIndex}
         {@const offset = sections.slice(0, sectionIndex).reduce((sum, previous) => sum + previous.items.length, 0)}
-        {#if sectionIndex > 0}<div class="ui-menu__separator" role="separator"></div>{/if}
-        <div class="ui-menu__group" role={section.label ? 'group' : 'none'} aria-label={section.label}>
+        <!-- En el panel, el encabezado de cada grupo ya los separa. -->
+        {#if sectionIndex > 0 && presentation !== 'panel'}<div class="ui-menu__separator" role="separator"></div>{/if}
+        <div
+          class="ui-menu__group"
+          class:ui-menu__group--buttons={section.appearance === 'buttons'}
+          role={section.label ? 'group' : 'none'}
+          aria-label={section.label}
+        >
           {#if section.label}<span class="ui-menu__group-label" aria-hidden="true">{section.label}</span>{/if}
           {#each section.items as item, itemIndex}
             {@const index = offset + itemIndex}
@@ -235,6 +298,7 @@
               <a
                 class="ui-menu__item"
                 class:ui-menu__item--danger={item.tone === 'danger'}
+                class:ui-menu__item--lead={section.appearance === 'buttons' && itemIndex === 0}
                 role="menuitem"
                 tabindex="-1"
                 href={item.href}
@@ -249,6 +313,7 @@
                 type="button"
                 class="ui-menu__item"
                 class:ui-menu__item--danger={item.tone === 'danger'}
+                class:ui-menu__item--lead={section.appearance === 'buttons' && itemIndex === 0}
                 role="menuitem"
                 tabindex="-1"
                 aria-disabled={enabled ? undefined : 'true'}
@@ -329,11 +394,75 @@
   .ui-menu__item[aria-disabled='true'] { color: var(--color-texto-tenue); cursor: default; }
   .ui-menu__item[aria-disabled='true']:hover { background: transparent; }
 
+  /* ---- Panel (U28, tablero J) ---- */
+  .ui-menu__popup--panel {
+    min-width: var(--menu-panel-w);
+    padding: var(--space-2);
+    border-color: var(--color-linea-panel);
+    border-radius: var(--menu-panel-radius);
+    background: var(--color-panel);
+  }
+  .ui-menu__popup--panel .ui-menu__header { margin-bottom: var(--space-1); }
+  .ui-menu__popup--panel .ui-menu__group-label {
+    padding: var(--space-3) var(--space-3) var(--space-1);
+    font-size: var(--text-2xs);
+    font-weight: 600;
+    line-height: 1.333;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .ui-menu__popup--panel .ui-menu__item :global(.ui-icon) { width: var(--icon-nav); height: var(--icon-nav); }
+
+  /* A pantalla: bajo el cabecero, hasta el borde inferior; el contenido se
+     alinea con el del cabecero (margen del contenedor menos el de la fila). */
+  .ui-menu__popup--screen {
+    position: fixed;
+    z-index: calc(var(--layer-overlay) - 1);
+    inset: var(--header-offset) 0 0 0;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    padding: var(--space-2) calc(var(--container-gutter) - var(--space-3)) var(--space-6);
+    border-width: 0;
+    border-radius: 0;
+    box-shadow: none;
+    pointer-events: auto;
+  }
+
+  /* Elementos como botones apilados (Entrar y Crear cuenta). */
+  .ui-menu__group--buttons {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-1);
+  }
+  .ui-menu__group--buttons .ui-menu__item {
+    justify-content: center;
+    min-height: var(--control-h-md);
+    border: 1px solid var(--color-linea-fuerte);
+    border-radius: var(--control-radius);
+    font-weight: var(--button-font-weight);
+  }
+  .ui-menu__group--buttons .ui-menu__item:hover,
+  .ui-menu__group--buttons .ui-menu__item:focus-visible { border-color: var(--color-acento-border); background: var(--color-acento-tinte); }
+  .ui-menu__group--buttons .ui-menu__item--lead {
+    border-color: var(--color-acento);
+    background: var(--color-acento);
+    color: var(--color-sobre-acento);
+  }
+  .ui-menu__group--buttons .ui-menu__item--lead:hover,
+  .ui-menu__group--buttons .ui-menu__item--lead:focus-visible { border-color: var(--color-acento-hover); background: var(--color-acento-hover); }
+
+  /* El chevron del disparador apunta hacia el panel abierto. */
+  .ui-menu--panel :global(.ui-menu__trigger > .ui-icon:last-child) { transition: transform var(--motion-fast) var(--ease-standard); }
+  .ui-menu--panel :global(.ui-menu__trigger[aria-expanded='true'] > .ui-icon:last-child) { transform: rotate(180deg); }
+
   @keyframes ui-menu-in {
     from { opacity: 0; }
     to { opacity: 1; }
   }
   @media (prefers-reduced-motion: reduce) {
     .ui-menu__popup { animation: none; }
+    .ui-menu--panel :global(.ui-menu__trigger > .ui-icon:last-child) { transition: none; }
   }
 </style>

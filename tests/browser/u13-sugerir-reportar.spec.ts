@@ -321,10 +321,11 @@ for (const width of [390, 1440]) {
     await mock(page, 'comunidad');
     await page.setViewportSize({ width, height: 844 });
     await page.goto('/manual');
-    // Antes de U13 el menú se montaba dos veces y ningún enlace navegaba.
-    await page.getByRole('banner').getByRole('button', { name: width === 390 ? 'Abrir menú' : 'Menú' }).click();
-    await expect(page.getByRole('navigation', { name: 'Menú' })).toHaveCount(1);
-    const item = page.getByRole('navigation', { name: 'Menú' }).getByRole('link', { name: 'Reportar un problema' });
+    // Antes de U13 el menú se montaba dos veces y ningún enlace navegaba. U28:
+    // con sesión, «Reportar un problema» está en el panel de cuenta.
+    await page.getByRole('banner').getByRole('button', { name: 'Cuenta @comunidad' }).click();
+    await expect(page.getByRole('menu')).toHaveCount(1);
+    const item = page.getByRole('menu', { name: 'Cuenta @comunidad' }).getByRole('menuitem', { name: 'Reportar un problema' });
     await item.click();
     await expect(page).toHaveURL(/\/reportar$/);
     await expect(page.getByRole('region', { name: 'Lanzamiento del reporte' })).toHaveCount(0);

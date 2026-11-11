@@ -463,13 +463,15 @@ test.describe('U12 editar cuenta', () => {
     expect(calls('/auth/v1/user').filter((r) => r.method() === 'PUT')[0].postDataJSON()).toMatchObject({ password: 'una-contraseña-larga' });
   });
 
-  test('el menú de cuenta y el perfil propio enlazan a Editar cuenta', async ({ page }) => {
+  test('el panel de cuenta y el perfil propio enlazan a /cuenta', async ({ page }) => {
     await signedIn(page);
     await mockSupabase(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/perfil/persona');
-    await expect(page.getByRole('link', { name: 'Editar cuenta' })).toHaveAttribute('href', '/cuenta');
-    await page.locator('.account-menu .ui-menu__trigger').click();
-    await expect(page.getByRole('menuitem', { name: 'Editar cuenta' })).toBeVisible();
+    await expect(page.getByRole('main').getByRole('link', { name: 'Editar cuenta' })).toHaveAttribute('href', '/cuenta');
+    // U28: en el panel, «Editar perfil» y «Ajustes» llevan a /cuenta hasta U33.
+    await page.locator('.header-panel .ui-menu__trigger').click();
+    await expect(page.getByRole('menuitem', { name: 'Editar perfil' })).toHaveAttribute('href', '/cuenta');
+    await expect(page.getByRole('menuitem', { name: 'Ajustes' })).toHaveAttribute('href', '/cuenta');
   });
 });

@@ -182,15 +182,15 @@ each(['D', 'M'], 'ficha', `/lanzamiento/${B}`, { ready: '.release-detail', full:
 add('ficha-comp-D', 'D', `/lanzamiento/${COMP}`, { ready: '.release-detail', full: true, maxH: 2400 });
 
 // Header / footer
-add('header-menu-D', 'D', '/', { setup: async (page) => { await page.click('.menu-trigger'); await settle(page); } });
-add('header-menu-M', 'M', '/', { setup: async (page) => { await page.click('.hamburger'); await settle(page); } });
+add('header-menu-D', 'D', '/', { setup: async (page) => { await page.click('.header-panel button'); await settle(page); } });
+add('header-menu-M', 'M', '/', { setup: async (page) => { await page.click('.header-panel button'); await settle(page); } });
 add('header-auth-D', 'D', '/', { role: 'comunidad', selector: '.site-header' });
-add('header-auth-menu-M', 'M', '/', { role: 'comunidad', setup: async (page) => { await page.click('.hamburger'); await settle(page); } });
+add('header-auth-menu-M', 'M', '/', { role: 'comunidad', setup: async (page) => { await page.click('.header-panel .ui-menu__trigger'); await settle(page); } });
 add('header-anon-D', 'D', '/', { selector: '.site-header' });
 add('footer-D', 'D', '/', { selector: 'footer' });
 add('footer-M', 'M', '/', { selector: 'footer' });
 // U7: menú de cuenta del avatar (desktop) y acceso al Estudio desde el perfil propio.
-add('header-account-menu-D', 'D', '/', { role: 'comunidad', supplementary: true, setup: async (page) => { await page.click('.account-menu .ui-menu__trigger'); await page.waitForSelector('[role=menu]'); await settle(page); } });
+add('header-account-menu-D', 'D', '/', { role: 'comunidad', supplementary: true, setup: async (page) => { await page.click('.header-panel .ui-menu__trigger'); await page.waitForSelector('[role=menu]'); await settle(page); } });
 
 // Taxonomías
 each(['D', 'M'], 'artista', `/artista/${ARTIST_SLUG}`, { full: true, maxH: 3000 });

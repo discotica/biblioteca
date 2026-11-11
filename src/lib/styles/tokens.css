@@ -96,6 +96,14 @@
   --color-panel-formulario: #121212;
   --color-linea-formulario: rgba(248, 255, 238, 0.12);
 
+  /* Panel de cuenta (U28, tablero J): borde un punto más visible que el del
+     formulario y velo horizontal de lectura sobre la cenefa, desde el color
+     del panel (--color-panel) hasta transparente. */
+  --color-linea-panel: rgba(248, 255, 238, 0.14);
+  --color-velo-panel: rgba(22, 22, 22, 0.86);
+  --color-velo-panel-medio: rgba(22, 22, 22, 0.5);
+  --color-velo-panel-nada: rgba(22, 22, 22, 0);
+
   /* ---- Tipografía: 9 pasos -------------------------------------------------
      El paso menor (12px) sube los metadatos de la tarjeta de 10.7px a 12px
      (+12 %); con --color-texto-tenue su contraste pasa de ~2.6:1 a ≥ 4.5:1. */
@@ -291,11 +299,20 @@
   --tool-pad-panel-y: 1.25rem;            /* 20 · panel (resumen, detalle, barra de acciones), arriba y abajo */
   --tool-pad-panel-x: var(--space-5);     /* 24 · panel, a los lados */
   --tool-pad-section: 1.75rem;            /* 28 · sección del editor, arriba y abajo */
-  /* Cabecero de la dirección de arte (U26, §3): opaco, 72 en desktop y 60 por
-     debajo de --breakpoint-mobile. Los usa el cabecero nuevo de U28; el de hoy
-     sigue con --header-pad-block. */
+  /* Cabecero de la dirección de arte (U26, §3; U28): opaco, 72 en desktop y 60
+     hasta --breakpoint-mobile, con controles de 40 separados 8 e iconos de 18.
+     El avatar de huella deja 4 a la izquierda y 10 a la derecha del chevron. */
   --header-h: 72px;
   --header-h-mobile: 60px;
+  --header-control-h: var(--control-h-md);
+  --header-avatar-pad-start: var(--space-1);
+  --header-avatar-pad-end: 10px;
+  --icon-nav: 18px;
+  /* Panel de cuenta (U28, tablero J): Menu presentation="panel". 320 de ancho,
+     cenefa de 96 y radio 12, entre --radius-sm y --radius-base como en el
+     lienzo. En móvil ocupa la pantalla bajo el cabecero. */
+  --menu-panel-w: 20rem;
+  --menu-panel-radius: 12px;
   /* Contenedor de formulario (U26, §3; FormPanel). Ancho 480 en las vistas
      cortas (entrar, recuperar, contraseña nueva, enlace vencido, 404) y 576 en
      onboarding, Editar perfil, Ajustes, Reportar y Sugerir. Padding 32; 24 por
@@ -311,11 +328,10 @@
   --form-panel-pad-compact: 1.25rem;          /* 20 */
   --form-gap-block: 1.375rem;                 /* 22 · entre bloques de campos */
   --form-gap-actions: 2.25rem;                /* 36 · campos → acciones */
-  /* Header: avatar del menú de cuenta y logo */
+  /* Header: logo (36 en desktop y 30 en móvil, U28) y avatar de iniciales de /lab */
   --avatar-sm: 28px;
-  --header-logo-h: 22px;
-  --header-logo-h-mobile: 20px;
-  --header-pad-block: 0.85rem;
+  --header-logo-h: 36px;
+  --header-logo-h-mobile: 30px;
   /* Alto del header mientras se ve, para lo que es sticky debajo de él. Lo
      publica Header.svelte (0 mientras está oculto). */
   --header-offset: 0px;
