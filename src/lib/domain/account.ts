@@ -1,6 +1,6 @@
 /**
- * Reglas puras de las pantallas de cuenta (U12): con qué se entra, a qué
- * webmail se ofrece ir tras registrarse y cuánto esperar entre reenvíos.
+ * Reglas puras de las pantallas de cuenta (U12): con qué se entra, qué webmails
+ * se ofrecen tras registrarse y cuánto esperar entre reenvíos.
  * Sin Supabase, para probarlas con `node --test`.
  */
 
@@ -26,23 +26,14 @@ export function parseLoginIdentifier(input: string): LoginIdentifier {
 
 export type Webmail = { label: string; url: string };
 
-// Solo los tres proveedores que pide la ronda 3. Para el resto no hay enlace:
-// adivinar el webmail de un dominio propio llevaría a una página equivocada.
-const WEBMAILS: Array<{ domains: string[]; webmail: Webmail }> = [
-  { domains: ['gmail.com', 'googlemail.com'], webmail: { label: 'Gmail', url: 'https://mail.google.com/mail/' } },
-  {
-    domains: ['outlook.com', 'outlook.es', 'hotmail.com', 'hotmail.es', 'live.com', 'msn.com'],
-    webmail: { label: 'Outlook', url: 'https://outlook.live.com/mail/' }
-  },
-  { domains: ['icloud.com', 'me.com', 'mac.com'], webmail: { label: 'iCloud Mail', url: 'https://www.icloud.com/mail/' } }
+/**
+ * «Revisa tu correo» ofrece siempre Gmail y Outlook (U30, D4): no adivina el
+ * proveedor del correo, así que el mismo par sirve para cualquier dirección.
+ */
+export const WEBMAILS: readonly Webmail[] = [
+  { label: 'Gmail', url: 'https://mail.google.com/mail/' },
+  { label: 'Outlook', url: 'https://outlook.live.com/mail/' }
 ];
-
-/** Webmail del correo, o null si el dominio no es Gmail, Outlook ni iCloud. */
-export function webmailFor(email: string): Webmail | null {
-  const domain = email.trim().toLowerCase().split('@')[1];
-  if (!domain) return null;
-  return WEBMAILS.find((entry) => entry.domains.includes(domain))?.webmail ?? null;
-}
 
 /**
  * Espera entre reenvíos del correo de confirmación. Supabase Auth limita por
@@ -60,9 +51,18 @@ export function retryAfterSeconds(message: string | undefined | null): number | 
   return match ? Number(match[1]) : null;
 }
 
-/** Destino interno seguro tras entrar: solo rutas propias, nunca `//otro-sitio`. */
-export function safeRedirect(value: string | null | undefined, fallback = '/mis-colecciones'): string {
+/**
+ * Destino interno seguro tras entrar: solo rutas propias, nunca `//otro-sitio`.
+ * Sin destino propio cae en `fallback` (por defecto, el catálogo); quien llama
+ * pasa el perfil de la persona cuando lo conoce (U30).
+ */
+export function safeRedirect(value: string | null | undefined, fallback = '/'): string {
   return value?.startsWith('/') && !value.startsWith('//') ? value : fallback;
+}
+
+/** Perfil público de un usuario: el destino tras entrar y tras confirmar la cuenta. */
+export function profileHref(username: string): string {
+  return `/perfil/${encodeURIComponent(username)}`;
 }
 
 /**

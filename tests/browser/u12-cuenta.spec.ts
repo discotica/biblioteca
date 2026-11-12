@@ -105,6 +105,39 @@ async function fillLogin(page: Page, identifier: string, password = 'una-contras
   await page.getByRole('button', { name: 'Entrar' }).click();
 }
 
+type AltaOpciones = {
+  email?: string;
+  password?: string;
+  username?: string;
+  displayName?: string;
+  instagram?: string;
+  bandcamp?: string;
+  facebook?: string;
+  privacy?: boolean;
+  /** Último paso al que llegar; el alta se envía solo con 3 y `enviar`. */
+  hasta?: 1 | 2 | 3;
+  enviar?: boolean;
+};
+
+// U30: el alta son tres pasos. Esta ayuda recorre los que se pidan.
+async function altaEnPasos(page: Page, o: AltaOpciones = {}) {
+  const { email = 'nueva@example.com', password = 'una-contraseña', username = 'nueva_persona', hasta = 3, enviar = true } = o;
+  await page.getByLabel('Correo', { exact: true }).fill(email);
+  await page.getByLabel('Contraseña', { exact: true }).fill(password);
+  await page.getByLabel('Repite la contraseña').fill(password);
+  if (hasta < 2) return;
+  await page.getByRole('button', { name: 'Seguir' }).click();
+  await page.getByLabel('Usuario').fill(username);
+  if (o.displayName) await page.getByLabel(/Nombre para mostrar/).fill(o.displayName);
+  if (hasta < 3) return;
+  await page.getByRole('button', { name: 'Seguir' }).click();
+  if (o.instagram) await page.getByLabel('Instagram').fill(o.instagram);
+  if (o.bandcamp) await page.getByLabel('Bandcamp').fill(o.bandcamp);
+  if (o.facebook) await page.getByLabel('Facebook').fill(o.facebook);
+  if (o.privacy ?? true) await page.getByLabel(/Acepto la política de privacidad/).check();
+  if (enviar) await page.getByRole('button', { name: 'Crear cuenta' }).click();
+}
+
 test.describe('U12 entrar', () => {
   test('con usuario usa login-with-username; con correo, Supabase Auth', async ({ page }) => {
     const session = sessionFixture();
@@ -124,7 +157,8 @@ test.describe('U12 entrar', () => {
     await page.evaluate(() => localStorage.clear());
     await page.goto('/auth/login');
     await fillLogin(page, 'Persona@Gmail.com');
-    await page.waitForURL('**/mis-colecciones');
+    // U30: sin destino propio se entra al perfil, no a Mis colecciones.
+    await page.waitForURL((url) => url.pathname === '/perfil/persona');
     const passwordGrant = calls('/auth/v1/token').filter((r) => r.url().includes('grant_type=password'));
     expect(passwordGrant).toHaveLength(1);
     expect(passwordGrant[0].postDataJSON()).toMatchObject({ email: 'persona@gmail.com', password: 'una-contraseña' });
@@ -173,30 +207,55 @@ test.describe('U12 entrar', () => {
     await expect(page.getByRole('alert')).toHaveText(/Demasiados intentos seguidos/);
   });
 
-  test('desktop en dos columnas con beneficios a la izquierda; móvil, primero el formulario', async ({ page }) => {
+  // U30, tablero E: el título y los tres puntos a la izquierda, el formulario a la derecha; en móvil, el texto primero.
+  test('desktop: texto a la izquierda y panel a la derecha; móvil: el texto va primero', async ({ page }) => {
     await mockSupabase(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/auth/login');
-    const benefits = page.locator('.l-account__aside');
-    const form = page.locator('.l-account__main form');
-    await expect(benefits.getByRole('listitem')).toHaveCount(3);
-    let a = (await benefits.boundingBox())!;
+    await expect(page.getByRole('heading', { level: 1, name: 'Haz parte de la biblioteca de electrónica sudaca' })).toBeVisible();
+    await expect(page.getByText(/más grande del mundo/)).toHaveCount(0);
+    const texto = page.locator('.entrar__texto');
+    const form = page.locator('.entrar__form');
+    await expect(texto.getByRole('listitem')).toHaveText([
+      'Aporta nuevos y viejos lanzamientos al catálogo',
+      'Guarda lanzamientos en tus colecciones',
+      'Comparte tus colecciones con un enlace'
+    ]);
+    let a = (await texto.boundingBox())!;
     let f = (await form.boundingBox())!;
     expect(a.x + a.width).toBeLessThanOrEqual(f.x);
+    expect(f.width).toBeCloseTo(480, 0);
 
     for (const width of [390, 834]) {
       await page.setViewportSize({ width, height: 900 });
-      a = (await benefits.boundingBox())!;
+      a = (await texto.boundingBox())!;
       f = (await form.boundingBox())!;
-      if (width === 390) expect(f.y + f.height).toBeLessThan(a.y);
+      if (width === 390) expect(a.y + a.height).toBeLessThan(f.y);
       const { scroll, inner } = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth }));
       expect(scroll).toBeLessThanOrEqual(inner);
     }
   });
+
+  test('«Crear cuenta» es el botón de contorno bajo Entrar y «Olvidé mi contraseña» el enlace discreto', async ({ page }) => {
+    await mockSupabase(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/auth/login?redirect=/sugerir');
+    const entrar = page.locator('.entrar__form').getByRole('button', { name: 'Entrar' });
+    const crear = page.locator('.entrar__form').getByRole('link', { name: 'Crear cuenta' });
+    const olvide = page.getByRole('link', { name: 'Olvidé mi contraseña' });
+    await expect(crear).toHaveAttribute('href', '/auth/registro?redirect=%2Fsugerir');
+    await expect(olvide).toHaveAttribute('href', '/auth/recuperar');
+    const [e, c, o] = await Promise.all([entrar.boundingBox(), crear.boundingBox(), olvide.boundingBox()]);
+    expect(e!.y + e!.height).toBeLessThanOrEqual(c!.y);
+    expect(c!.y + c!.height).toBeLessThanOrEqual(o!.y);
+    // Contorno verde, sin relleno lleno: el relleno es solo el de Entrar.
+    await expect(crear).toHaveCSS('border-top-width', '1px');
+    await expect(entrar).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  });
 });
 
 test.describe('U12 registro', () => {
-  test('contraseña débil bloquea el alta; fuerte la permite, con redes y aterrizaje en "Revisa tu correo"', async ({ page }) => {
+  test('contraseña débil frena el paso 1; fuerte lo deja seguir y el alta llega a «Revisa tu correo»', async ({ page }) => {
     const { calls } = await mockSupabase(page);
     await page.goto('/auth/registro');
 
@@ -205,18 +264,21 @@ test.describe('U12 registro', () => {
     await password.fill('corta1');
     await expect(page.getByText('Fortaleza: Débil')).toBeVisible();
     await page.getByLabel('Repite la contraseña').fill('corta1');
-    await page.getByLabel('Usuario').fill('nueva_persona');
-    await page.getByLabel(/Leí y acepto/).check();
-    await page.getByRole('button', { name: 'Crear cuenta' }).click();
+    await page.getByRole('button', { name: 'Seguir' }).click();
     await expect(page.getByText('La contraseña necesita 8 caracteres o más.')).toBeVisible();
     await expect(password).toBeFocused();
+    await expect(page.getByLabel('Usuario')).toHaveCount(0);
     expect(calls('/auth/v1/signup')).toHaveLength(0);
 
     await password.fill('Una-Frase-Larga-2026');
     await expect(page.getByText('Fortaleza: Fuerte')).toBeVisible();
     await page.getByLabel('Repite la contraseña').fill('Una-Frase-Larga-2026');
+    await page.getByRole('button', { name: 'Seguir' }).click();
+    await page.getByLabel('Usuario').fill('nueva_persona');
+    await page.getByRole('button', { name: 'Seguir' }).click();
     await page.getByLabel('Instagram').fill('@Nueva.Persona');
     await page.getByLabel('Bandcamp').fill('https://nueva-artista.bandcamp.com/album/disco');
+    await page.getByLabel(/Acepto la política de privacidad/).check();
     await page.getByRole('button', { name: 'Crear cuenta' }).click();
 
     await page.waitForURL('**/auth/confirmar');
@@ -230,37 +292,125 @@ test.describe('U12 registro', () => {
       }
     });
     await expect(page.getByRole('heading', { level: 1, name: 'Revisa tu correo' })).toBeVisible();
-    await expect(page.getByText('Nueva@Gmail.com')).toBeVisible();
+    await expect(page.getByText('Te enviamos un enlace a Nueva@Gmail.com para confirmar tu cuenta.')).toBeVisible();
     await expect(page.getByRole('link', { name: /Abrir Gmail/ })).toHaveAttribute('href', 'https://mail.google.com/mail/');
+    await expect(page.getByRole('link', { name: /Abrir Outlook/ })).toHaveAttribute('href', 'https://outlook.live.com/mail/');
+    await expect(page.getByRole('link', { name: 'Usar otro correo' })).toHaveAttribute('href', '/auth/registro');
+  });
+
+  test('tres pasos: progreso en barritas, el paso se anuncia, Atrás conserva lo escrito y la huella nace', async ({ page }) => {
+    await mockSupabase(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/auth/registro');
+    const anuncio = page.getByRole('status').filter({ hasText: /^Paso \d de 3$/ });
+    const panel = page.locator('.registro-panel');
+
+    // Paso 1: la línea del tablero, tres barritas y ningún «1 de 3» a la vista.
+    await expect(panel.getByText('Crea tu cuenta con tu correo y una contraseña.')).toBeVisible();
+    await expect(anuncio).toHaveText('Paso 1 de 3');
+    await expect(panel.locator('.registro-progreso i')).toHaveCount(3);
+    await expect(panel.locator('.registro-progreso i.on')).toHaveCount(1);
+    await expect(page.locator('.acceso-fondo')).not.toHaveClass(/acceso-fondo--color/);
+    await altaEnPasos(page, { email: 'laura@correo.com', hasta: 1 });
+
+    // Paso 2: usuario y nombre, la nota bajo Usuario y «Disponible».
+    await page.getByRole('button', { name: 'Seguir' }).click();
+    await expect(anuncio).toHaveText('Paso 2 de 3');
+    await expect(panel.getByText('Elige tu usuario y el nombre que se verá en tu perfil.')).toBeVisible();
+    await expect(panel.getByText('No se podrá cambiar después.')).toBeVisible();
+    await expect(panel.locator('.registro-progreso i.on')).toHaveCount(2);
+    await expect(page.getByLabel('Usuario')).toBeFocused();
+    await page.getByLabel('Usuario').fill('Laura_Rios');
+    await expect(page.getByLabel('Usuario')).toHaveValue('laura_rios');
+    await expect(panel.getByText('Disponible')).toBeVisible();
+    await page.getByLabel(/Nombre para mostrar/).fill('Laura Ríos');
+    await expect(page.locator('.acceso-fondo')).not.toHaveClass(/acceso-fondo--color/);
+
+    // Paso 3: la huella revela su color; Atrás lleva a lo escrito, intacto.
+    await page.getByRole('button', { name: 'Seguir' }).click();
+    await expect(anuncio).toHaveText('Paso 3 de 3');
+    await expect(panel.locator('.registro-progreso i.on')).toHaveCount(3);
+    await expect(page.locator('.acceso-fondo')).toHaveClass(/acceso-fondo--color/);
+    await expect(page.getByLabel('Instagram')).toHaveAttribute('placeholder', 'instagram.com/tu_usuario');
+    await expect(page.getByLabel('SoundCloud')).toHaveAttribute('placeholder', 'soundcloud.com/tu_usuario');
+    await expect(page.getByLabel('Bandcamp')).toHaveAttribute('placeholder', 'tuusuario.bandcamp.com');
+    await page.getByLabel('Instagram').fill('laura.rios');
+    await page.getByRole('button', { name: 'Atrás' }).click();
+    await expect(page.getByLabel('Usuario')).toHaveValue('laura_rios');
+    await expect(page.getByLabel(/Nombre para mostrar/)).toHaveValue('Laura Ríos');
+    await page.getByRole('button', { name: 'Atrás' }).click();
+    await expect(page.getByLabel('Correo', { exact: true })).toHaveValue('laura@correo.com');
+    await expect(page.getByLabel('Contraseña', { exact: true })).toHaveValue('una-contraseña');
+    await page.getByRole('button', { name: 'Seguir' }).click();
+    await page.getByRole('button', { name: 'Seguir' }).click();
+    await expect(page.getByLabel('Instagram')).toHaveValue('laura.rios');
+  });
+
+  // U30: el recorrido entero, de punta a punta, con el mock de Auth.
+  test('alta completa: tres pasos, Revisa tu correo, enlace del correo y perfil con el aviso', async ({ page }) => {
+    const { calls } = await mockSupabase(page);
+    await page.goto('/auth/registro');
+    await altaEnPasos(page, { email: 'persona@gmail.com', username: 'persona', displayName: 'Persona', instagram: 'persona.ig' });
+    await page.waitForURL('**/auth/confirmar');
+
+    const signup = calls('/auth/v1/signup')[0];
+    expect(signup.postDataJSON()).toMatchObject({
+      email: 'persona@gmail.com',
+      data: { username: 'persona', display_name: 'Persona', newsletter_opt_in: false, social_instagram: 'persona.ig' }
+    });
+    await expect(page.getByRole('heading', { level: 1, name: 'Revisa tu correo' })).toBeVisible();
+
+    // El enlace del correo apunta a redirect_to con el token: se abre ese, en otro dispositivo si hiciera falta.
+    const destino = new URL(new URL(signup.url()).searchParams.get('redirect_to')!);
+    await page.goto(`${destino.pathname}?token_hash=hash-alta&type=email`);
+    await page.waitForURL((url) => url.pathname === '/perfil/persona');
+    expect(calls('/auth/v1/verify').map((r) => r.postDataJSON())).toMatchObject([{ token_hash: 'hash-alta', type: 'email' }]);
+    await expect(page.getByRole('heading', { level: 1, name: 'Persona' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Tu cuenta está confirmada' })).toBeVisible();
+    expect(new URL(page.url()).searchParams.has('aviso')).toBe(false);
+  });
+
+  test('un usuario tomado frena el paso 2, y un formato imposible también', async ({ page }) => {
+    const { calls } = await mockSupabase(page);
+    await page.goto('/auth/registro');
+    await altaEnPasos(page, { username: 'tomado', hasta: 2 });
+    await expect(page.getByText('Ese usuario ya está en uso. Prueba con otro.')).toBeVisible();
+    await page.getByRole('button', { name: 'Seguir' }).click();
+    await expect(page.getByText('Ese usuario ya está en uso. Prueba con otro.')).toBeVisible();
+    await expect(page.getByLabel('Instagram')).toHaveCount(0);
+
+    await page.getByLabel('Usuario').fill('no válido!');
+    await page.getByRole('button', { name: 'Seguir' }).click();
+    await expect(page.getByText('Usa de 3 a 30 minúsculas, números, - o _.')).toBeVisible();
+    expect(calls('/auth/v1/signup')).toHaveLength(0);
   });
 
   test('una red inválida o la privacidad sin aceptar no envían nada y marcan el campo', async ({ page }) => {
     const { calls } = await mockSupabase(page);
     await page.goto('/auth/registro');
-    await page.getByLabel('Correo', { exact: true }).fill('nueva@example.com');
-    await page.getByLabel('Contraseña', { exact: true }).fill('una-contraseña');
-    await page.getByLabel('Repite la contraseña').fill('una-contraseña');
-    await page.getByLabel('Usuario').fill('nueva_persona');
-    await page.getByLabel('Facebook').fill('abc');
-    await page.getByRole('button', { name: 'Crear cuenta' }).click();
+    await altaEnPasos(page, { facebook: 'abc', privacy: false });
     await expect(page.getByText(/El usuario de Facebook no es válido/)).toBeVisible();
     await expect(page.getByText('Para crear la cuenta tienes que aceptar la política de privacidad.')).toBeVisible();
     expect(calls('/auth/v1/signup')).toHaveLength(0);
   });
 
+  test('una contraseña que Auth rechaza como débil devuelve al paso 1', async ({ page }) => {
+    await mockSupabase(page, { signup: () => ({ status: 422, body: { error_code: 'weak_password', msg: 'Password is known to be weak' } }) });
+    await page.goto('/auth/registro');
+    await altaEnPasos(page);
+    await expect(page.getByText('Esa contraseña es demasiado fácil de adivinar. Prueba con otra.')).toBeVisible();
+    await expect(page.getByLabel('Contraseña', { exact: true })).toBeFocused();
+  });
+
   test('un correo ya registrado lleva a la misma pantalla que uno nuevo', async ({ page }) => {
     await mockSupabase(page, { signup: () => ({ status: 422, body: { error_code: 'user_already_exists', msg: 'User already registered' } }) });
     await page.goto('/auth/registro');
-    await page.getByLabel('Correo', { exact: true }).fill('existe@yahoo.com');
-    await page.getByLabel('Contraseña', { exact: true }).fill('una-contraseña');
-    await page.getByLabel('Repite la contraseña').fill('una-contraseña');
-    await page.getByLabel('Usuario').fill('otra_persona');
-    await page.getByLabel(/Leí y acepto/).check();
-    await page.getByRole('button', { name: 'Crear cuenta' }).click();
+    await altaEnPasos(page, { email: 'existe@yahoo.com', username: 'otra_persona' });
     await page.waitForURL('**/auth/confirmar');
     await expect(page.getByText('existe@yahoo.com')).toBeVisible();
-    // Yahoo no está entre los webmails con enlace.
-    await expect(page.getByRole('link', { name: /Abrir/ })).toHaveCount(0);
+    // D4: Gmail y Outlook, siempre los dos, sea cual sea el dominio.
+    await expect(page.getByRole('link', { name: /Abrir Gmail/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Abrir Outlook/ })).toBeVisible();
   });
 });
 
@@ -269,16 +419,12 @@ test.describe('U12 revisa tu correo', () => {
     await page.clock.install();
     const { calls } = await mockSupabase(page);
     await page.goto('/auth/registro');
-    await page.getByLabel('Correo', { exact: true }).fill('nueva@icloud.com');
-    await page.getByLabel('Contraseña', { exact: true }).fill('una-contraseña');
-    await page.getByLabel('Repite la contraseña').fill('una-contraseña');
-    await page.getByLabel('Usuario').fill('nueva_persona');
-    await page.getByLabel(/Leí y acepto/).check();
-    await page.getByRole('button', { name: 'Crear cuenta' }).click();
+    await altaEnPasos(page, { email: 'nueva@icloud.com' });
     await page.waitForURL('**/auth/confirmar');
 
-    const resend = page.getByRole('button', { name: 'Reenviar correo' });
-    await expect(page.getByRole('link', { name: /Abrir iCloud Mail/ })).toBeVisible();
+    const resend = page.getByRole('button', { name: 'Reenviar' });
+    await expect(page.getByRole('link', { name: /Abrir Gmail/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Abrir Outlook/ })).toBeVisible();
     await expect(resend).toBeDisabled();
     await expect(page.getByText('Podrás reenviarlo en 1:00')).toBeVisible();
 
@@ -296,6 +442,20 @@ test.describe('U12 revisa tu correo', () => {
     expect(page.url()).not.toContain('icloud');
   });
 
+  test('título 28/34, barra mínima y la huella ya con su color', async ({ page }) => {
+    await mockSupabase(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/auth/registro');
+    await altaEnPasos(page, { email: 'laura@correo.com', username: 'laura_rios' });
+    await page.waitForURL('**/auth/confirmar');
+    const titulo = page.getByRole('heading', { level: 1, name: 'Revisa tu correo' });
+    await expect(titulo).toHaveCSS('font-size', '28px');
+    await expect(titulo).toHaveCSS('line-height', '34px');
+    await expect(page.locator('header.site-header')).toHaveAttribute('data-header-mode', 'minimo');
+    await expect(page.locator('.acceso-fondo')).toHaveClass(/acceso-fondo--color/);
+    await expect(page.getByRole('link', { name: /Abrir Gmail/ }).locator('svg')).toHaveCount(1);
+  });
+
   test('sin correo conocido, lo pide para reenviar', async ({ page }) => {
     const { calls } = await mockSupabase(page);
     await page.goto('/auth/confirmar');
@@ -307,15 +467,24 @@ test.describe('U12 revisa tu correo', () => {
 });
 
 test.describe('U12 enlaces del correo', () => {
-  test('confirmar la cuenta aterriza en Mis colecciones con aviso, una sola vez', async ({ page }) => {
+  // U30: la cuenta confirmada aterriza en su perfil, no en Mis colecciones.
+  test('confirmar la cuenta aterriza en el perfil con aviso, una sola vez', async ({ page }) => {
     await signedIn(page);
     await mockSupabase(page);
     await page.goto('/auth/reset?flow=signup');
-    await page.waitForURL((url) => url.pathname === '/mis-colecciones');
+    await page.waitForURL((url) => url.pathname === '/perfil/persona');
     await expect(page.getByRole('status').filter({ hasText: 'Tu cuenta está confirmada' })).toBeVisible();
     expect(new URL(page.url()).searchParams.has('aviso')).toBe(false);
     await page.reload();
     await expect(page.getByText('Tu cuenta está confirmada')).toHaveCount(0);
+  });
+
+  test('abrir el perfil con el aviso en la URL lo muestra y lo quita', async ({ page }) => {
+    await signedIn(page);
+    await mockSupabase(page);
+    await page.goto('/perfil/persona?aviso=cuenta-confirmada');
+    await expect(page.getByText('Tu cuenta está confirmada')).toBeVisible();
+    await expect(page).toHaveURL(/\/perfil\/persona$/);
   });
 
   test('abrir Mis colecciones con el aviso en la URL lo muestra y carga las colecciones', async ({ page }) => {
@@ -339,10 +508,10 @@ test.describe('U12 enlaces del correo', () => {
 
   // RC2-P0-01: los enlaces de las plantillas traen token_hash y se canjean aquí,
   // sin sesión previa ni code verifier (sirven abiertos en otro dispositivo).
-  test('el enlace de confirmación (token_hash) canjea con verifyOtp y aterriza en Mis colecciones', async ({ page }) => {
+  test('el enlace de confirmación (token_hash) canjea con verifyOtp y aterriza en el perfil', async ({ page }) => {
     const { calls } = await mockSupabase(page);
     await page.goto('/auth/reset?token_hash=hash-confirmar&type=email');
-    await page.waitForURL((url) => url.pathname === '/mis-colecciones');
+    await page.waitForURL((url) => url.pathname === '/perfil/persona');
     await expect(page.getByRole('status').filter({ hasText: 'Tu cuenta está confirmada' })).toBeVisible();
     expect(calls('/auth/v1/verify').map((r) => r.postDataJSON())).toMatchObject([{ token_hash: 'hash-confirmar', type: 'email' }]);
     expect(calls('/auth/v1/token')).toHaveLength(0);
@@ -351,13 +520,14 @@ test.describe('U12 enlaces del correo', () => {
   test('el enlace de recuperación (token_hash) abre el formulario, se quita de la URL y guarda la contraseña', async ({ page }) => {
     const { calls } = await mockSupabase(page);
     await page.goto('/auth/reset?token_hash=hash-recuperar&type=recovery');
-    await expect(page.getByRole('heading', { level: 1, name: 'Nueva contraseña' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Contraseña nueva' })).toBeVisible();
     expect(calls('/auth/v1/verify').map((r) => r.postDataJSON())).toMatchObject([{ token_hash: 'hash-recuperar', type: 'recovery' }]);
     await expect(page).toHaveURL(/\/auth\/reset\?flow=recovery$/);
     await page.getByLabel('Contraseña nueva').fill('Una-Frase-Larga-2026');
     await page.getByLabel('Repite la contraseña').fill('Una-Frase-Larga-2026');
     await page.getByRole('button', { name: 'Guardar contraseña' }).click();
-    await page.waitForURL((url) => url.pathname === '/mis-colecciones');
+    await page.waitForURL((url) => url.pathname === '/perfil/persona');
+    await expect(page.getByText('Contraseña actualizada')).toBeVisible();
     expect(calls('/auth/v1/user').filter((r) => r.method() === 'PUT').map((r) => r.postDataJSON())).toMatchObject([{ password: 'Una-Frase-Larga-2026' }]);
   });
 
@@ -367,6 +537,10 @@ test.describe('U12 enlaces del correo', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'El enlace venció' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Pedir otro enlace' })).toHaveAttribute('href', '/auth/recuperar');
     await expect(page).toHaveURL(/\/auth\/reset\?flow=recovery$/);
+    // Tablero M: contenedor de 480 y ningún aviso rojo, solo el texto y una salida.
+    await expect(page.locator('.ui-form-panel')).toHaveCSS('max-width', '480px');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByText('Ya se usó o pasó demasiado tiempo.')).toBeVisible();
   });
 
   test('la primera de las dos confirmaciones de un cambio de correo avisa que falta la otra', async ({ page }) => {
@@ -380,15 +554,16 @@ test.describe('U12 enlaces del correo', () => {
     await signedIn(page);
     const { calls } = await mockSupabase(page);
     await page.goto('/auth/reset?code=ya-canjeado&flow=signup');
-    await page.waitForURL((url) => url.pathname === '/mis-colecciones');
+    await page.waitForURL((url) => url.pathname === '/perfil/persona');
     expect(calls('/auth/v1/verify')).toHaveLength(0);
   });
 
   test('un enlace de confirmación vencido ofrece pedir otro', async ({ page }) => {
     await mockSupabase(page);
     await page.goto('/auth/reset?flow=signup#error=access_denied&error_description=Email+link+is+invalid+or+has+expired');
-    await expect(page.getByRole('heading', { level: 1, name: 'El enlace de confirmación venció' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'El enlace venció' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Pedir otro enlace' })).toHaveAttribute('href', '/auth/confirmar');
+    await expect(page.getByRole('alert')).toHaveCount(0);
   });
 });
 

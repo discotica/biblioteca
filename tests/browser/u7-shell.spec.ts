@@ -262,12 +262,12 @@ test.describe('U7 layouts', () => {
     const routes: Array<[string, string]> = [
       ['/manual', 'l-container--wide'],
       ['/privacidad', 'l-container--narrow'],
-      ['/auth/login', 'l-container--regular'], // U12: dos columnas (beneficios y formulario)
-      ['/auth/confirmar', 'l-container--narrow'],
-      ['/auth/registro', 'l-container--narrow'],
+      ['/auth/login', 'l-container--wide'], // U30, tablero E: texto a la izquierda y panel a la derecha
+      ['/auth/confirmar', 'l-container--wide'], // U30, tablero K: el panel va a la izquierda del contenedor
+      ['/auth/registro', 'l-container--wide'],
       ['/auth/recuperar', 'l-container--narrow'],
       ['/auth/reset', 'l-container--narrow'],
-      ['/reportar', 'l-container--regular'], // sin sesión redirige a Entrar (dos columnas desde U12)
+      ['/reportar', 'l-container--wide'], // sin sesión redirige a Entrar (U30)
       ['/sugerir', 'l-container--narrow'],
       ['/estudio/catalogo', 'l-container--narrow'], // U15: sin sesión, el Estudio pide entrar (con sesión, full)
       ['/perfil/comunidad', 'l-container--regular'],
@@ -338,14 +338,20 @@ test.describe('U7 layouts', () => {
     await expect(page.locator('.l-reading__body h2').first()).toHaveCSS('font-size', '24px');
   });
 
-  test('cuenta: título, formulario y pie comparten layout', async ({ page }) => {
+  // U30: las vistas de acceso son un panel (FormPanel) con su título dentro.
+  test('acceso: título, panel y salida comparten escena', async ({ page }) => {
     await mockSupabase(page, 'anonimo');
-    for (const [path, title] of [['/auth/login', 'Entrar'], ['/auth/registro', 'Crear cuenta'], ['/auth/recuperar', 'Recuperar contraseña']]) {
+    for (const [path, title, panel] of [
+      ['/auth/login', 'Haz parte de la biblioteca de electrónica sudaca', 480],
+      ['/auth/registro', 'Crear cuenta', 576],
+      ['/auth/recuperar', 'Recuperar contraseña', 480]
+    ] as const) {
       await page.goto(path);
-      const layout = page.locator('.l-account');
-      await expect(layout.getByRole('heading', { level: 1, name: title })).toBeVisible();
-      await expect(layout.locator('form')).toHaveCount(1);
-      await expect(layout.locator('.l-account__footer a').first()).toBeVisible();
+      const scene = page.locator('.acceso');
+      await expect(scene.getByRole('heading', { level: 1, name: title })).toBeVisible();
+      await expect(scene.locator('form.ui-form-panel')).toHaveCount(1);
+      await expect(scene.locator('form.ui-form-panel')).toHaveCSS('max-width', `${panel}px`);
+      await expect(scene.locator('.acceso-fondo')).toHaveCount(1);
     }
   });
 });

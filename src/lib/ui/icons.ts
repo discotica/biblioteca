@@ -126,6 +126,8 @@ export const ICONS = {
   },
   // Manual en el panel de cuenta (U28, tablero J): interrogación en un círculo.
   ayuda: { paths: [circle(12, 12, 9), 'M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.2-2.5 3.8', 'M12 17.2h.01'] },
+  // Guardar en una colección (Entrar, tablero E): marcador.
+  guardar: { paths: ['M6 4h12v17l-6-4.5L6 21Z'] },
   // Colección fijada (Mis aportes en el perfil, tableros F y K): chincheta.
   pin: {
     paths: [

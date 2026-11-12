@@ -328,6 +328,23 @@
   --form-panel-pad-compact: 1.25rem;          /* 20 */
   --form-gap-block: 1.375rem;                 /* 22 · entre bloques de campos */
   --form-gap-actions: 2.25rem;                /* 36 · campos → acciones */
+  /* Acceso y onboarding (U30, tableros E, K y M). Título dentro del panel 28/34
+     y título de Entrar 60/66 (36/40 en móvil). La huella de fondo se revela en
+     0,6 s. Velo de lectura de Entrar: a la izquierda en desktop, arriba en móvil.
+     --acceso-inicio-top: aire sobre el panel del onboarding, alineado a la
+     izquierda del contenedor; en móvil deja a la vista la huella que nace. */
+  --text-titulo-panel: 1.75rem;               /* 28 */
+  --text-titulo-panel-lh: 2.125rem;           /* 34 */
+  --text-acceso: clamp(2.25rem, 4.1667vw, 3.75rem);   /* 36–60px */
+  --text-acceso-lh: 1.1;                      /* 66 / 60 · 40 / 36 */
+  --acceso-revela: 600ms;
+  --acceso-alto-min: 32rem;
+  --acceso-pie: 10rem;
+  --acceso-inicio-top: var(--space-7);
+  --acceso-inicio-top-movil: 10rem;
+  --acceso-velo: linear-gradient(90deg, rgba(14, 14, 14, 0.88) 0, rgba(14, 14, 14, 0.82) 58%, rgba(14, 14, 14, 0) 74%);
+  --acceso-velo-movil: linear-gradient(180deg, rgba(14, 14, 14, 0.88) 0, rgba(14, 14, 14, 0.82) 420px, rgba(14, 14, 14, 0) 560px);
+  --acceso-punto-w: 41.25rem;                 /* 660 · columna del texto de Entrar */
   /* Header: logo (36 en desktop y 30 en móvil, U28) y avatar de iniciales de /lab */
   --avatar-sm: 28px;
   --header-logo-h: 36px;

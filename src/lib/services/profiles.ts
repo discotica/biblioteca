@@ -9,6 +9,7 @@ import {
   type SocialNetwork,
   type SocialProfileColumns
 } from '$lib/domain/profileSocial';
+import { profileHref } from '$lib/domain/account';
 
 /**
  * Perfil (D1). Lecturas públicas y escrituras del dueño sobre `profiles`.
@@ -51,6 +52,21 @@ export async function loadPublicProfile(username: string): Promise<PublicProfile
     .maybeSingle();
   fail(error);
   return data as PublicProfile | null;
+}
+
+/**
+ * Perfil de la sesión actual (U30): adonde se llega al entrar sin un destino
+ * propio y al confirmar la cuenta. El usuario viaja en los metadatos del alta;
+ * si faltan, se lee de `profiles`. Sin sesión o sin perfil, el catálogo.
+ */
+export async function ownProfilePath(): Promise<string> {
+  const { data } = await supabase.auth.getSession();
+  const user = data.session?.user;
+  if (!user) return '/';
+  const fromMetadata = user.user_metadata?.username;
+  if (typeof fromMetadata === 'string' && fromMetadata) return profileHref(fromMetadata);
+  const { data: row } = await supabase.from('profiles').select('username').eq('id', user.id).maybeSingle();
+  return row?.username ? profileHref(row.username) : '/';
 }
 
 const PROFILE_BASE_COLUMNS = 'id, username, display_name, bio, created_at';

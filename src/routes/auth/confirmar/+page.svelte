@@ -1,15 +1,18 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import AccountLayout from '$lib/layouts/AccountLayout.svelte';
+  import AbrirCorreo from '$lib/components/account/AbrirCorreo.svelte';
+  import AccesoPagina from '$lib/components/account/AccesoPagina.svelte';
+  import AccesoTitulo from '$lib/components/account/AccesoTitulo.svelte';
   import { confirmationRedirect, readPendingSignup, writePendingSignup } from '$lib/components/account/pendingSignup';
-  import { Button, Field, Notice } from '$lib/ui';
+  import { Button, Field, FormPanel, Notice } from '$lib/ui';
   import { page } from '$app/stores';
   import { supabase } from '$lib/supabase';
-  import { RESEND_COOLDOWN_SECONDS, retryAfterSeconds, webmailFor } from '$lib/domain/account';
+  import { RESEND_COOLDOWN_SECONDS, retryAfterSeconds } from '$lib/domain/account';
 
   // Correo de la cuenta recién creada. Sin él (otra pestaña, enlace vencido),
   // la pantalla lo pide para reenviar.
   let email = $state('');
+  let username = $state('');
   let typedEmail = $state('');
   let sentAt = $state(0);
   let now = $state(Date.now());
@@ -18,7 +21,6 @@
   let cooldownUntil = $state(0);
   let timer: ReturnType<typeof setInterval> | undefined;
 
-  const webmail = $derived(email ? webmailFor(email) : null);
   const secondsLeft = $derived(Math.max(0, Math.ceil((cooldownUntil - now) / 1000)));
 
   function startCooldown(seconds: number) {
@@ -27,9 +29,10 @@
   }
 
   onMount(() => {
-    const fromNavigation = ($page.state as { email?: string }).email;
+    const fromNavigation = $page.state as { email?: string; username?: string };
     const pending = readPendingSignup();
-    email = fromNavigation ?? pending?.email ?? '';
+    email = fromNavigation.email ?? pending?.email ?? '';
+    username = fromNavigation.username ?? (pending?.email === email ? pending?.username : undefined) ?? '';
     sentAt = pending?.email === email ? pending.sentAt : email ? Date.now() : 0;
     if (sentAt) cooldownUntil = sentAt + RESEND_COOLDOWN_SECONDS * 1000;
     timer = setInterval(() => (now = Date.now()), 1000);
@@ -64,7 +67,7 @@
     if (!email) {
       email = target;
     }
-    writePendingSignup({ email: target, sentAt: Date.now() });
+    writePendingSignup({ email: target, sentAt: Date.now(), ...(username ? { username } : {}) });
     notice = {
       tone: 'success',
       text: 'Si hay una cuenta pendiente de confirmar con ese correo, te llegará un enlace nuevo en unos minutos.'
@@ -86,88 +89,78 @@
   <title>Revisa tu correo — Biblioteca Discótica</title>
 </svelte:head>
 
-<AccountLayout
-  title="Revisa tu correo"
-  help={email ? undefined : 'Escribe el correo con el que creaste la cuenta y te enviamos otro enlace de confirmación.'}
->
-  {#if email}
-    <div class="check-email">
-      <p class="check-email__lead">
-        Te enviamos un enlace para confirmar tu cuenta a
-        <strong class="check-email__address">{email}</strong>
-      </p>
-      <p class="check-email__help">Ábrelo desde este dispositivo o desde otro. Si no lo ves en unos minutos, busca en spam o en promociones.</p>
+<!-- No es un paso más: la huella del alta se queda, ya con su color y un latido suave (tablero K). -->
+<AccesoPagina contenedor="wide" alinea="inicio" nombre={username} color={Boolean(username)} latido={6}>
+  <FormPanel size="wide">
+    {#if email}
+      <AccesoTitulo titulo="Revisa tu correo">
+        Te enviamos un enlace a <strong>{email}</strong> para confirmar tu cuenta.
+      </AccesoTitulo>
 
-      <div class="check-email__actions">
-        {#if webmail}
-          <Button href={webmail.url} target="_blank" rel="noopener" iconEnd="flecha-externa" block>Abrir {webmail.label}<span class="sr-only"> (se abre en otra pestaña)</span></Button>
-        {/if}
-        <Button
-          variant="secondary"
-          block
-          loading={sending}
-          disabled={secondsLeft > 0}
-          onclick={() => resend(email)}
-          aria-describedby={secondsLeft > 0 ? 'resend-wait' : undefined}
-        >
-          Reenviar correo
-        </Button>
+      <div class="confirmar__acciones">
+        <AbrirCorreo>
+          <Button
+            variant="secondary"
+            size="form"
+            loading={sending}
+            disabled={secondsLeft > 0}
+            onclick={() => resend(email)}
+            aria-describedby={secondsLeft > 0 ? 'resend-wait' : undefined}
+          >
+            Reenviar
+          </Button>
+        </AbrirCorreo>
         {#if secondsLeft > 0}
-          <p class="check-email__wait" id="resend-wait">Podrás reenviarlo en {format(secondsLeft)}.</p>
+          <p class="confirmar__espera" id="resend-wait">Podrás reenviarlo en {format(secondsLeft)}.</p>
         {/if}
+        <p class="confirmar__ayuda">Si no lo ves en unos minutos, busca en spam o en promociones.</p>
       </div>
-    </div>
-  {:else}
-    <form class="account-form" onsubmit={resendTyped} novalidate>
-      <Field label="Correo" type="email" name="email" autocomplete="email" bind:value={typedEmail} required />
-      <Button type="submit" block loading={sending} disabled={secondsLeft > 0}>Enviar enlace</Button>
-      {#if secondsLeft > 0}<p class="check-email__wait">Podrás pedir otro en {format(secondsLeft)}.</p>{/if}
-    </form>
-  {/if}
+    {:else}
+      <AccesoTitulo titulo="Revisa tu correo">
+        Escribe el correo con el que creaste la cuenta y te enviamos otro enlace de confirmación.
+      </AccesoTitulo>
 
-  {#if notice}
-    <Notice tone={notice.tone} class="check-email__notice">{notice.text}</Notice>
-  {/if}
+      <form class="confirmar__form" onsubmit={resendTyped} novalidate>
+        <Field label="Correo" type="email" name="email" autocomplete="email" bind:value={typedEmail} required />
+        <Button type="submit" size="form" block loading={sending} disabled={secondsLeft > 0}>Enviar enlace</Button>
+        {#if secondsLeft > 0}<p class="confirmar__espera">Podrás pedir otro en {format(secondsLeft)}.</p>{/if}
+      </form>
+    {/if}
 
-  {#snippet footer()}
-    <a href="/auth/registro">Usar otro correo</a>
-    <span aria-hidden="true">·</span>
-    <a href="/auth/login">Entrar</a>
-  {/snippet}
-</AccountLayout>
+    {#if notice}
+      <Notice tone={notice.tone}>{notice.text}</Notice>
+    {/if}
+
+    {#snippet actions()}
+      <a class="confirmar__otro" href="/auth/registro">Usar otro correo</a>
+    {/snippet}
+  </FormPanel>
+</AccesoPagina>
 
 <style>
-  .check-email__lead {
-    margin: 0;
-    color: var(--color-texto-alto);
-    font-size: var(--text-md);
-    line-height: 1.55;
-  }
-  .check-email__address {
-    display: block;
-    margin-top: var(--space-1);
-    color: var(--color-texto);
-    font-weight: 700;
-    overflow-wrap: anywhere;
-  }
-  .check-email__help {
-    margin: var(--space-3) 0 0;
-    color: var(--color-texto-medio);
-    font-size: var(--text-sm);
-    line-height: 1.55;
-  }
-  .check-email__actions,
-  .account-form {
+  .confirmar__acciones,
+  .confirmar__form {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
   }
-  .check-email__actions { margin-top: var(--space-6); }
-  .check-email__wait {
+  .confirmar__espera,
+  .confirmar__ayuda {
     margin: 0;
     color: var(--color-texto-tenue);
     font-size: var(--text-xs);
-    text-align: center;
   }
-  :global(.check-email__notice) { margin-top: var(--space-5); }
+  .confirmar__espera { color: var(--color-texto-medio); }
+
+  .confirmar__otro {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--target-touch);
+    color: var(--color-texto-alto);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-decoration: none;
+    transition: color var(--motion-fast) ease;
+  }
+  .confirmar__otro:hover { color: var(--color-acento); }
 </style>

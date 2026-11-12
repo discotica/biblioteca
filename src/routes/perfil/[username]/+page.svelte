@@ -3,6 +3,7 @@
   // dueño lo permite. Propio: además, acceso al Estudio (admin y colaborador),
   // edición de redes (en Editar cuenta) y el interruptor de aportes públicos.
   import { onMount } from 'svelte';
+  import { afterNavigate, replaceState } from '$app/navigation';
   import { supabase } from '$lib/supabase';
   import { getProfileRole, type ProfileRole } from '$lib/stores/contributionsStore';
   import { portadasDeColecciones, type Crate } from '$lib/stores/cratesStore';
@@ -20,6 +21,29 @@
   import CollectionTile from '$lib/components/colecciones/CollectionTile.svelte';
 
   let { data }: { data: { perfil: PublicProfile; d1: boolean; crates: Crate[] } } = $props();
+
+  // Avisos al llegar desde un enlace de correo (U12, U30): la cuenta confirmada
+  // aterriza aquí. Se leen una vez y se quitan de la URL, para que recargar o
+  // compartir el perfil no los repita.
+  const AVISOS: Record<string, { title: string; text: string }> = {
+    'cuenta-confirmada': {
+      title: 'Tu cuenta está confirmada',
+      text: 'Ya puedes crear colecciones, compartirlas y sugerir lanzamientos.'
+    },
+    contrasena: { title: 'Contraseña actualizada', text: 'Usa tu contraseña nueva la próxima vez que entres.' }
+  };
+  let aviso = $state<{ title: string; text: string } | null>(null);
+
+  // afterNavigate y no onMount: replaceState necesita el router ya iniciado,
+  // y en una carga directa onMount corre antes.
+  afterNavigate(({ to }) => {
+    const avisoParam = to?.url.searchParams.get('aviso');
+    if (!to || !avisoParam) return;
+    aviso = AVISOS[avisoParam] ?? null;
+    const url = new URL(to.url);
+    url.searchParams.delete('aviso');
+    replaceState(url, {});
+  });
 
   const ACCEPTED_PAGE = 24;
   const editorialEnabled = import.meta.env.VITE_EDITORIAL_ENABLED === 'true';
@@ -148,6 +172,10 @@
     {/if}
   {/snippet}
 
+  {#if aviso}
+    <Notice tone="success" title={aviso.title} class="perfil-aviso">{aviso.text}</Notice>
+  {/if}
+
   {#if studioLinks.length}
     <section class="studio" aria-labelledby="studio-title">
       <div>
@@ -229,6 +257,8 @@
 </PageLayout>
 
 <style>
+  :global(.perfil-aviso) { margin-bottom: var(--space-6); }
+
   .avatar {
     width: 64px;
     height: 64px;

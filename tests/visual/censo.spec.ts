@@ -197,17 +197,19 @@ each(['D', 'M'], 'artista', `/artista/${ARTIST_SLUG}`, { full: true, maxH: 3000 
 each(['D', 'M'], 'sello', `/sello/${LABEL_SLUG}`, { full: true, maxH: 3000 });
 
 // Cuenta
-const fillRegistro = async (page: Page, valueFor: (type: string | null, index: number, autocomplete: string) => string | null) => {
-  // Las redes (U12) son opcionales: el relleno las deja vacías.
-  const inputs = page.locator('form input:not([name^="social_"])');
-  const n = await inputs.count();
-  for (let i = 0; i < n; i++) {
-    const el = inputs.nth(i);
-    const type = await el.getAttribute('type');
-    const value = valueFor(type, i, (await el.getAttribute('autocomplete')) || '');
-    if (type === 'checkbox') { if (value) await el.check(); continue; }
-    if (value != null) await el.fill(value);
-  }
+// U30: el alta son tres pasos. Recorre los que se pidan; las redes quedan vacías (son opcionales).
+const registroEnPasos = async (page: Page, o: { email?: string; password?: string; repite?: string; username?: string; hasta: 1 | 2 | 3; privacy?: boolean }) => {
+  const { email = 'nueva@example.test', password = 'una-contraseña', repite = password, username = 'nueva_persona', hasta } = o;
+  await page.getByLabel('Correo', { exact: true }).fill(email);
+  await page.getByLabel('Contraseña', { exact: true }).fill(password);
+  await page.getByLabel('Repite la contraseña').fill(repite);
+  if (hasta < 2) return;
+  await page.getByRole('button', { name: 'Seguir' }).click();
+  await page.getByLabel('Usuario').fill(username);
+  if (hasta < 3) return;
+  await page.getByRole('button', { name: 'Seguir' }).click();
+  await page.getByLabel('Instagram').waitFor();
+  if (o.privacy) await page.getByLabel(/Acepto la política/).check();
 };
 each(['D', 'M'], 'login', '/auth/login');
 add('login-error-D', 'D', '/auth/login', {
@@ -223,27 +225,44 @@ each(['D', 'M'], 'registro', '/auth/registro', { full: true });
 add('registro-filled-D', 'D', '/auth/registro', {
   full: true,
   setup: async (page) => {
-    await fillRegistro(page, (type, i, ac) => type === 'checkbox' ? null : type === 'email' ? 'nueva@example.test' : type === 'password' ? 'una-contraseña' : /user/.test(ac) || i === 0 ? 'usuario_tomado' : 'Nueva Persona');
-    await page.locator('form input').first().blur();
+    await registroEnPasos(page, { hasta: 2, username: 'usuario_tomado' });
+    await page.getByLabel('Usuario').blur();
     await settle(page);
   }
 });
 add('registro-error-D', 'D', '/auth/registro', {
   full: true,
   setup: async (page) => {
-    let pw = 0;
-    await fillRegistro(page, (type) => type === 'checkbox' ? null : type === 'email' ? 'nueva@example.test' : type === 'password' ? (pw++ ? 'distinta-1' : 'una-contraseña') : 'nueva_persona');
-    await page.click('button[type=submit]');
+    await registroEnPasos(page, { hasta: 1, repite: 'distinta-1' });
+    await page.getByRole('button', { name: 'Seguir' }).click();
+    await settle(page);
+  }
+});
+// U30: los pasos 2 y 3 del alta (tablero K), con la huella que nace.
+each(['D', 'M'], 'registro-paso2', '/auth/registro', {
+  full: true,
+  supplementary: true,
+  setup: async (page) => {
+    await registroEnPasos(page, { hasta: 2, username: 'laura_rios' });
+    await page.getByText('Disponible').waitFor();
+    await settle(page);
+  }
+});
+each(['D', 'M'], 'registro-paso3', '/auth/registro', {
+  full: true,
+  supplementary: true,
+  setup: async (page) => {
+    await registroEnPasos(page, { hasta: 3, username: 'laura_rios' });
     await settle(page);
   }
 });
 add('registro-success-D', 'D', '/auth/registro', {
   full: true,
   setup: async (page) => {
-    await fillRegistro(page, (type) => type === 'checkbox' ? 'check' : type === 'email' ? 'nueva@example.test' : type === 'password' ? 'una-contraseña' : 'nueva_persona_x');
+    await registroEnPasos(page, { hasta: 3, username: 'nueva_persona_x', privacy: true });
     await settle(page);
-    await page.click('button[type=submit]');
-    await page.waitForSelector('form', { state: 'detached' }).catch(() => {});
+    await page.getByRole('button', { name: 'Crear cuenta' }).click();
+    await page.waitForURL('**/auth/confirmar');
     await settle(page);
   }
 });
@@ -262,8 +281,8 @@ add('reset-signup-D', 'D', '/auth/reset?flow=signup&type=signup', { supplementar
 add('confirmar-M', 'M', '/auth/registro', {
   supplementary: true,
   setup: async (page) => {
-    await fillRegistro(page, (type) => type === 'checkbox' ? 'check' : type === 'email' ? 'nueva@gmail.com' : type === 'password' ? 'una-contraseña' : 'nueva_persona_x');
-    await page.click('button[type=submit]');
+    await registroEnPasos(page, { hasta: 3, email: 'nueva@gmail.com', username: 'nueva_persona_x', privacy: true });
+    await page.getByRole('button', { name: 'Crear cuenta' }).click();
     await page.waitForURL('**/auth/confirmar');
     await settle(page);
   }
