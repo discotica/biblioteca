@@ -1,5 +1,6 @@
 <script lang="ts">
-  // Colección (U14). Acciones explícitas arriba (compartir, editar, eliminar),
+  // Colección (U14; U32, tablero G2: cabecera de ficha con cenefa y la columna
+  // Curada por, Lanzamientos y Visibilidad). Acciones explícitas arriba (compartir, editar, eliminar),
   // grilla o lista recordada, sin notas visibles y, para el dueño, orden manual
   // arrastrando (D1). Carga solo sus lanzamientos, por ID: nunca el catálogo.
   import { onMount, tick } from 'svelte';
@@ -20,7 +21,8 @@
   import LanzamientoCard from '$lib/components/LanzamientoCard.svelte';
   import LanzamientoFila from '$lib/components/LanzamientoFila.svelte';
   import LanzamientoModal from '$lib/components/LanzamientoModal.svelte';
-  import PageLayout from '$lib/layouts/PageLayout.svelte';
+  import FichaCabecera from '$lib/components/ficha/FichaCabecera.svelte';
+  import { datosColeccion, portadaMasReciente } from '$lib/domain/fichaDatos';
   import {
     Button,
     EmptyState,
@@ -76,6 +78,9 @@
   const esDueno = $derived(data.esDueno);
   const canReorder = $derived(esDueno && ordenManual && items.length > 1);
   const count = $derived(items.length);
+  const datos = $derived(datosColeccion({ usuario: owner.username, lanzamientos: count, publica: crate.is_public }));
+  /** Cenefa: la portada del lanzamiento más reciente; hasta cargarlos, la huella. */
+  const portada = $derived(portadaMasReciente([...releases.values()]));
 
   // Paginación "x de y" (U10). Quitar un elemento puede dejar la última página
   // vacía: se acota al total. Se reordena dentro de la página visible.
@@ -85,15 +90,12 @@
   const pageNumber = $derived(Math.min(currentPage, totalPages));
   const visible = $derived(pageSlice(items, pageNumber));
 
-  const crumbs = $derived(
-    esDueno
-      ? [{ label: 'Mis colecciones', href: '/mis-colecciones' }, { label: crate.name }]
-      : [
-          { label: `@${owner.username}`, href: `/perfil/${owner.username}` },
-          { label: 'Colecciones', href: `/perfil/${owner.username}#colecciones` },
-          { label: crate.name }
-        ]
-  );
+  // U31: también para el dueño. Sus colecciones viven en su perfil.
+  const crumbs = $derived([
+    { label: `@${owner.username}`, href: `/perfil/${owner.username}` },
+    { label: 'Colecciones', href: `/perfil/${owner.username}#colecciones` },
+    { label: crate.name }
+  ]);
 
   async function loadReleases() {
     loading = true;
@@ -212,13 +214,8 @@
   <title>{crate.name} — Biblioteca Discótica</title>
 </svelte:head>
 
-<PageLayout breadcrumbs={crumbs} title={crate.name} description={crate.description || undefined}>
-  {#snippet meta()}
-    <p class="collection-meta">
-      {count} {count === 1 ? 'lanzamiento' : 'lanzamientos'}{#if !crate.is_public} · Privada: solo tú la ves{/if}
-    </p>
-  {/snippet}
-  {#snippet actions()}
+<FichaCabecera nombre={crate.name} descripcion={crate.description || null} {portada} rol="usuario" {datos} breadcrumbs={crumbs}>
+  {#snippet acciones()}
     <div class="collection-actions">
       <Button
         variant="secondary"
@@ -234,6 +231,9 @@
       <span class="sr-only" role="status">{copied ? 'Enlace copiado' : ''}</span>
     </div>
   {/snippet}
+</FichaCabecera>
+
+<div class="l-container l-container--wide ficha-cuerpo">
 
   {#if removed}
     <Notice tone="info" class="collection-notice">
@@ -296,7 +296,7 @@
       </div>
     {/if}
   {/if}
-</PageLayout>
+</div>
 
 {#snippet collectionItem(entry: CrateItem)}
   {@const release = releases.get(entry.id)}
@@ -345,7 +345,7 @@
   <DeleteCollectionDialog
     bind:open={deleteOpen}
     crate={{ ...crate, item_count: items.length }}
-    ondeleted={() => goto('/mis-colecciones')}
+    ondeleted={() => goto(`/perfil/${encodeURIComponent(owner.username)}`)}
   />
 {/if}
 
@@ -356,7 +356,7 @@
     .collection-actions { flex-wrap: nowrap; width: 100%; }
     .collection-actions :global(.ui-btn) { flex: 1 1 0; --btn-px: var(--space-3); }
   }
-  .collection-meta { margin: 0; color: var(--color-texto-tenue); font-size: var(--text-xs); }
+  .ficha-cuerpo { padding-top: var(--space-5); padding-bottom: var(--page-pad-bottom); }
   :global(.collection-notice) { margin-bottom: var(--space-5); }
 
   .collection-toolbar {

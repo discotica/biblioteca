@@ -288,8 +288,11 @@ add('confirmar-M', 'M', '/auth/registro', {
   }
 });
 add('confirmar-sin-correo-D', 'D', '/auth/confirmar', { supplementary: true });
-add('miscrates-confirmada-D', 'D', '/mis-colecciones?aviso=cuenta-confirmada', { role: 'comunidad', supplementary: true, ready: '.crates-grid' });
-each(['D', 'M'], 'cuenta', '/cuenta', { role: 'comunidad', full: true, ready: '.account-sections', supplementary: true });
+// U31: /mis-colecciones redirige al perfil propio; los IDs miscrates-* se conservan y muestran el perfil.
+add('miscrates-confirmada-D', 'D', '/mis-colecciones?aviso=cuenta-confirmada', { role: 'comunidad', supplementary: true, ready: '.perfil-grid' });
+// U33 (tablero M): Editar perfil en /cuenta y Ajustes en /cuenta/ajustes.
+each(['D', 'M'], 'cuenta', '/cuenta', { role: 'comunidad', full: true, ready: '.cuenta-form .ui-cenefa', supplementary: true });
+each(['D', 'M'], 'cuenta-ajustes', '/cuenta/ajustes', { role: 'comunidad', full: true, ready: '.ajustes__bloque', supplementary: true });
 
 // Correos: reconstrucción de las plantillas por defecto de Supabase (no hay plantillas en el repositorio).
 // Si supabase/config.toml declara content_path para confirmation/recovery, se captura esa plantilla.
@@ -340,6 +343,8 @@ add('reportar-anon-D', 'D', '/reportar', { supplementary: true });
 add('miscrates-anon-D', 'D', '/mis-colecciones', { supplementary: true });
 each(['D', 'M'], 'miscrates', '/mis-colecciones', { role: 'comunidad', full: true });
 add('miscrates-empty-D', 'D', '/mis-colecciones', { role: 'comunidad', mock: { noCrates: true } });
+// U31 (tablero K): el perfil recién nacido a 390.
+add('perfil-vacio-M', 'M', '/perfil/comunidad', { role: 'comunidad', mock: { noCrates: true }, ready: '.perfil-crear', full: true, supplementary: true });
 each(['D', 'M'], 'crate-crear', '/mis-colecciones?crear=1', { role: 'comunidad' });
 each(['D', 'M'], 'crate', '/coleccion/para-abrir-el-set?usuario=comunidad', { role: 'comunidad', full: true });
 each(['D', 'M'], 'perfil', '/perfil/comunidad', { role: 'comunidad', full: true });
@@ -353,7 +358,7 @@ const listView = async (page: Page) => {
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await settle(page);
 };
-each(['D', 'M'], 'aportes', '/mis-aportes', { role: 'comunidad', ready: '.aportes', full: true, supplementary: true });
+each(['D', 'M'], 'aportes', '/mis-aportes', { role: 'comunidad', ready: '.aportes-grupo', full: true, supplementary: true });
 add('aportes-anon-D', 'D', '/mis-aportes', { supplementary: true });
 each(['D', 'M'], 'perfil-visitante', '/perfil/comunidad', { ready: '#aportes .fila', full: true, supplementary: true });
 add('perfil-oculto-D', 'D', '/perfil/colaboradora', { role: 'comunidad', ready: '#colecciones', full: true, supplementary: true });
@@ -570,7 +575,10 @@ add('estudio-colab-catalogo-D', 'D', STUDIO, { role: 'colaborador', supplementar
 // Información
 each(['D', 'M'], 'manual', '/manual', { full: true, maxH: 5200 });
 add('privacidad-D', 'D', '/privacidad', { full: true, maxH: 3600 });
+add('privacidad-M', 'M', '/privacidad', { full: true, maxH: 3600, supplementary: true });
 each(['D', 'M'], '404', '/ruta-que-no-existe');
+// U33: el error general comparte pantalla con el 404 (una colección sin el parámetro ?usuario= falla con 400).
+each(['D', 'M'], 'error', '/coleccion/sin-usuario', { supplementary: true });
 
 // Primitivas (U5): catálogo interno /lab, fuera de la navegación. Página completa.
 each(['D', 'M'], 'lab', '/lab', { full: true, maxH: 10000, ready: '.lab .ui-cenefa__superficie--lista', supplementary: true }); // U27: la máscara de la cenefa con portada se genera aparte

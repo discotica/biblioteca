@@ -1,0 +1,54 @@
+{
+ "base": "staging",
+ "resultados": {},
+ "hallazgos": [
+  {
+   "rol": "visitante",
+   "vista": "1440-404",
+   "tipo": "HTTP 404",
+   "detalle": "/ruta-que-no-existe"
+  },
+  {
+   "rol": "visitante-1440",
+   "vista": "1440-404",
+   "tipo": "consola",
+   "detalle": "SvelteKitError: Not found: /ruta-que-no-existe\n    at navigate (http://127.0.0.1:5175/node_modules/@sveltejs/kit/src/runtime/client/client.js?v=a3114cc4:1793:24)\n    at async Module.start (http://127."
+  },
+  {
+   "rol": "visitante",
+   "vista": "1440-guarda-sugerir",
+   "tipo": "guarda",
+   "detalle": "sin sesión, /sugerir dejó en /sugerir"
+  },
+  {
+   "rol": "visitante",
+   "vista": "1440-guarda-estudio-catalogo",
+   "tipo": "guarda",
+   "detalle": "sin sesión, /estudio/catalogo dejó en /estudio/catalogo"
+  },
+  {
+   "rol": "visitante",
+   "vista": "390-404",
+   "tipo": "HTTP 404",
+   "detalle": "/ruta-que-no-existe"
+  },
+  {
+   "rol": "visitante-390",
+   "vista": "390-404",
+   "tipo": "consola",
+   "detalle": "SvelteKitError: Not found: /ruta-que-no-existe\n    at navigate (http://127.0.0.1:5175/node_modules/@sveltejs/kit/src/runtime/client/client.js?v=a3114cc4:1793:24)\n    at async Module.start (http://127."
+  },
+  {
+   "rol": "visitante",
+   "vista": "390-guarda-sugerir",
+   "tipo": "guarda",
+   "detalle": "sin sesión, /sugerir dejó en /sugerir"
+  },
+  {
+   "rol": "visitante",
+   "vista": "390-guarda-estudio-catalogo",
+   "tipo": "guarda",
+   "detalle": "sin sesión, /estudio/catalogo dejó en /estudio/catalogo"
+  }
+ ]
+}

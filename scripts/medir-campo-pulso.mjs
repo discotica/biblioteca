@@ -5,6 +5,7 @@
 //
 //   npm run build && npx vite preview --port 4173
 //   node scripts/medir-campo-pulso.mjs http://localhost:4173 2
+//   SIN_TRABAJADOR=1 node scripts/medir-campo-pulso.mjs http://localhost:4173 2   (camino en el hilo principal)
 //
 // Resultados y método: docs/producto/u27-motor-generativo-2026-11-10.md
 import { chromium } from '@playwright/test';
@@ -14,6 +15,8 @@ const dpr = Number(process.argv[3] ?? 2);
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: dpr });
 const page = await ctx.newPage();
+// Camino sin worker (p. ej. Safari < 16.4): el canvas no se cede y todo corre en el hilo principal, que sí frena el ×4.
+if (process.env.SIN_TRABAJADOR) await page.addInitScript(() => { delete HTMLCanvasElement.prototype.transferControlToOffscreen; });
 await page.route('**/rest/v1/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'content-range': '*/0' }, body: '[]' }));
 await page.goto(`${base}/lab?campo=pantalla`, { waitUntil: 'networkidle' });
 await page.waitForSelector('.lab__u27-campo--pantalla canvas');

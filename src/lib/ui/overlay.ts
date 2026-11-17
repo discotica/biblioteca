@@ -255,8 +255,12 @@ export type AnchoredLayerOptions = {
   gutter?: number;
   /** Align the node with the trigger's start (default) or end edge. */
   align?: 'start' | 'end';
-  /** Never narrower than the trigger (listboxes under a field). */
-  matchWidth?: boolean;
+  /**
+   * true: never narrower than the trigger (listboxes under a field).
+   * 'exact': exactly as wide as the trigger (U32: the «N más» list takes the
+   * width of the data column it hangs from).
+   */
+  matchWidth?: boolean | 'exact';
 };
 
 /**
@@ -295,7 +299,7 @@ export function anchoredLayer(node: HTMLElement, initialOptions: AnchoredLayerOp
     const style = getComputedStyle(node);
     const frameWidth = style.boxSizing === 'border-box' ? 0 : ['paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth']
       .reduce((sum, key) => sum + (Number.parseFloat(style[key as 'paddingLeft']) || 0), 0);
-    node.style.width = 'max-content';
+    node.style.width = options.matchWidth === 'exact' ? `${Math.min(anchor.width, maxRight - minLeft) - frameWidth}px` : 'max-content';
     node.style.maxWidth = `${Math.max(0, maxRight - minLeft - frameWidth)}px`;
     node.style.minWidth = options.matchWidth ? `${Math.min(anchor.width, maxRight - minLeft) - frameWidth}px` : '';
     const width = node.offsetWidth;

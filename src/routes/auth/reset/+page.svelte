@@ -82,7 +82,7 @@
 
     // La cuenta confirmada aterriza en su perfil (U30), con el aviso.
     if (flow === 'signup') goto(`${await ownProfilePath()}?aviso=cuenta-confirmada`, { replaceState: true });
-    else if (flow === 'email_change') goto('/cuenta?aviso=correo', { replaceState: true });
+    else if (flow === 'email_change') goto('/cuenta/ajustes?aviso=correo', { replaceState: true });
   }
 
   async function updatePassword(event: SubmitEvent) {
@@ -121,14 +121,14 @@
         <Button href="/auth/confirmar" size="form" block>Pedir otro enlace</Button>
         <a class="link-discreto" href="/auth/login">Entrar</a>
       {:else if flow === 'email_change'}
-        <Button href="/cuenta" size="form" block>Ir a mi cuenta</Button>
+        <Button href="/cuenta/ajustes" size="form" block>Ir a mi cuenta</Button>
       {:else}
         <Button href="/auth/recuperar" size="form" block>Pedir otro enlace</Button>
       {/if}
     </div>
   {:else if otherAddressPending}
     <div class="link-actions">
-      <Button href="/cuenta" variant="secondary" size="form" block>Ir a mi cuenta</Button>
+      <Button href="/cuenta/ajustes" variant="secondary" size="form" block>Ir a mi cuenta</Button>
     </div>
   {:else}
     <Button type="submit" size="form" block {loading}>Guardar contraseña</Button>

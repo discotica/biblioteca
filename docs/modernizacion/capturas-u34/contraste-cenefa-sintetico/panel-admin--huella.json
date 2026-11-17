@@ -1,0 +1,13 @@
+[
+ {
+  "pagina": "panel-admin",
+  "portada": "huella",
+  "texto": "@jmamanche",
+  "fuente": "24px/700",
+  "grande": true,
+  "p2": 17.01,
+  "min": 15,
+  "umbral": 3,
+  "ok": true
+ }
+]

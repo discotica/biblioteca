@@ -487,23 +487,32 @@ test.describe('U12 enlaces del correo', () => {
     await expect(page).toHaveURL(/\/perfil\/persona$/);
   });
 
-  test('abrir Mis colecciones con el aviso en la URL lo muestra y carga las colecciones', async ({ page }) => {
+  test('abrir Mis colecciones con el aviso en la URL lo muestra en el perfil, con sus colecciones (U31)', async ({ page }) => {
     await signedIn(page);
     await mockSupabase(page);
     await page.goto('/mis-colecciones?aviso=cuenta-confirmada');
     await expect(page.getByText('Tu cuenta está confirmada')).toBeVisible();
-    await expect(page.getByText('Todavía no tienes colecciones.')).toBeVisible();
-    await expect(page).toHaveURL(/\/mis-colecciones$/);
+    await expect(page.getByRole('button', { name: 'Crea tu primera colección' })).toBeVisible();
+    await expect(page).toHaveURL(/\/perfil\/persona$/);
   });
 
-  test('confirmar el cambio de correo vuelve a Editar cuenta con aviso', async ({ page }) => {
+  test('el aviso de contraseña también aterriza en el perfil (U31)', async ({ page }) => {
+    await signedIn(page);
+    await mockSupabase(page);
+    await page.goto('/mis-colecciones?aviso=contrasena');
+    await expect(page.getByText('Contraseña actualizada')).toBeVisible();
+    await expect(page).toHaveURL(/\/perfil\/persona$/);
+  });
+
+  // U33: el correo vive en Ajustes; el enlace de confirmación aterriza ahí.
+  test('confirmar el cambio de correo vuelve a Ajustes con aviso', async ({ page }) => {
     await signedIn(page);
     await mockSupabase(page);
     await page.goto('/auth/reset?flow=email_change');
-    await page.waitForURL((url) => url.pathname === '/cuenta');
+    await page.waitForURL((url) => url.pathname === '/cuenta/ajustes');
     await expect(page.getByText(/Confirmamos el enlace/)).toBeVisible();
-    await expect(page.getByLabel('Usuario')).toHaveValue('persona');
-    await expect(page).toHaveURL(/\/cuenta$/);
+    await expect(page.getByLabel('Correo actual')).toHaveValue('persona@gmail.com');
+    await expect(page).toHaveURL(/\/cuenta\/ajustes$/);
   });
 
   // RC2-P0-01: los enlaces de las plantillas traen token_hash y se canjean aquí,
@@ -574,27 +583,32 @@ test.describe('U12 editar cuenta', () => {
     await page.waitForURL('**/auth/login?redirect=/cuenta');
   });
 
-  test('guarda perfil, redes y preferencia en una escritura del dueño', async ({ page }) => {
+  test('U33 Editar perfil: cenefa con «@usuario», nombre, sobre ti y redes; guarda sin tocar las novedades', async ({ page }) => {
     await signedIn(page);
     const { calls } = await mockSupabase(page, {
       profile: { social_bandcamp: 'persona', social_bandcamp_kind: 'fan', social_instagram: 'persona.ig' }
     });
     await page.goto('/cuenta');
-    await expect(page.getByLabel('Usuario')).toHaveValue('persona');
+    await expect(page.getByText('@persona')).toBeVisible();
+    await expect(page.getByLabel(/Nombre para mostrar/)).toHaveValue('Persona');
     await expect(page.getByLabel('Bandcamp')).toHaveValue('https://bandcamp.com/persona');
     await expect(page.getByLabel('Instagram')).toHaveValue('persona.ig');
+    await expect(page.getByLabel('SoundCloud')).toHaveAttribute('placeholder', 'soundcloud.com/tu_usuario');
+    // Correo, contraseña y novedades ya no están aquí.
+    await expect(page.getByLabel('Correo nuevo')).toHaveCount(0);
+    await expect(page.getByLabel('Contraseña nueva')).toHaveCount(0);
+    await expect(page.getByLabel(/Quiero recibir novedades/)).toHaveCount(0);
 
     await page.getByLabel(/Nombre para mostrar/).fill('Persona Nueva');
     await page.getByLabel('Instagram').fill('');
     await page.getByLabel('SoundCloud').fill('https://soundcloud.com/Persona-SC');
-    await page.getByLabel(/Quiero recibir novedades/).check();
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
     await expect(page.getByText('Guardamos los cambios.')).toBeVisible();
 
     const patch = calls('/rest/v1/profiles').find((r) => r.method() === 'PATCH')!;
     expect(new URL(patch.url()).searchParams.get('id')).toBe(`eq.${userId}`);
     expect(patch.postDataJSON()).toEqual({
-      display_name: 'Persona Nueva', bio: null, newsletter_opt_in: true,
+      display_name: 'Persona Nueva', bio: null,
       social_bandcamp: 'persona', social_bandcamp_kind: 'fan', social_soundcloud: 'persona-sc',
       social_instagram: null, social_x: null, social_facebook: null
     });
@@ -613,11 +627,35 @@ test.describe('U12 editar cuenta', () => {
     await expect(page.getByLabel(/Nombre para mostrar/)).toHaveValue('Persona');
     await expect(page.getByLabel('Instagram')).toHaveCount(0);
   });
+});
+
+test.describe('U33 ajustes', () => {
+  test('sin sesión lleva a Entrar', async ({ page }) => {
+    await mockSupabase(page);
+    await page.goto('/cuenta/ajustes');
+    await page.waitForURL('**/auth/login?redirect=/cuenta/ajustes');
+  });
+
+  test('muestra el correo actual y pide el cambio con las mismas llamadas de siempre', async ({ page }) => {
+    await signedIn(page);
+    const { calls } = await mockSupabase(page);
+    await page.goto('/cuenta/ajustes');
+    await expect(page.getByRole('heading', { level: 1, name: 'Ajustes' })).toBeVisible();
+    await expect(page.getByLabel('Correo actual')).toHaveValue('persona@gmail.com');
+    await page.getByLabel('Correo nuevo').fill('Nueva@Example.com');
+    await page.getByRole('button', { name: 'Cambiar correo' }).click();
+    await expect(page.getByText(/Te enviamos un enlace para confirmar el cambio/)).toBeVisible();
+    await expect(page.getByText(/Cambio pendiente a/)).toBeVisible();
+    const put = calls('/auth/v1/user').filter((r) => r.method() === 'PUT')[0];
+    expect(put.postDataJSON()).toMatchObject({ email: 'nueva@example.com' });
+    // El enlace del correo sigue volviendo a /auth/reset (no cambian las Redirect URLs).
+    expect(decodeURIComponent(put.url())).toContain('/auth/reset');
+  });
 
   test('cambiar a un correo ya usado responde igual que a uno libre', async ({ page }) => {
     await signedIn(page);
     await mockSupabase(page, { updateUser: () => ({ status: 422, body: { error_code: 'email_exists', msg: 'A user with this email address has already been registered' } }) });
-    await page.goto('/cuenta');
+    await page.goto('/cuenta/ajustes');
     await page.getByLabel('Correo nuevo').fill('otra@example.com');
     await page.getByRole('button', { name: 'Cambiar correo' }).click();
     await expect(page.getByText(/Te enviamos un enlace para confirmar el cambio/)).toBeVisible();
@@ -627,7 +665,7 @@ test.describe('U12 editar cuenta', () => {
   test('cambiar la contraseña exige 8 caracteres y que coincidan', async ({ page }) => {
     await signedIn(page);
     const { calls } = await mockSupabase(page);
-    await page.goto('/cuenta');
+    await page.goto('/cuenta/ajustes');
     await page.getByLabel('Contraseña nueva').fill('corta');
     await page.getByRole('button', { name: 'Cambiar contraseña' }).click();
     await expect(page.getByText('La contraseña necesita 8 caracteres o más.')).toBeVisible();
@@ -638,15 +676,28 @@ test.describe('U12 editar cuenta', () => {
     expect(calls('/auth/v1/user').filter((r) => r.method() === 'PUT')[0].postDataJSON()).toMatchObject({ password: 'una-contraseña-larga' });
   });
 
-  test('el panel de cuenta y el perfil propio enlazan a /cuenta', async ({ page }) => {
+  test('las novedades por correo se guardan al marcar, sin tocar nombre ni redes', async ({ page }) => {
+    await signedIn(page);
+    const { calls } = await mockSupabase(page);
+    await page.goto('/cuenta/ajustes');
+    const box = page.getByLabel(/Quiero recibir novedades/);
+    await expect(box).toBeEnabled();
+    await box.check();
+    await expect(page.getByText('Guardamos tu preferencia.')).toBeVisible();
+    const patch = calls('/rest/v1/profiles').find((r) => r.method() === 'PATCH')!;
+    expect(new URL(patch.url()).searchParams.get('id')).toBe(`eq.${userId}`);
+    expect(patch.postDataJSON()).toEqual({ newsletter_opt_in: true });
+  });
+
+  test('el panel de cuenta y el perfil propio enlazan a Editar perfil y a Ajustes', async ({ page }) => {
     await signedIn(page);
     await mockSupabase(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/perfil/persona');
-    await expect(page.getByRole('main').getByRole('link', { name: 'Editar cuenta' })).toHaveAttribute('href', '/cuenta');
-    // U28: en el panel, «Editar perfil» y «Ajustes» llevan a /cuenta hasta U33.
+    await expect(page.getByRole('main').getByRole('link', { name: 'Editar perfil' })).toHaveAttribute('href', '/cuenta');
+    await expect(page.getByRole('main').getByRole('link', { name: 'Ajustes' })).toHaveAttribute('href', '/cuenta/ajustes');
     await page.locator('.header-panel .ui-menu__trigger').click();
     await expect(page.getByRole('menuitem', { name: 'Editar perfil' })).toHaveAttribute('href', '/cuenta');
-    await expect(page.getByRole('menuitem', { name: 'Ajustes' })).toHaveAttribute('href', '/cuenta');
+    await expect(page.getByRole('menuitem', { name: 'Ajustes' })).toHaveAttribute('href', '/cuenta/ajustes');
   });
 });

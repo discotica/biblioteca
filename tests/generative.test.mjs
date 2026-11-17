@@ -5,6 +5,9 @@ import { fnv1a, prng, semillaDe, normalizarNombre } from '../src/lib/generative/
 import {
   huella,
   puntosHuella,
+  puntosCuadricula,
+  RADIO_CERO,
+  VARIA_CERO,
   tonosDe,
   firma,
   FONDO,
@@ -192,3 +195,24 @@ test('U27 pulso: el fotograma fijo es siempre el mismo y se dibuja en t = 20', (
 function firmaArcos(arcos) {
   return arcos.map((v) => Math.round(v * 1000)).join(',');
 }
+
+// U34: la cuadrícula en cero del fondo de acceso. Fija, de variación suave y acotada.
+test('puntosCuadricula: determinista, con el radio entre ±VARIA_CERO y sin saltos entre vecinos', () => {
+  const paso = 24;
+  const a = puntosCuadricula(1800, 900, paso);
+  const b = puntosCuadricula(1800, 900, paso);
+  assert.deepEqual(a, b);
+  const cols = Math.floor(1800 / paso);
+  let min = Infinity, max = -Infinity, salto = 0;
+  for (let k = 0; k < a.length; k += 4) {
+    const r = a[k + 2] / paso;
+    min = Math.min(min, r);
+    max = Math.max(max, r);
+    assert.equal(a[k + 3], 1);
+    if (k >= 4 && (k / 4) % cols !== 0) salto = Math.max(salto, Math.abs(a[k + 2] - a[k - 2]) / paso);
+  }
+  assert.ok(min >= RADIO_CERO * (1 - VARIA_CERO) - 1e-6 && max <= RADIO_CERO * (1 + VARIA_CERO) + 1e-6);
+  assert.ok(max - min > RADIO_CERO * 0.2, 'hay variación visible a lo ancho de la ventana');
+  assert.ok(salto < 0.012, `vecinos casi iguales (salto ${salto.toFixed(4)} pasos)`);
+  assert.ok(max < RADIO_MAX && min > RADIO_MIN, 'siempre por debajo de una huella con forma');
+});

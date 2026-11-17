@@ -50,6 +50,7 @@ La página «Capturas» del lienzo guarda el estado anterior, para comparar.
 - Work Sans 400, 500, 600 y 700, en `woff2` dentro de `static/fonts`, con `font-display: swap` y precarga de 400 y 600.
 - **El peso más alto es 700** (decisión del usuario en U26, 2026-11-10: el 800 del lienzo pesa demasiado). La cara 700 cubre 700–900, así que un 800 que quede en el código se dibuja a 700. Donde este plan o el lienzo dicen 800, léase 700.
 - Títulos de entidad (perfil, colección, artista, sello): 88/84 en desktop y 52–60 en móvil, peso 700, `letter-spacing -0.035em`.
+- **El título de entidad no comparte fila** (decisión del usuario en U31, 2026-11-11). Su ancho es el del contenedor, independiente de las columnas, botones o datos que van al lado o debajo. Así ninguna columna lo estrecha ni le parte una palabra («Discóti/ca»). Solo se corta una palabra más ancha que todo el contenedor (`overflow-wrap: break-word`, nunca `anywhere`).
 - Título de la franja de entrada: 102/92 en desktop.
 - Título dentro de un contenedor (formularios, 404, Ajustes): 28/34, peso 700.
 - Página de lectura: h1 40/44, h2 22/28 y cuerpo 18/28.
@@ -269,7 +270,7 @@ Un chat por etapa, en orden y uno a la vez sobre el árbol. Cada etapa guarda su
 
 - Tablero G2:
   - cenefa troquelada de 400 px con la portada más reciente;
-  - título 88/84 y, a la derecha, la columna de datos de 372 px sobre la zona atenuada;
+  - título 88/84 con el ancho del contenedor (§3) y, a la derecha, la columna de datos de 372 px sobre la zona atenuada. La columna nunca estrecha el título: el título va en su propia fila y la columna, debajo de él;
   - debajo, la rejilla y la barra de resultados que ya existen.
 - Datos:
   - colección: Curada por, Lanzamientos y Visibilidad;

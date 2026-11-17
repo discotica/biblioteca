@@ -2,9 +2,10 @@
   import { onMount, tick } from 'svelte';
   import { goto, pushState } from '$app/navigation';
   import { page } from '$app/state';
-  import PageLayout from '$lib/layouts/PageLayout.svelte';
+  import AccesoPagina from '$lib/components/account/AccesoPagina.svelte';
+  import AccesoTitulo from '$lib/components/account/AccesoTitulo.svelte';
   import RadarControls from '$lib/components/RadarControls.svelte';
-  import { Button, Checkbox, Combobox, Cover, Field, Icon, LoadingIndicator, Notice, Select, Textarea, type ComboboxOption } from '$lib/ui';
+  import { Button, Checkbox, Combobox, Cover, Field, FormPanel, Icon, LoadingIndicator, Notice, Select, Textarea, type ComboboxOption } from '$lib/ui';
   import { normalizeSearch } from '$lib/ui/combobox';
   import { user } from '$lib/stores/authStore';
   import { knownProfileRole, loadProfileRole } from '$lib/stores/profileRole';
@@ -595,11 +596,10 @@
   {/each}
 {/snippet}
 
-<PageLayout
-  container="narrow"
-  title="Sugerir un lanzamiento"
-  description={!success && step === 1 ? 'Pega el enlace del lanzamiento y revisa los datos que detectamos.' : undefined}
->
+<!-- Tablero M (U33): un solo panel de 576 sobre el campo de puntos; el progreso, en cuatro barritas. El flujo es el de U13/U19. -->
+<AccesoPagina contenedor="narrow" alinea="arriba">
+<FormPanel size="wide" class="sugerir">
+  <AccesoTitulo titulo="Sugerir un lanzamiento" />
   {#if !editorialEnabled}
     <section class="sugerir__gate">
       <h2>Sugerencias temporalmente cerradas</h2>
@@ -659,6 +659,7 @@
       </div>
     </section>
   {:else}
+    <!-- Cuatro barritas, sin números ni «1 de 4». El nombre del paso queda para lectores de pantalla. -->
     <ol class="sugerir__steps" aria-label="Pasos">
       {#each CONTRIBUTION_STEPS as item (item.step)}
         <li
@@ -666,17 +667,13 @@
           class:is-done={item.step < step}
           aria-current={item.step === step ? 'step' : undefined}
         >
-          <span class="sugerir__step-n" aria-hidden="true">
-            {#if item.step < step}<Icon name="check" size="sm" />{:else}{item.step}{/if}
-          </span>
-          <span class="sugerir__step-label">{item.label}</span>
-          {#if item.step < step}<span class="sr-only">, completado</span>{/if}
+          <span class="sr-only">{item.label}{#if item.step < step}, completado{/if}</span>
         </li>
       {/each}
     </ol>
 
     <form class="sugerir__form" novalidate onsubmit={(event) => { event.preventDefault(); void continuar(); }}>
-      <h2 class="sugerir__step-title" tabindex="-1" bind:this={stepHeading}>
+      <h2 class="sugerir__step-title" class:sr-only={step === 1} tabindex="-1" bind:this={stepHeading}>
         <span class="sr-only">Paso {step} de 4: </span>{CONTRIBUTION_STEPS[step - 1].label}
       </h2>
 
@@ -873,77 +870,59 @@
 
       <div class="sugerir__actions">
         {#if step > 1}
-          <Button variant="secondary" icon="chevron-izquierda" onclick={atras} disabled={!!busy}>Atrás</Button>
+          <Button variant="secondary" size="form" icon="chevron-izquierda" onclick={atras} disabled={!!busy}>Atrás</Button>
         {/if}
         {#if step > 1 && canSaveDraft}
-          <Button variant="ghost" class="sugerir__save" loading={busy === 'save'} disabled={busy === 'submit'} onclick={guardar}>
+          <Button variant="ghost" size="form" class="sugerir__save" loading={busy === 'save'} disabled={busy === 'submit'} onclick={guardar}>
             {busy === 'save' ? 'Guardando…' : 'Guardar borrador'}
           </Button>
         {/if}
         {#if step === 1}
-          <Button type="submit" class="sugerir__primary" loading={detectionState === 'loading'} disabled={!!busy} iconEnd={sourceUnchanged ? 'chevron-derecha' : undefined}>
+          <Button type="submit" size="form" class="sugerir__primary" loading={detectionState === 'loading'} disabled={!!busy} iconEnd={sourceUnchanged ? 'chevron-derecha' : undefined}>
             {#if detectionState === 'loading'}Leyendo…{:else if sourceUnchanged && duplicate}Continuar igualmente{:else if sourceUnchanged}Continuar{:else}Detectar{/if}
           </Button>
         {:else if step < 4}
-          <Button type="submit" class="sugerir__primary" iconEnd="chevron-derecha" disabled={!!busy}>Continuar</Button>
+          <Button type="submit" size="form" class="sugerir__primary" iconEnd="chevron-derecha" disabled={!!busy}>Continuar</Button>
         {:else}
-          <Button type="submit" class="sugerir__primary" loading={busy === 'submit'} disabled={busy === 'save' || !roleLoaded}>
+          <Button type="submit" size="form" class="sugerir__primary" loading={busy === 'submit'} disabled={busy === 'save' || !roleLoaded}>
             {busy === 'submit' ? (isAdmin ? 'Creando…' : 'Enviando…') : editingSubmitted ? 'Guardar y reenviar' : submitLabel(role)}
           </Button>
         {/if}
       </div>
     </form>
   {/if}
-</PageLayout>
+</FormPanel>
+</AccesoPagina>
 
 <style>
-  /* Pasos: número y nombre; en móvil solo el nombre del paso actual. */
+  /* Progreso: cuatro barritas, como el onboarding (U30). Sobre el título aunque vaya después en el DOM. */
   .sugerir__steps {
     display: flex;
     gap: var(--space-2);
-    margin: var(--space-5) 0 0;
+    order: -1;
+    margin: 0;
     padding: 0;
     list-style: none;
   }
   .sugerir__steps li {
-    display: flex;
-    flex: 1 1 0;
-    align-items: center;
-    gap: var(--space-2);
-    min-width: 0;
-    padding-top: var(--space-2);
-    border-top: 2px solid var(--color-linea);
-    color: var(--color-texto-tenue);
-    font-size: var(--text-sm);
-    font-weight: 600;
+    width: var(--space-6);
+    height: var(--space-1);
+    border-radius: var(--radius-xs);
+    background: var(--color-linea-fuerte);
+    transition: background var(--motion-base) ease;
   }
-  .sugerir__steps li.is-done { border-top-color: var(--color-acento-border); color: var(--color-texto-medio); }
-  .sugerir__steps li.is-current { border-top-color: var(--color-acento); color: var(--color-texto); }
-  .sugerir__step-n {
-    display: inline-flex;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    width: var(--icon-lg);
-    height: var(--icon-lg);
-    border: 1px solid currentColor;
-    border-radius: var(--radius-pill);
-    font-size: var(--text-2xs);
-    font-variant-numeric: tabular-nums;
-  }
-  .is-current .sugerir__step-n { border-color: var(--color-acento); background: var(--color-acento); color: var(--color-sobre-acento); }
-  .is-done .sugerir__step-n { border-color: transparent; color: var(--color-acento); }
-  .sugerir__step-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sugerir__steps li.is-done,
+  .sugerir__steps li.is-current { background: var(--color-acento); }
 
   .sugerir__form {
     display: grid;
     gap: var(--space-5);
-    margin-top: var(--space-6);
   }
   .sugerir__step-title {
     margin: 0;
     color: var(--color-texto);
     font-size: var(--text-lg);
+    font-weight: 700;
     line-height: 1.2;
   }
   .sugerir__step-title:focus { outline: none; }
@@ -1008,7 +987,6 @@
     display: grid;
     justify-items: start;
     gap: var(--space-3);
-    margin-top: var(--space-5);
   }
   .sugerir__gate h2,
   .sugerir__done h2 { margin: 0; font-size: var(--text-lg); }
@@ -1017,7 +995,7 @@
   .sugerir__gate-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-2); }
 
   /* Propuesta ya tomada por el equipo (U19): solo para mirar. */
-  .sugerir__locked { display: grid; gap: var(--space-4); margin-top: var(--space-5); }
+  .sugerir__locked { display: grid; gap: var(--space-4); }
   .sugerir__locked-title { margin: 0; color: var(--color-texto); font-size: var(--text-md); font-weight: 700; overflow-wrap: anywhere; }
   .sugerir__done-icon {
     display: inline-flex;
@@ -1031,9 +1009,6 @@
   }
 
   @media (max-width: 679px) {
-    .sugerir__steps li:not(.is-current) .sugerir__step-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
-    .sugerir__steps li { flex: 0 0 auto; }
-    .sugerir__steps li.is-current { flex: 1 1 auto; }
     .sugerir__pair { grid-template-columns: minmax(0, 1fr); }
     .sugerir__row { grid-template-columns: minmax(0, 1fr); gap: 0; }
     /* Atrás y la acción principal comparten la última línea; guardar va encima. */

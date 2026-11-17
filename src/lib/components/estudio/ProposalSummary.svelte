@@ -132,6 +132,7 @@
 
 <style>
   .summary {
+    container-type: inline-size;
     min-width: 0;
     box-sizing: border-box;
     border: 1px solid var(--color-linea);
@@ -252,6 +253,10 @@
   .summary__error { margin: 0; color: var(--color-danger-texto); font-size: var(--text-xs); font-weight: 600; }
 
   @media (max-width: 679px) {
+    .summary__fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  /* El resumen vive en una columna: lo que cuenta es su ancho, no el de la ventana (U34). */
+  @container (max-width: 479px) {
     .summary__fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
 

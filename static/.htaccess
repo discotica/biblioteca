@@ -4,6 +4,9 @@ RewriteBase /
 # "Crate" pasó a "colección": los enlaces compartidos con las rutas viejas
 # redirigen con 301. Apache conserva la query; el navegador conserva el hash.
 # Misma regla en el cliente: src/lib/domain/collectionRoutes.ts.
+# /mis-colecciones (U31) lleva al perfil propio, pero su dirección depende de la
+# sesión y Apache no la conoce: esa redirección vive solo en el cliente
+# (src/routes/mis-colecciones/+page.svelte) y la ruta sigue cayendo en index.html.
 RewriteRule ^mis-crates/?$ /mis-colecciones [R=301,L]
 RewriteRule ^crate/([^/]+)/?$ /coleccion/$1 [R=301,L]
 

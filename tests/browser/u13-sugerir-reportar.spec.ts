@@ -295,7 +295,8 @@ test('U13 reportar desde la ficha: el lanzamiento llega identificado y el report
   await expect(card).toContainText('Artista Principal');
   await expect(card.getByRole('link', { name: 'Ver ficha' })).toHaveAttribute('href', `/lanzamiento/${releaseRow.slug}`);
   await expect(page.getByLabel('Categoría')).toHaveValue('catalog_error');
-  await expect(page.getByText('Ningún archivo elegido')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Añadir captura' })).toBeVisible();
+  await expect(page.getByText('Incluimos datos técnicos de la página. Nunca cookies.')).toBeVisible();
   // El selector nativo ("Choose File") no se ve: lo sustituye el botón en español.
   await expect(page.locator('input[type=file]')).toHaveClass(/sr-only/);
   await noOverflow(page);
@@ -308,7 +309,7 @@ test('U13 reportar desde la ficha: el lanzamiento llega identificado y el report
   await page.locator('input[type=file]').setInputFiles({ name: 'captura.png', mimeType: 'image/png', buffer: Buffer.from('png') });
   await expect(page.getByText('captura.png')).toBeVisible();
   await page.getByRole('button', { name: 'Quitar la captura' }).click();
-  await expect(page.getByText('Ningún archivo elegido')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Añadir captura' })).toBeVisible();
   await page.getByRole('button', { name: 'Enviar reporte' }).click();
   await expect(page.getByText('Tu reporte fue enviado.', { exact: false })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Volver al lanzamiento' })).toHaveAttribute('href', `/lanzamiento/${releaseRow.slug}`);

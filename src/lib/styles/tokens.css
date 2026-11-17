@@ -338,6 +338,8 @@
   --text-acceso: clamp(2.25rem, 4.1667vw, 3.75rem);   /* 36–60px */
   --text-acceso-lh: 1.1;                      /* 66 / 60 · 40 / 36 */
   --acceso-revela: 600ms;
+  --acceso-punto-alfa: 0.5;                   /* puntos grises del fondo: textura, no contenido (U34) */
+  --acceso-punto-alfa-color: 0.72;            /* con el color revelado se queda algo más presente */
   --acceso-alto-min: 32rem;
   --acceso-pie: 10rem;
   --acceso-inicio-top: var(--space-7);
@@ -345,6 +347,21 @@
   --acceso-velo: linear-gradient(90deg, rgba(14, 14, 14, 0.88) 0, rgba(14, 14, 14, 0.82) 58%, rgba(14, 14, 14, 0) 74%);
   --acceso-velo-movil: linear-gradient(180deg, rgba(14, 14, 14, 0.88) 0, rgba(14, 14, 14, 0.82) 420px, rgba(14, 14, 14, 0) 560px);
   --acceso-punto-w: 41.25rem;                 /* 660 · columna del texto de Entrar */
+  /* Editar perfil (U33, tablero M): cenefa pequeña de 96 con «@usuario» a 24/28 y
+     un velo a la izquierda para leerlo sobre la huella. */
+  --text-cenefa-menor: 1.5rem;                /* 24 */
+  --text-cenefa-menor-lh: 1.75rem;            /* 28 */
+  --cenefa-menor-velo: linear-gradient(90deg, rgba(22, 22, 22, 0.86), rgba(22, 22, 22, 0.5) 60%, rgba(22, 22, 22, 0));
+  /* Lectura (U33, tablero M): sin campo de puntos, índice de 260 a la izquierda y
+     columna de 720. h1 40/44, h2 22/28 y cuerpo 18/28. */
+  --lectura-toc-w: 16.25rem;                  /* 260 */
+  --lectura-w: 45rem;                         /* 720 */
+  --text-lectura-h1: 2.5rem;                  /* 40 */
+  --text-lectura-h1-lh: 2.75rem;              /* 44 */
+  --text-lectura-h2: 1.375rem;                /* 22 */
+  --text-lectura-h2-lh: 1.75rem;              /* 28 */
+  --text-lectura-cuerpo: 1.125rem;            /* 18 */
+  --text-lectura-cuerpo-lh: 1.75rem;          /* 28 */
   /* Header: logo (36 en desktop y 30 en móvil, U28) y avatar de iniciales de /lab */
   --avatar-sm: 28px;
   --header-logo-h: 36px;
@@ -405,6 +422,79 @@
   --franja-buscador-w-reducida: 420px;
   --franja-buscador-h: 56px;
   --franja-buscador-h-reducida: var(--control-h-form);
+
+  /* ---- Perfil y Mis aportes (U31, tableros F, K y N) -------------------------
+     Perfil: cenefa de la huella de 380 (280 en móvil) bajo el cabecero, con el
+     velo horizontal de K (0,82 → 0,5 → 0,1; plano al 55 % en móvil). Título de
+     entidad 88/84 (52 en móvil) a 700. En móvil el título empieza a 190 de la
+     cenefa y lo demás sigue debajo. Botones sobre la cenefa con fondo al 70 %.
+     Colecciones: 4 columnas en desktop (4 × 270 en 1152), 3 en tablet y 2 en
+     móvil; tile con nombre 18/24 (15/20) y dato 14/20 (13/18). Mis aportes va
+     fijado: borde de 2 y pin de 32 (28). Tile «Crea tu primera colección»:
+     24/28 (20/24). Página Mis aportes: cenefa de 240 (180), título 64 (48),
+     cifras 28/32, grupos 22/28 y filas con portada de 64 (56) y radio 6. */
+  --perfil-cenefa-h: 380px;
+  --perfil-cenefa-h-movil: 280px;
+  --perfil-titulo-top-movil: 190px;
+  --perfil-cabeza-pad: 1.375rem;              /* 22 · del texto al borde de la cenefa */
+  --text-entidad: 5.5rem;                     /* 88 */
+  --text-entidad-lh: 5.25rem;                 /* 84 */
+  --text-entidad-m: 3.25rem;                  /* 52 */
+  --text-entidad-m-lh: 3.25rem;
+  --text-perfil-seccion: 1.75rem;             /* 28 */
+  --text-perfil-seccion-lh: 2rem;             /* 32 */
+  --color-velo-perfil: linear-gradient(90deg, rgba(14, 14, 14, 0.82) 0, rgba(14, 14, 14, 0.5) 60%, rgba(14, 14, 14, 0.1) 100%);
+  --color-velo-perfil-movil: rgba(14, 14, 14, 0.55);
+  --color-boton-cenefa: rgba(14, 14, 14, 0.7);
+  --tile-gap-y: 1.75rem;                      /* 28 */
+  --tile-gap-x: var(--space-5);               /* 24 */
+  --tile-borde-fijada: 2px;
+  --tile-pin: 32px;
+  --tile-pin-m: 28px;
+  --text-tile: var(--text-lg);                /* 18 */
+  --text-tile-lh: 1.5rem;                     /* 24 */
+  --text-tile-m: 0.9375rem;                   /* 15 */
+  --text-tile-m-lh: 1.25rem;                  /* 20 */
+  --text-tile-cta: var(--text-2xl);           /* 24 */
+  --text-tile-cta-lh: 1.75rem;                /* 28 */
+  --text-tile-cta-m: var(--text-xl);          /* 20 */
+  --text-tile-cta-m-lh: 1.5rem;               /* 24 */
+  --aportes-cenefa-h: 240px;
+  --aportes-cenefa-h-movil: 180px;
+  --text-aportes: 4rem;                       /* 64 */
+  --text-aportes-m: 3rem;                     /* 48 */
+  --text-cifra: 1.75rem;                      /* 28 */
+  --text-cifra-lh: 2rem;                      /* 32 */
+  --text-aportes-grupo: 1.375rem;             /* 22 */
+  --text-aportes-grupo-lh: 1.75rem;           /* 28 */
+  --aportes-portada: 64px;
+  --aportes-portada-m: 56px;
+  --aportes-portada-radius: 6px;
+  --aportes-col-estado: 210px;
+  --aportes-col-fecha: 170px;              /* «Revisado 29 sept 2026» en una línea */
+  --aportes-col-accion: 150px;
+
+  /* ---- Fichas de colección, artista y sello (U32, tablero G2) ----------------
+     Cenefa troquelada de 400 bajo el cabecero (crece si el contenido no cabe) y
+     180 en móvil, donde título y datos van debajo. Título de entidad como el
+     perfil. Columna de datos de 372 sobre la zona atenuada: filas de 44 a 15/20
+     con línea al 26 %. «N más»: chip de 26, radio 6. Desplegable opaco del ancho
+     de la columna, filas de 38 (44 en móvil) y radio 10; 8 filas y scroll. */
+  --ficha-cenefa-h: 400px;
+  --ficha-cenefa-h-movil: 180px;
+  --ficha-columna-w: 372px;
+  --ficha-dato-h: 44px;
+  --text-ficha-dato: 0.9375rem;               /* 15 */
+  --text-ficha-dato-lh: 1.25rem;              /* 20 */
+  --color-linea-cenefa: rgba(248, 255, 238, 0.26);
+  --color-texto-cenefa: rgba(248, 255, 238, 0.9);
+  --ficha-mas-h: 26px;
+  --ficha-mas-radius: 6px;
+  --ficha-lista-radius: 10px;
+  --ficha-lista-pad: 6px;
+  --ficha-lista-fila: 38px;
+  --ficha-lista-fila-radius: 6px;
+  --ficha-lista-filas: 8;
 
   /* ---- Ficha de lanzamiento (U9) ---------------------------------------------
      decisiones.md, "Ficha (2026-10-07, durante U9)". Dos columnas desde

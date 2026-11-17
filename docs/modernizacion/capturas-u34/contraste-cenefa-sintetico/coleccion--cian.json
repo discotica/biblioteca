@@ -1,0 +1,156 @@
+[
+ {
+  "pagina": "coleccion",
+  "portada": "cian",
+  "texto": "@comunidad",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 10.02,
+  "min": 9.77,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "cian",
+  "texto": "Colecciones",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 10.02,
+  "min": 9.75,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "cian",
+  "texto": "Para abrir el set",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 11.97,
+  "min": 11.62,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "cian",
+  "texto": "Para abrir el set",
+  "fuente": "88px/700",
+  "grande": true,
+  "p2": 10.24,
+  "min": 9.39,
+  "umbral": 3,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "cian",
+  "texto": "Intros lentas, texturas y percusión que ",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 12.1,
+  "min": 6.29,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "cian",
+  "texto": "Compartir",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 15.91,
+  "min": 15.91,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "cian",
+  "texto": "Editar",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 18.87,
+  "min": 15.91,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "cian",
+  "texto": "Eliminar",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 5.03,
+  "min": 4.96,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "cian",
+  "texto": "Curada por",
+  "fuente": "15px/400",
+  "grande": false,
+  "p2": 15.91,
+  "min": 10.09,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "cian",
+  "texto": "@comunidad",
+  "fuente": "15px/600",
+  "grande": false,
+  "p2": 15.22,
+  "min": 15.06,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "cian",
+  "texto": "Lanzamientos",
+  "fuente": "15px/400",
+  "grande": false,
+  "p2": 18.87,
+  "min": 9.67,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "cian",
+  "texto": "6",
+  "fuente": "15px/600",
+  "grande": false,
+  "p2": 15.56,
+  "min": 15.38,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "cian",
+  "texto": "Visibilidad",
+  "fuente": "15px/400",
+  "grande": false,
+  "p2": 18.87,
+  "min": 9.52,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "cian",
+  "texto": "Pública",
+  "fuente": "15px/600",
+  "grande": false,
+  "p2": 16.09,
+  "min": 15.91,
+  "umbral": 4.5,
+  "ok": true
+ }
+]

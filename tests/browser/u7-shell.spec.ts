@@ -109,7 +109,7 @@ test.describe('U7/U28 header', () => {
     await expect(menu.getByRole('menuitem')).toHaveText(['Perfil y colecciones', 'Editar perfil', 'Ajustes', 'Salir', 'Manual', 'Reportar un problema']);
     await expect(item('Perfil y colecciones')).toHaveAttribute('href', '/perfil/comunidad');
     await expect(item('Editar perfil')).toHaveAttribute('href', '/cuenta');
-    await expect(item('Ajustes')).toHaveAttribute('href', '/cuenta');
+    await expect(item('Ajustes')).toHaveAttribute('href', '/cuenta/ajustes');
     await expect(item('Perfil y colecciones')).toHaveCSS('height', '44px');
     await expect(item('Perfil y colecciones')).toHaveCSS('font-weight', '500');
     await expect(menu.locator('a[href="/mis-colecciones"]')).toHaveCount(0);
@@ -248,8 +248,8 @@ test.describe('U7 roles: header y acceso al Estudio desde el header y el perfil 
             await expect(links.nth(index)).toHaveAttribute('href', href);
           }
         }
-        // Mis aportes (U14): página propia, enlazada desde el perfil propio.
-        await expect(page.locator('.l-page a[href="/mis-aportes"]')).toHaveCount(role === 'anonimo' ? 0 : 1);
+        // Mis aportes (U14): página propia, enlazada desde el perfil propio (U31: tile fijado).
+        await expect(page.locator('main a[href="/mis-aportes"]')).toHaveCount(role === 'anonimo' ? 0 : 1);
         await noHorizontalOverflow(page);
       });
     }
@@ -259,9 +259,10 @@ test.describe('U7 roles: header y acceso al Estudio desde el header y el perfil 
 test.describe('U7 layouts', () => {
   test('cada ruta declara un contenedor del sistema', async ({ page }) => {
     await mockSupabase(page, 'anonimo');
-    const routes: Array<[string, string]> = [
+    // Tercer valor: dónde está el contenedor si no es el primer hijo de <main>.
+    const routes: Array<[string, string, string?]> = [
       ['/manual', 'l-container--wide'],
-      ['/privacidad', 'l-container--narrow'],
+      ['/privacidad', 'l-container--wide'], // U33: con índice, como el Manual
       ['/auth/login', 'l-container--wide'], // U30, tablero E: texto a la izquierda y panel a la derecha
       ['/auth/confirmar', 'l-container--wide'], // U30, tablero K: el panel va a la izquierda del contenedor
       ['/auth/registro', 'l-container--wide'],
@@ -270,26 +271,25 @@ test.describe('U7 layouts', () => {
       ['/reportar', 'l-container--wide'], // sin sesión redirige a Entrar (U30)
       ['/sugerir', 'l-container--narrow'],
       ['/estudio/catalogo', 'l-container--narrow'], // U15: sin sesión, el Estudio pide entrar (con sesión, full)
-      ['/perfil/comunidad', 'l-container--regular'],
+      // U31 (tablero F): la cenefa va a todo el ancho y el contenedor, encima y debajo.
+      ['/perfil/comunidad', 'l-container--wide', 'main .perfil-cuerpo'],
       ['/ruta-que-no-existe', 'l-container--narrow']
     ];
-    for (const [path, size] of routes) {
+    for (const [path, size, selector] of routes) {
       await page.goto(path);
-      const first = page.locator('main > :first-child');
+      const first = page.locator(selector ?? 'main > :first-child');
       await expect(first, path).toHaveClass(new RegExp(`\\bl-container\\b.*\\b${size}\\b`));
     }
   });
 
-  test('con sesión, Mis colecciones usa el contenedor regular y migas hacia el perfil', async ({ page }) => {
+  test('con sesión, Mis colecciones lleva al perfil propio (U31)', async ({ page }) => {
     await mockSupabase(page, 'comunidad');
     await page.goto('/mis-colecciones');
-    await expect(page.locator('main > :first-child')).toHaveClass(/\bl-container--regular\b/);
-    const crumbs = page.getByRole('navigation', { name: 'Migas de pan' });
-    await expect(crumbs.getByRole('link', { name: '@comunidad' })).toHaveAttribute('href', '/perfil/comunidad');
-    await expect(crumbs.locator('[aria-current="page"]')).toHaveText('Mis colecciones');
+    await expect(page).toHaveURL(/\/perfil\/comunidad$/);
+    await expect(page.getByRole('heading', { level: 2, name: 'Colecciones' })).toBeVisible();
   });
 
-  test('404: ErrorState como página, con h1 y una acción', async ({ page }) => {
+  test('404: panel de 480 sobre el campo de puntos, con h1 y una acción (U33)', async ({ page }) => {
     await page.goto('/ruta-que-no-existe');
     await expect(page.getByRole('heading', { level: 1, name: 'No encontramos esta página' })).toBeVisible();
     await expect(page.getByRole('alert')).toContainText('El enlace puede estar mal escrito');
@@ -307,9 +307,10 @@ test.describe('U7 layouts', () => {
     await expect(page).toHaveURL(/#orden$/);
     await expect(toc.getByRole('link', { name: 'Orden' })).toHaveAttribute('aria-current', 'location');
     await expect(toc.locator('[aria-current]')).toHaveCount(1);
-    // Tipografía de lectura: 16 px y medida de línea limitada.
+    // Tipografía de lectura (U33, tablero M): cuerpo 18/28 y columna de 720.
     const body = page.locator('.l-reading__body');
-    await expect(body).toHaveCSS('font-size', '16px');
+    await expect(body).toHaveCSS('font-size', '18px');
+    await expect(body).toHaveCSS('line-height', '28px');
     expect((await body.boundingBox())!.width).toBeLessThanOrEqual(720);
     await noHorizontalOverflow(page);
   });
@@ -334,8 +335,9 @@ test.describe('U7 layouts', () => {
     await page.goto('/privacidad');
     await expect(page.getByRole('heading', { level: 1, name: 'Política de privacidad' })).toBeVisible();
     const paragraph = page.locator('.l-reading__body p').first();
-    await expect(paragraph).toHaveCSS('font-size', '16px');
-    await expect(page.locator('.l-reading__body h2').first()).toHaveCSS('font-size', '24px');
+    // U33, tablero M: cuerpo 18/28 y h2 22/28.
+    await expect(paragraph).toHaveCSS('font-size', '18px');
+    await expect(page.locator('.l-reading__body h2').first()).toHaveCSS('font-size', '22px');
   });
 
   // U30: las vistas de acceso son un panel (FormPanel) con su título dentro.

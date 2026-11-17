@@ -11,6 +11,7 @@ export { fnv1a, prng, semillaDe, normalizarNombre } from './semilla.ts';
 export {
   huella,
   puntosHuella,
+  puntosCuadricula,
   campoDe,
   tonosDe,
   bandaDe,

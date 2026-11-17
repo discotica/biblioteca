@@ -1,0 +1,13 @@
+[
+ {
+  "pagina": "panel-colaborador",
+  "portada": "huella",
+  "texto": "@colaboradora",
+  "fuente": "24px/700",
+  "grande": true,
+  "p2": 5.99,
+  "min": 5.39,
+  "umbral": 3,
+  "ok": true
+ }
+]

@@ -12,6 +12,8 @@
     tone?: 'default' | 'danger';
     /** Sin href ni onselect, el elemento se muestra deshabilitado. */
     disabled?: boolean;
+    /** Dato al final de la fila, en tono tenue (U32: cuántos lanzamientos). */
+    detail?: string;
   };
 
   export type MenuGroup = {
@@ -63,7 +65,7 @@
      * panel (U28, panel de cuenta): 320 de ancho, opaco, grupos con encabezado
      * en minúscula y sin separadores, iconos de 18 y chevron que gira al abrir.
      */
-    presentation?: 'popover' | 'panel';
+    presentation?: 'popover' | 'panel' | 'lista';
     /**
      * A pantalla (panel en móvil): ocupa el viewport bajo el cabecero
      * (--header-offset) en lugar de anclarse al disparador.
@@ -73,6 +75,12 @@
     header?: Snippet;
     /** Distancia al disparador y a los bordes (8 por defecto, anchoredLayer). */
     gutter?: number;
+    /**
+     * lista (U32, «N más» de las fichas): opaca, filas con su dato a la
+     * derecha, 8 filas visibles y luego scroll. Con `anchor`, se cuelga de ese
+     * elemento y toma su ancho exacto (la columna de datos), no del disparador.
+     */
+    anchor?: HTMLElement;
     disabled?: boolean;
     open?: boolean;
     class?: string;
@@ -93,6 +101,7 @@
     fullscreen = false,
     header,
     gutter,
+    anchor,
     disabled = false,
     open = $bindable(false),
     class: className = ''
@@ -120,12 +129,14 @@
    * CSS). La capa de página (--layer-dropdown) queda bajo las barras sticky, y
    * el panel a pantalla debe taparlas, como el cabecero.
    */
-  function place(node: HTMLElement, initial: AnchoredLayerOptions & { fullscreen: boolean }) {
+  function place(node: HTMLElement, initial: AnchoredLayerOptions & { fullscreen: boolean; anchor?: HTMLElement }) {
     let anchored: ReturnType<typeof anchoredLayer> | undefined;
-    const apply = (options: AnchoredLayerOptions & { fullscreen: boolean }) => {
+    const apply = (input: AnchoredLayerOptions & { fullscreen: boolean; anchor?: HTMLElement }) => {
+      const { anchor: ancla, ...options } = input;
       if (!options.fullscreen) {
-        if (anchored) anchored.update(options);
-        else anchored = anchoredLayer(node, options);
+        const geometry = ancla ? { ...options, trigger: ancla, matchWidth: 'exact' as const } : options;
+        if (anchored) anchored.update(geometry);
+        else anchored = anchoredLayer(node, geometry);
         return;
       }
       anchored?.destroy();
@@ -270,16 +281,20 @@
       bind:this={menu}
       class="ui-menu__popup"
       class:ui-menu__popup--panel={presentation === 'panel'}
+      class:ui-menu__popup--lista={presentation === 'lista'}
       class:ui-menu__popup--screen={fullscreen}
       id={menuId}
       role="menu"
       aria-label={name}
       tabindex="-1"
       onkeydown={onMenuKeydown}
-      use:place={{ target: layerFor(trigger), trigger, align, gutter, fullscreen }}
+      use:place={{ target: layerFor(trigger), trigger, align, gutter, fullscreen, anchor }}
       use:dropdownMenu={{ onClose: close, trigger, tabCloses: true, initialFocus: '[data-menu-initial]' }}
     >
       {#if header}<div class="ui-menu__header">{@render header()}</div>{/if}
+      <!-- En la lista, solo las filas hacen scroll (8 visibles): el alto no
+           depende de cuánto sitio deje la ventana. -->
+      <div class="ui-menu__filas" role="none">
       {#each sections as section, sectionIndex}
         {@const offset = sections.slice(0, sectionIndex).reduce((sum, previous) => sum + previous.items.length, 0)}
         <!-- En el panel, el encabezado de cada grupo ya los separa. -->
@@ -307,6 +322,7 @@
               >
                 {#if item.icon}<Icon name={item.icon} size="sm" />{/if}
                 <span class="ui-menu__label">{item.label}</span>
+                {#if item.detail}<span class="ui-menu__detail">{item.detail}</span>{/if}
               </a>
             {:else}
               <button
@@ -322,11 +338,13 @@
               >
                 {#if item.icon}<Icon name={item.icon} size="sm" />{/if}
                 <span class="ui-menu__label">{item.label}</span>
+                {#if item.detail}<span class="ui-menu__detail">{item.detail}</span>{/if}
               </button>
             {/if}
           {/each}
         </div>
       {/each}
+      </div>
     </div>
   {/if}
 </span>
@@ -393,6 +411,48 @@
   .ui-menu__item--danger:focus-visible { background: var(--color-danger-dim); }
   .ui-menu__item[aria-disabled='true'] { color: var(--color-texto-tenue); cursor: default; }
   .ui-menu__item[aria-disabled='true']:hover { background: transparent; }
+
+  .ui-menu__detail {
+    flex: none;
+    margin-left: auto;
+    color: var(--color-texto-medio);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- Lista (U32, tablero G2): «N más» de las fichas ---- */
+  .ui-menu__popup--lista {
+    --ui-menu-fila: var(--ficha-lista-fila);
+    padding: var(--ficha-lista-pad);
+    border-color: var(--color-linea-fuerte);
+    border-radius: var(--ficha-lista-radius);
+    background: var(--color-panel-formulario);
+  }
+  .ui-menu__popup--lista .ui-menu__filas {
+    max-height: calc(var(--ficha-lista-filas) * var(--ui-menu-fila));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-linea-cenefa) transparent;
+  }
+  .ui-menu__popup--lista .ui-menu__item {
+    gap: var(--space-3);
+    min-height: var(--ui-menu-fila);
+    padding: 0 10px;
+    border-radius: var(--ficha-lista-fila-radius);
+    font-size: var(--text-ficha-dato);
+    line-height: var(--text-ficha-dato-lh);
+  }
+  .ui-menu__popup--lista .ui-menu__label {
+    overflow: hidden;
+    overflow-wrap: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* Táctil: filas de 44. */
+  @media (pointer: coarse) {
+    .ui-menu__popup--lista { --ui-menu-fila: var(--target-touch); }
+  }
 
   /* ---- Panel (U28, tablero J) ---- */
   .ui-menu__popup--panel {

@@ -71,7 +71,7 @@ async function collectionContent(page: Page) {
   return {
     titulo: await page.getByRole('heading', { level: 1 }).textContent(),
     // textContent: el texto fuente, sin las mayúsculas que añade el CSS.
-    cuerpo: ((await page.locator('.l-page').textContent()) ?? '').replace(/\s+/g, ' ').trim()
+    cuerpo: ((await page.locator('main').textContent()) ?? '').replace(/\s+/g, ' ').trim()
   };
 }
 
@@ -96,14 +96,14 @@ test('U3: un enlace viejo de colección pública abre la URL nueva con el mismo 
   await expect(page).toHaveURL(/\/coleccion\/para-abrir-el-set\?usuario=comunidad$/);
 });
 
-test('U3: /mis-crates redirige a /mis-colecciones y conserva query y hash', async ({ page }) => {
+test('U3 y U31: /mis-crates pasa por /mis-colecciones y llega al perfil propio con query y hash', async ({ page }) => {
   await authenticate(page);
   await mockPublicCollection(page);
   await page.goto('/mis-crates?crear=1#nueva');
-  await expect(page).toHaveURL(/\/mis-colecciones\?crear=1#nueva$/);
+  await expect(page).toHaveURL(/\/perfil\/comunidad\?crear=1#nueva$/);
   await expect(page.getByRole('dialog', { name: 'Nueva colección' })).toBeVisible();
   // El diálogo es modal y saca la página del árbol accesible: se lee el h1 del DOM.
-  await expect(page.locator('h1')).toHaveText('Mis colecciones');
+  await expect(page.locator('h1')).toHaveText('Comunidad');
 });
 
 test('U3: sin sesión, /mis-crates termina en entrar con destino /mis-colecciones', async ({ page }) => {

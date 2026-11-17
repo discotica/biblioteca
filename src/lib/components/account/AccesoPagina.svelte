@@ -5,8 +5,11 @@
   type Props = {
     /** wide: Entrar y el onboarding, en el ancho del sitio. narrow: las vistas cortas, centradas. */
     contenedor?: 'wide' | 'narrow';
-    /** centro: el contenido a media altura. inicio: pegado a la izquierda del contenedor, con la huella a la vista. */
-    alinea?: 'centro' | 'inicio';
+    /**
+     * centro: el contenido a media altura. inicio: pegado a la izquierda del contenedor, con la huella a la vista.
+     * arriba (U33): centrado en horizontal y pegado arriba, para formularios altos o de varios pasos.
+     */
+    alinea?: 'centro' | 'inicio' | 'arriba';
     nombre?: string;
     color?: boolean;
     latido?: number;
@@ -38,6 +41,7 @@
   .acceso > :global(:not(.acceso-fondo)) { position: relative; }
   .acceso--centro { align-items: center; justify-content: center; }
   .acceso--inicio { align-items: flex-start; justify-content: flex-start; padding-top: var(--acceso-inicio-top); }
+  .acceso--arriba { align-items: center; justify-content: flex-start; }
 
   @media (max-width: 767px) {
     .acceso {

@@ -81,10 +81,12 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 
         await expect(crumbs.getByRole('link', { name: 'Catálogo' })).toHaveAttribute('href', '/?pais=Colombia&p=2');
         await expect(crumbs.locator('[aria-current="page"]')).toHaveText(kind);
 
-        // Cabecera: solo el h1 con el nombre, alineado a la izquierda del contenido.
-        const header = page.locator('.l-page__header');
+        // Cabecera de ficha (U32): el h1 con el nombre, alineado a la izquierda
+        // del contenido, y la columna de datos; sin antetítulo, acciones ni selects.
+        const header = page.locator('.ficha-cabeza');
         await expect(header.getByRole('heading', { level: 1 })).toHaveText(name);
-        await expect(header.locator('.l-page__eyebrow, .l-page__actions, select')).toHaveCount(0);
+        await expect(header.locator('.l-page__eyebrow, .ficha-cabeza__acciones, select')).toHaveCount(0);
+        await expect(header.locator('.ficha-dato').filter({ hasText: 'Lanzamientos' })).toContainText('15');
         await expect(header.getByRole('heading', { level: 1 })).toHaveCSS('text-align', /start|left/);
         const title = await header.getByRole('heading', { level: 1 }).boundingBox();
         const crumbsBox = await crumbs.boundingBox();

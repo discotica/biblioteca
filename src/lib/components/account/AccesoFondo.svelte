@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { huella, RADIO_MIN, TONOS_GRISES } from '$lib/generative';
+  import { huella, puntosCuadricula, TONOS_GRISES } from '$lib/generative';
 
   type Props = {
     /**
@@ -28,19 +28,14 @@
 
   const semilla = $derived(nombre.trim());
 
-  /** La cuadrícula en cero: la rejilla de la huella con todos los puntos del mismo radio. */
+  /** La cuadrícula en cero: la rejilla de la huella, con una variación de tamaño muy suave. */
   function cuadriculaEnCero(ctx: CanvasRenderingContext2D, w: number, h: number) {
-    const paso = PASO * ESCALA;
-    const cols = Math.max(1, Math.floor(w / paso)), filas = Math.max(1, Math.floor(h / paso));
-    const x0 = (w - cols * paso) / 2 + paso / 2, y0 = (h - filas * paso) / 2 + paso / 2;
+    const puntos = puntosCuadricula(w, h, PASO * ESCALA);
     ctx.fillStyle = TONOS_GRISES[1];
     ctx.beginPath();
-    for (let j = 0; j < filas; j++) {
-      for (let i = 0; i < cols; i++) {
-        const x = x0 + i * paso, y = y0 + j * paso;
-        ctx.moveTo(x + paso * (RADIO_MIN + 0.03), y);
-        ctx.arc(x, y, paso * (RADIO_MIN + 0.03), 0, Math.PI * 2);
-      }
+    for (let k = 0; k < puntos.length; k += 4) {
+      ctx.moveTo(puntos[k] + puntos[k + 2], puntos[k + 1]);
+      ctx.arc(puntos[k], puntos[k + 1], puntos[k + 2], 0, Math.PI * 2);
     }
     ctx.fill();
   }
@@ -102,9 +97,11 @@
     height: 100%;
     transition: opacity var(--acceso-revela) ease;
   }
+  /* El fondo es textura, no contenido: los puntos se quedan por debajo del texto y del panel. */
+  .acceso-fondo__gris { opacity: var(--acceso-punto-alfa); }
   .acceso-fondo__tinta { opacity: 0; }
   .acceso-fondo--color .acceso-fondo__gris { opacity: 0; }
-  .acceso-fondo--color .acceso-fondo__tinta { opacity: 1; }
+  .acceso-fondo--color .acceso-fondo__tinta { opacity: var(--acceso-punto-alfa-color); }
 
   .acceso-fondo__lienzos--late { animation: acceso-late var(--latido) ease-in-out infinite alternate; }
   @keyframes acceso-late {

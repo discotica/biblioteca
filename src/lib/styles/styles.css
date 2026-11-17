@@ -25,7 +25,7 @@ body {
    debajo de ellos y no tapado (U18). */
 html { scroll-padding-top: calc(var(--header-reserve) + var(--search-reserve)); }
 
-:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+:where(a, button, input, select, textarea, summary, [tabindex], pre):focus-visible {
   outline: 2px solid var(--focus-ring-color);
   outline-offset: 3px;
   box-shadow: var(--focus-ring);

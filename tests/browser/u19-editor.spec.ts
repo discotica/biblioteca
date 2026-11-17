@@ -392,10 +392,12 @@ test('el autor edita lo enviado hasta que el equipo lo toma: dos sesiones, el si
   await shot(author, 'autor-bloqueado-1440');
   expect(server.contributions.find((item) => item.id === ids.compilado)!.payload.title).toBe('Compilado de la radio (autor)');
 
-  // Al volver: Mis aportes ya no ofrece editar; abrirla de nuevo, solo lectura.
+  // Al volver: Mis aportes muestra «Editar» desactivado (U31) y explica por qué; abrirla de nuevo, solo lectura.
   await author.goto('/mis-aportes');
-  await expect(author.getByText('El equipo ya la está revisando: ya no se puede editar.')).toBeVisible();
-  await expect(author.getByRole('link', { name: 'Editar: Compilado de la radio (autor)' })).toHaveCount(0);
+  const locked = author.getByRole('link', { name: 'Editar: Compilado de la radio (autor)' });
+  await expect(locked).toHaveAttribute('aria-disabled', 'true');
+  await expect(locked).not.toHaveAttribute('href', /./);
+  await expect(locked).toHaveAccessibleDescription('El equipo ya la está revisando: ya no se puede editar.');
   await author.goto(`/sugerir?draft=${ids.compilado}`);
   await expect(author.getByText('El equipo ya está revisando esta propuesta y ya no se puede editar.')).toBeVisible();
   await expect(author.getByLabel('Título')).toHaveCount(0);

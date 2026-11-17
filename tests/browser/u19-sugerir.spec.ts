@@ -215,10 +215,12 @@ for (const width of [390, 1440]) {
     const calls = await mock(page, 'admin');
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
     await page.goto('/sugerir');
-    // Sin eyebrow; la descripción corta solo en el paso 1.
+    // Sin eyebrow ni descripción (U33, tablero M): título, barritas y el campo.
     await expect(page.getByText('Catálogo abierto')).toHaveCount(0);
     const description = page.getByText('Pega el enlace del lanzamiento y revisa los datos que detectamos.');
-    await expect(description).toBeVisible();
+    await expect(description).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 1, name: 'Sugerir un lanzamiento' })).toBeVisible();
+    await expect(page.locator('.sugerir__steps li')).toHaveCount(4);
     await shot(page, `1-fuente-${width}`);
     await page.getByLabel('Enlace de la fuente').fill(source);
     await page.getByRole('button', { name: 'Detectar' }).click();

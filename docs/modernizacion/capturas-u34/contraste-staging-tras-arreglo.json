@@ -1,0 +1,3352 @@
+[
+ {
+  "ruta": "/artista/amotken--086ac597",
+  "portada": "https://f4.bcbits.com/img/a1589188805_2.jpg",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 8.33,
+  "min": 7.84,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/amotken--086ac597",
+  "portada": "https://f4.bcbits.com/img/a1589188805_2.jpg",
+  "texto": "Artista",
+  "size": 14,
+  "weight": 600,
+  "p2": 9.16,
+  "min": 9.01,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/amotken--086ac597",
+  "portada": "https://f4.bcbits.com/img/a1589188805_2.jpg",
+  "texto": "Amotken",
+  "size": 88,
+  "weight": 700,
+  "p2": 6.86,
+  "min": 6.2,
+  "umbral": 3
+ },
+ {
+  "ruta": "/artista/amotken--086ac597",
+  "portada": "https://f4.bcbits.com/img/a1589188805_2.jpg",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 10.24,
+  "min": 7.89,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/amotken--086ac597",
+  "portada": "https://f4.bcbits.com/img/a1589188805_2.jpg",
+  "texto": "2025",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.52,
+  "min": 16.34,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/amotken--086ac597",
+  "portada": "https://f4.bcbits.com/img/a1589188805_2.jpg",
+  "texto": "Sellos",
+  "size": 15,
+  "weight": 400,
+  "p2": 13,
+  "min": 8.6,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/amotken--086ac597",
+  "portada": "https://f4.bcbits.com/img/a1589188805_2.jpg",
+  "texto": "Po$$$ole",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.7,
+  "min": 16.52,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/amotken--086ac597",
+  "portada": "https://f4.bcbits.com/img/a1589188805_2.jpg",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 18.87,
+  "min": 9.81,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/amotken--086ac597",
+  "portada": "https://f4.bcbits.com/img/a1589188805_2.jpg",
+  "texto": "Acid",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 16.89,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/amotken--086ac597",
+  "portada": "https://f4.bcbits.com/img/a1589188805_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 17.06,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/amotken--086ac597",
+  "portada": "https://f4.bcbits.com/img/a1589188805_2.jpg",
+  "texto": "Bass",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 16.89,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/amotken--086ac597",
+  "portada": "https://f4.bcbits.com/img/a1589188805_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.06,
+  "min": 16.88,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/amotken--086ac597",
+  "portada": "https://f4.bcbits.com/img/a1589188805_2.jpg",
+  "texto": "Breaks",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 16.7,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/amotken--086ac597",
+  "portada": "https://f4.bcbits.com/img/a1589188805_2.jpg",
+  "texto": "2 más",
+  "size": 13,
+  "weight": 600,
+  "p2": 18.25,
+  "min": 18.24,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/amotken--086ac597",
+  "portada": "https://f4.bcbits.com/img/a1589188805_2.jpg",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 18.87,
+  "min": 10.3,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/amotken--086ac597",
+  "portada": "https://f4.bcbits.com/img/a1589188805_2.jpg",
+  "texto": "1",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.7,
+  "min": 16.52,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 7.58,
+  "min": 7.55,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": "Artista",
+  "size": 14,
+  "weight": 600,
+  "p2": 10.74,
+  "min": 9.37,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": "Brattysushi",
+  "size": 88,
+  "weight": 700,
+  "p2": 6.46,
+  "min": 6.03,
+  "umbral": 3
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": "Países",
+  "size": 15,
+  "weight": 400,
+  "p2": 18.11,
+  "min": 15.55,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": "Colombia",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 18.11,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.44,
+  "min": 18.29,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": "Venezuela",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 18.4,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 18.74,
+  "min": 16.08,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": "2025",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 18.44,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": "Sellos",
+  "size": 15,
+  "weight": 400,
+  "p2": 17.06,
+  "min": 16.08,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": "TRAMPA",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.47,
+  "min": 18.41,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 17.4,
+  "min": 16.27,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": "Dembow",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.07,
+  "min": 17.77,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.12,
+  "min": 18.11,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": "Tribal",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.26,
+  "min": 18.12,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.26,
+  "min": 18.26,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": "Bass",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.3,
+  "min": 18.26,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": "6 más",
+  "size": 13,
+  "weight": 600,
+  "p2": 18.75,
+  "min": 18.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 18.87,
+  "min": 16.45,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/brattysushi--276050e7",
+  "portada": "https://f4.bcbits.com/img/a1807633413_1x1_700.avif",
+  "texto": "2",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.57,
+  "min": 18.32,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/bvkin--d5abcca4",
+  "portada": "https://f4.bcbits.com/img/a3538188389_2.jpg",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 14.34,
+  "min": 13.98,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/bvkin--d5abcca4",
+  "portada": "https://f4.bcbits.com/img/a3538188389_2.jpg",
+  "texto": "Artista",
+  "size": 14,
+  "weight": 600,
+  "p2": 17.63,
+  "min": 17.14,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/bvkin--d5abcca4",
+  "portada": "https://f4.bcbits.com/img/a3538188389_2.jpg",
+  "texto": "BVKIN",
+  "size": 88,
+  "weight": 700,
+  "p2": 17.45,
+  "min": 12.56,
+  "umbral": 3
+ },
+ {
+  "ruta": "/artista/bvkin--d5abcca4",
+  "portada": "https://f4.bcbits.com/img/a3538188389_2.jpg",
+  "texto": "País",
+  "size": 15,
+  "weight": 400,
+  "p2": 6.09,
+  "min": 5.84,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/bvkin--d5abcca4",
+  "portada": "https://f4.bcbits.com/img/a3538188389_2.jpg",
+  "texto": "Colombia",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.77,
+  "min": 18.27,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/bvkin--d5abcca4",
+  "portada": "https://f4.bcbits.com/img/a3538188389_2.jpg",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 5.58,
+  "min": 5.34,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/bvkin--d5abcca4",
+  "portada": "https://f4.bcbits.com/img/a3538188389_2.jpg",
+  "texto": "2025",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.77,
+  "min": 18.27,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/bvkin--d5abcca4",
+  "portada": "https://f4.bcbits.com/img/a3538188389_2.jpg",
+  "texto": "Sellos",
+  "size": 15,
+  "weight": 400,
+  "p2": 5.35,
+  "min": 5.13,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/bvkin--d5abcca4",
+  "portada": "https://f4.bcbits.com/img/a3538188389_2.jpg",
+  "texto": "Elemental Records",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.9,
+  "min": 17.58,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/bvkin--d5abcca4",
+  "portada": "https://f4.bcbits.com/img/a3538188389_2.jpg",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 6.91,
+  "min": 6.43,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/bvkin--d5abcca4",
+  "portada": "https://f4.bcbits.com/img/a3538188389_2.jpg",
+  "texto": "Acid",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.44,
+  "min": 17.43,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/bvkin--d5abcca4",
+  "portada": "https://f4.bcbits.com/img/a3538188389_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.87,
+  "min": 17.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/bvkin--d5abcca4",
+  "portada": "https://f4.bcbits.com/img/a3538188389_2.jpg",
+  "texto": "Techno",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.15,
+  "min": 17.87,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/bvkin--d5abcca4",
+  "portada": "https://f4.bcbits.com/img/a3538188389_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.29,
+  "min": 18.29,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/bvkin--d5abcca4",
+  "portada": "https://f4.bcbits.com/img/a3538188389_2.jpg",
+  "texto": "Trance",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.42,
+  "min": 18.27,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/bvkin--d5abcca4",
+  "portada": "https://f4.bcbits.com/img/a3538188389_2.jpg",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 16.05,
+  "min": 8.93,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/bvkin--d5abcca4",
+  "portada": "https://f4.bcbits.com/img/a3538188389_2.jpg",
+  "texto": "1",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.56,
+  "min": 18.42,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/by-d-s--d837d02b",
+  "portada": "https://f4.bcbits.com/img/a3276029042_16.jpg",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 9.1,
+  "min": 7.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/by-d-s--d837d02b",
+  "portada": "https://f4.bcbits.com/img/a3276029042_16.jpg",
+  "texto": "Artista",
+  "size": 14,
+  "weight": 600,
+  "p2": 8.66,
+  "min": 8.53,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/by-d-s--d837d02b",
+  "portada": "https://f4.bcbits.com/img/a3276029042_16.jpg",
+  "texto": "By Døs",
+  "size": 88,
+  "weight": 700,
+  "p2": 4.5,
+  "min": 4.44,
+  "umbral": 3
+ },
+ {
+  "ruta": "/artista/by-d-s--d837d02b",
+  "portada": "https://f4.bcbits.com/img/a3276029042_16.jpg",
+  "texto": "País",
+  "size": 15,
+  "weight": 400,
+  "p2": 11.29,
+  "min": 9.23,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/by-d-s--d837d02b",
+  "portada": "https://f4.bcbits.com/img/a3276029042_16.jpg",
+  "texto": "Colombia",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.3,
+  "min": 16.11,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/by-d-s--d837d02b",
+  "portada": "https://f4.bcbits.com/img/a3276029042_16.jpg",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 9.67,
+  "min": 7.29,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/by-d-s--d837d02b",
+  "portada": "https://f4.bcbits.com/img/a3276029042_16.jpg",
+  "texto": "2025",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.11,
+  "min": 15.93,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/by-d-s--d837d02b",
+  "portada": "https://f4.bcbits.com/img/a3276029042_16.jpg",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 15.55,
+  "min": 6.44,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/by-d-s--d837d02b",
+  "portada": "https://f4.bcbits.com/img/a3276029042_16.jpg",
+  "texto": "Ambient",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 15.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/by-d-s--d837d02b",
+  "portada": "https://f4.bcbits.com/img/a3276029042_16.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.11,
+  "min": 15.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/by-d-s--d837d02b",
+  "portada": "https://f4.bcbits.com/img/a3276029042_16.jpg",
+  "texto": "Electro",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 15.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/by-d-s--d837d02b",
+  "portada": "https://f4.bcbits.com/img/a3276029042_16.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.11,
+  "min": 15.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/by-d-s--d837d02b",
+  "portada": "https://f4.bcbits.com/img/a3276029042_16.jpg",
+  "texto": "Instrumental",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 15.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/by-d-s--d837d02b",
+  "portada": "https://f4.bcbits.com/img/a3276029042_16.jpg",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 15.74,
+  "min": 6.34,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/by-d-s--d837d02b",
+  "portada": "https://f4.bcbits.com/img/a3276029042_16.jpg",
+  "texto": "1",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.93,
+  "min": 15.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/dj-co-kr--30229d56",
+  "portada": "https://f4.bcbits.com/img/a4118946471_2.jpg",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 9.91,
+  "min": 9.1,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/dj-co-kr--30229d56",
+  "portada": "https://f4.bcbits.com/img/a4118946471_2.jpg",
+  "texto": "Artista",
+  "size": 14,
+  "weight": 600,
+  "p2": 11.46,
+  "min": 10.62,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/dj-co-kr--30229d56",
+  "portada": "https://f4.bcbits.com/img/a4118946471_2.jpg",
+  "texto": "Dj co.kr",
+  "size": 88,
+  "weight": 700,
+  "p2": 4.7,
+  "min": 4.44,
+  "umbral": 3
+ },
+ {
+  "ruta": "/artista/dj-co-kr--30229d56",
+  "portada": "https://f4.bcbits.com/img/a4118946471_2.jpg",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 13.11,
+  "min": 11.15,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/dj-co-kr--30229d56",
+  "portada": "https://f4.bcbits.com/img/a4118946471_2.jpg",
+  "texto": "2024",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.3,
+  "min": 16.11,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/dj-co-kr--30229d56",
+  "portada": "https://f4.bcbits.com/img/a4118946471_2.jpg",
+  "texto": "Sellos",
+  "size": 15,
+  "weight": 400,
+  "p2": 13.6,
+  "min": 10.57,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/dj-co-kr--30229d56",
+  "portada": "https://f4.bcbits.com/img/a4118946471_2.jpg",
+  "texto": "Warehouse Rave",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.11,
+  "min": 15.93,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/dj-co-kr--30229d56",
+  "portada": "https://f4.bcbits.com/img/a4118946471_2.jpg",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 18.87,
+  "min": 10.25,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/dj-co-kr--30229d56",
+  "portada": "https://f4.bcbits.com/img/a4118946471_2.jpg",
+  "texto": "Bass",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 15.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/dj-co-kr--30229d56",
+  "portada": "https://f4.bcbits.com/img/a4118946471_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.11,
+  "min": 15.93,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/dj-co-kr--30229d56",
+  "portada": "https://f4.bcbits.com/img/a4118946471_2.jpg",
+  "texto": "Breaks",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 15.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/dj-co-kr--30229d56",
+  "portada": "https://f4.bcbits.com/img/a4118946471_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.11,
+  "min": 15.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/dj-co-kr--30229d56",
+  "portada": "https://f4.bcbits.com/img/a4118946471_2.jpg",
+  "texto": "Dembow",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 15.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/dj-co-kr--30229d56",
+  "portada": "https://f4.bcbits.com/img/a4118946471_2.jpg",
+  "texto": "2 más",
+  "size": 13,
+  "weight": 600,
+  "p2": 18.16,
+  "min": 18.01,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/dj-co-kr--30229d56",
+  "portada": "https://f4.bcbits.com/img/a4118946471_2.jpg",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 18.87,
+  "min": 10.25,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/dj-co-kr--30229d56",
+  "portada": "https://f4.bcbits.com/img/a4118946471_2.jpg",
+  "texto": "1",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.93,
+  "min": 15.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/el-nick--c2d04b23",
+  "portada": "https://f4.bcbits.com/img/a1909436292_2.jpg",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 7.4,
+  "min": 7.29,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/el-nick--c2d04b23",
+  "portada": "https://f4.bcbits.com/img/a1909436292_2.jpg",
+  "texto": "Artista",
+  "size": 14,
+  "weight": 600,
+  "p2": 9.6,
+  "min": 8.53,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/el-nick--c2d04b23",
+  "portada": "https://f4.bcbits.com/img/a1909436292_2.jpg",
+  "texto": "El Nick",
+  "size": 88,
+  "weight": 700,
+  "p2": 8.43,
+  "min": 5.87,
+  "umbral": 3
+ },
+ {
+  "ruta": "/artista/el-nick--c2d04b23",
+  "portada": "https://f4.bcbits.com/img/a1909436292_2.jpg",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 5.95,
+  "min": 5.68,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/el-nick--c2d04b23",
+  "portada": "https://f4.bcbits.com/img/a1909436292_2.jpg",
+  "texto": "2024",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.74,
+  "min": 17.39,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/el-nick--c2d04b23",
+  "portada": "https://f4.bcbits.com/img/a1909436292_2.jpg",
+  "texto": "Sellos",
+  "size": 15,
+  "weight": 400,
+  "p2": 5.95,
+  "min": 5.63,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/el-nick--c2d04b23",
+  "portada": "https://f4.bcbits.com/img/a1909436292_2.jpg",
+  "texto": "CUNTRYCLUB",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.74,
+  "min": 18.16,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/el-nick--c2d04b23",
+  "portada": "https://f4.bcbits.com/img/a1909436292_2.jpg",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 9.08,
+  "min": 6.83,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/el-nick--c2d04b23",
+  "portada": "https://f4.bcbits.com/img/a1909436292_2.jpg",
+  "texto": "Bass",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.76,
+  "min": 15.61,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/el-nick--c2d04b23",
+  "portada": "https://f4.bcbits.com/img/a1909436292_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.81,
+  "min": 16.63,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/el-nick--c2d04b23",
+  "portada": "https://f4.bcbits.com/img/a1909436292_2.jpg",
+  "texto": "Breaks",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.49,
+  "min": 17.16,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/el-nick--c2d04b23",
+  "portada": "https://f4.bcbits.com/img/a1909436292_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.57,
+  "min": 18.54,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/el-nick--c2d04b23",
+  "portada": "https://f4.bcbits.com/img/a1909436292_2.jpg",
+  "texto": "Experimental",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.84,
+  "min": 18.71,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/el-nick--c2d04b23",
+  "portada": "https://f4.bcbits.com/img/a1909436292_2.jpg",
+  "texto": "2 más",
+  "size": 13,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 18.87,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/el-nick--c2d04b23",
+  "portada": "https://f4.bcbits.com/img/a1909436292_2.jpg",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 14.41,
+  "min": 6.82,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/el-nick--c2d04b23",
+  "portada": "https://f4.bcbits.com/img/a1909436292_2.jpg",
+  "texto": "1",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 18.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 11.11,
+  "min": 9.79,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": "Artista",
+  "size": 14,
+  "weight": 600,
+  "p2": 15.74,
+  "min": 14.47,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": "Kortex",
+  "size": 88,
+  "weight": 700,
+  "p2": 15.51,
+  "min": 11.76,
+  "umbral": 3
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": "País",
+  "size": 15,
+  "weight": 400,
+  "p2": 10.29,
+  "min": 9.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": "Colombia",
+  "size": 15,
+  "weight": 600,
+  "p2": 14.43,
+  "min": 14.27,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 8.37,
+  "min": 7.99,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": "2025",
+  "size": 15,
+  "weight": 600,
+  "p2": 14.52,
+  "min": 14.36,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": "Sellos",
+  "size": 15,
+  "weight": 400,
+  "p2": 6.18,
+  "min": 5.87,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": "Ripper Core",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.44,
+  "min": 15.13,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.26,
+  "min": 15.13,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": "GABBADDICTS",
+  "size": 15,
+  "weight": 600,
+  "p2": 14.89,
+  "min": 14.63,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 5.65,
+  "min": 5.34,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": "Hardcore",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.12,
+  "min": 14.8,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.37,
+  "min": 15.23,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": "Hard Techno",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.85,
+  "min": 15.33,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.64,
+  "min": 15.27,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": "Industrial",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.58,
+  "min": 15.02,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 11.04,
+  "min": 5.7,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/kortex--4911c89f",
+  "portada": "https://f4.bcbits.com/img/a1121954459_16.jpg",
+  "texto": "3",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.95,
+  "min": 15.77,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/l-miranda--e1cca903",
+  "portada": "https://f4.bcbits.com/img/a2774813824_2.jpg",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 7.97,
+  "min": 7.3,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/l-miranda--e1cca903",
+  "portada": "https://f4.bcbits.com/img/a2774813824_2.jpg",
+  "texto": "Artista",
+  "size": 14,
+  "weight": 600,
+  "p2": 9.32,
+  "min": 8.96,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/l-miranda--e1cca903",
+  "portada": "https://f4.bcbits.com/img/a2774813824_2.jpg",
+  "texto": "L’Miranda",
+  "size": 88,
+  "weight": 700,
+  "p2": 6.05,
+  "min": 5.62,
+  "umbral": 3
+ },
+ {
+  "ruta": "/artista/l-miranda--e1cca903",
+  "portada": "https://f4.bcbits.com/img/a2774813824_2.jpg",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 10.87,
+  "min": 8.51,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/l-miranda--e1cca903",
+  "portada": "https://f4.bcbits.com/img/a2774813824_2.jpg",
+  "texto": "2026",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.3,
+  "min": 16.11,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/l-miranda--e1cca903",
+  "portada": "https://f4.bcbits.com/img/a2774813824_2.jpg",
+  "texto": "Sellos",
+  "size": 15,
+  "weight": 400,
+  "p2": 13.19,
+  "min": 8.45,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/l-miranda--e1cca903",
+  "portada": "https://f4.bcbits.com/img/a2774813824_2.jpg",
+  "texto": "Santa Sede",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.13,
+  "min": 15.93,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/l-miranda--e1cca903",
+  "portada": "https://f4.bcbits.com/img/a2774813824_2.jpg",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 18.6,
+  "min": 8.83,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/l-miranda--e1cca903",
+  "portada": "https://f4.bcbits.com/img/a2774813824_2.jpg",
+  "texto": "Breaks",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.42,
+  "min": 14.66,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/l-miranda--e1cca903",
+  "portada": "https://f4.bcbits.com/img/a2774813824_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 14.62,
+  "min": 14.48,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/l-miranda--e1cca903",
+  "portada": "https://f4.bcbits.com/img/a2774813824_2.jpg",
+  "texto": "Dembow",
+  "size": 15,
+  "weight": 600,
+  "p2": 14.09,
+  "min": 14.05,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/l-miranda--e1cca903",
+  "portada": "https://f4.bcbits.com/img/a2774813824_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.42,
+  "min": 15.38,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/l-miranda--e1cca903",
+  "portada": "https://f4.bcbits.com/img/a2774813824_2.jpg",
+  "texto": "Trance",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.69,
+  "min": 15.23,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/l-miranda--e1cca903",
+  "portada": "https://f4.bcbits.com/img/a2774813824_2.jpg",
+  "texto": "1 más",
+  "size": 13,
+  "weight": 600,
+  "p2": 18.16,
+  "min": 18.01,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/l-miranda--e1cca903",
+  "portada": "https://f4.bcbits.com/img/a2774813824_2.jpg",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 18.74,
+  "min": 8.36,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/l-miranda--e1cca903",
+  "portada": "https://f4.bcbits.com/img/a2774813824_2.jpg",
+  "texto": "1",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.93,
+  "min": 15.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 8.13,
+  "min": 7.68,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "Artista",
+  "size": 14,
+  "weight": 600,
+  "p2": 10.61,
+  "min": 9.61,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "Remisería Temperley",
+  "size": 88,
+  "weight": 700,
+  "p2": 7.87,
+  "min": 5.88,
+  "umbral": 3
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "Países",
+  "size": 15,
+  "weight": 400,
+  "p2": 18.46,
+  "min": 8.81,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "Argentina",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 16.23,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.41,
+  "min": 16.37,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "Ecuador",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 16.37,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.59,
+  "min": 16.41,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "México",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 16.41,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 18.74,
+  "min": 9.68,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "2023–2026",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 16.23,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "Sellos",
+  "size": 15,
+  "weight": 400,
+  "p2": 13.12,
+  "min": 9.37,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "REBOTE",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.15,
+  "min": 15.97,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.15,
+  "min": 16.01,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "Santa Sede",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.19,
+  "min": 16.01,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "4 más",
+  "size": 13,
+  "weight": 600,
+  "p2": 18.16,
+  "min": 18.04,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 13.3,
+  "min": 9.09,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "Techno",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.97,
+  "min": 15.78,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.97,
+  "min": 15.78,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "Bass",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.97,
+  "min": 15.78,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "11 más",
+  "size": 13,
+  "weight": 600,
+  "p2": 18.04,
+  "min": 18.04,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 18.87,
+  "min": 8.85,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/remiseria-temperley--20d1baf0",
+  "portada": "https://f4.bcbits.com/img/a4261652370_1x1_700.avif",
+  "texto": "9",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.2,
+  "min": 15.97,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 7.5,
+  "min": 7.4,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": "Artista",
+  "size": 14,
+  "weight": 600,
+  "p2": 9.34,
+  "min": 9.24,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": "Shibuya793",
+  "size": 88,
+  "weight": 700,
+  "p2": 7.46,
+  "min": 6.39,
+  "umbral": 3
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": "País",
+  "size": 15,
+  "weight": 400,
+  "p2": 17.26,
+  "min": 8.64,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": "Colombia",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 17.81,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 11.9,
+  "min": 8.16,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": "2024",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.77,
+  "min": 17.88,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": "Sellos",
+  "size": 15,
+  "weight": 400,
+  "p2": 8.05,
+  "min": 7.72,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": "Underzone",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.5,
+  "min": 17.08,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 9.36,
+  "min": 7.33,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": "Trance",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.29,
+  "min": 16.13,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.45,
+  "min": 16.28,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": "Acid",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.6,
+  "min": 16.42,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.73,
+  "min": 16.56,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": "House",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.88,
+  "min": 16.56,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": "1 más",
+  "size": 13,
+  "weight": 600,
+  "p2": 18.51,
+  "min": 18.4,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 16.32,
+  "min": 7.24,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/shibuya793--e2cdc753",
+  "portada": "https://f4.bcbits.com/img/a0058936609_16.jpg",
+  "texto": "2",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.07,
+  "min": 16.9,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 6.51,
+  "min": 6.42,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": "Artista",
+  "size": 14,
+  "weight": 600,
+  "p2": 10.18,
+  "min": 9.01,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": "ØSLO",
+  "size": 88,
+  "weight": 700,
+  "p2": 5.57,
+  "min": 5.3,
+  "umbral": 3
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": "País",
+  "size": 15,
+  "weight": 400,
+  "p2": 13.18,
+  "min": 10.93,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": "Colombia",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 16.96,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 12.1,
+  "min": 10.26,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": "2025–2026",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 16.81,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": "Sellos",
+  "size": 15,
+  "weight": 400,
+  "p2": 11.47,
+  "min": 9.62,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": "Elemental Records",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.29,
+  "min": 15.87,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.97,
+  "min": 16.97,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": "Pulso",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.15,
+  "min": 16.97,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 12.77,
+  "min": 8.99,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": "Techno",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.7,
+  "min": 14.91,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.7,
+  "min": 15.69,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": "Acid",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.02,
+  "min": 15.7,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.07,
+  "min": 15.92,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": "Bass",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.31,
+  "min": 16.11,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": "6 más",
+  "size": 13,
+  "weight": 600,
+  "p2": 18.35,
+  "min": 18.35,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 14.91,
+  "min": 8.72,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/slo--bf805dfc",
+  "portada": "https://f4.bcbits.com/img/a698405709_1x1_700.avif",
+  "texto": "2",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.34,
+  "min": 17.17,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 14.83,
+  "min": 14.61,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "Artista",
+  "size": 14,
+  "weight": 600,
+  "p2": 17.87,
+  "min": 17.56,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "Tombe",
+  "size": 88,
+  "weight": 700,
+  "p2": 17.7,
+  "min": 11.22,
+  "umbral": 3
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "Países",
+  "size": 15,
+  "weight": 400,
+  "p2": 6.4,
+  "min": 5.93,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "Chile",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 18.22,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.61,
+  "min": 18.47,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "Brasil",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 18.47,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 5.19,
+  "min": 4.97,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "202–2025",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 18.2,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "Sellos",
+  "size": 15,
+  "weight": 400,
+  "p2": 6.07,
+  "min": 5.71,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "Makinmovs",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.25,
+  "min": 16.55,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.88,
+  "min": 17.73,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "ALGOL",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.05,
+  "min": 17.88,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.2,
+  "min": 18.2,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "Makinvovs",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.35,
+  "min": 18.2,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 8.28,
+  "min": 7.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "Footwork",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.72,
+  "min": 17.22,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.05,
+  "min": 17.73,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "Bass",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.04,
+  "min": 17.85,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.05,
+  "min": 18.05,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "Breaks",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.31,
+  "min": 18.05,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "7 más",
+  "size": 13,
+  "weight": 600,
+  "p2": 18.73,
+  "min": 18.73,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 14.14,
+  "min": 11.8,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/tombe--82122f41",
+  "portada": "https://f4.bcbits.com/img/a1221928937_2.jpg",
+  "texto": "6",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.61,
+  "min": 18.47,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 13.37,
+  "min": 12.95,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": "Artista",
+  "size": 14,
+  "weight": 600,
+  "p2": 16.3,
+  "min": 15.93,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": "Vladislav Deniraw",
+  "size": 88,
+  "weight": 700,
+  "p2": 13.65,
+  "min": 9.82,
+  "umbral": 3
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": "Países",
+  "size": 15,
+  "weight": 400,
+  "p2": 15.36,
+  "min": 9.23,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": "Argentina",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.74,
+  "min": 15.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.48,
+  "min": 16.3,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": "Colombia",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 16.3,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 9.52,
+  "min": 8.4,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": "2022",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 16.3,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": "Sellos",
+  "size": 15,
+  "weight": 400,
+  "p2": 5.45,
+  "min": 5.21,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": "Krill Music",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.3,
+  "min": 16.11,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 4.91,
+  "min": 4.64,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": "Acid",
+  "size": 15,
+  "weight": 600,
+  "p2": 14.79,
+  "min": 14.79,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 14.79,
+  "min": 14.79,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": "Hardgroove",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.36,
+  "min": 14.79,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 18.87,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": "Industrial",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.11,
+  "min": 15.93,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": "1 más",
+  "size": 13,
+  "weight": 600,
+  "p2": 18.16,
+  "min": 18.16,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 6.34,
+  "min": 5.29,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/artista/vladislav-deniraw--9e399c42",
+  "portada": "https://f4.bcbits.com/img/a3625510288_2.jpg",
+  "texto": "1",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.11,
+  "min": 15.93,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hot-inside-trax",
+  "portada": "https://f4.bcbits.com/img/a2969300304_10.jpg",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 6.02,
+  "min": 5.93,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hot-inside-trax",
+  "portada": "https://f4.bcbits.com/img/a2969300304_10.jpg",
+  "texto": "Sello",
+  "size": 14,
+  "weight": 600,
+  "p2": 6.05,
+  "min": 5.96,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hot-inside-trax",
+  "portada": "https://f4.bcbits.com/img/a2969300304_10.jpg",
+  "texto": "Hot Inside Trax",
+  "size": 88,
+  "weight": 700,
+  "p2": 4.7,
+  "min": 4.64,
+  "umbral": 3
+ },
+ {
+  "ruta": "/sello/hot-inside-trax",
+  "portada": "https://f4.bcbits.com/img/a2969300304_10.jpg",
+  "texto": "País",
+  "size": 15,
+  "weight": 400,
+  "p2": 18.6,
+  "min": 9.52,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hot-inside-trax",
+  "portada": "https://f4.bcbits.com/img/a2969300304_10.jpg",
+  "texto": "Colombia",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.74,
+  "min": 15.55,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hot-inside-trax",
+  "portada": "https://f4.bcbits.com/img/a2969300304_10.jpg",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 18.87,
+  "min": 9.37,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hot-inside-trax",
+  "portada": "https://f4.bcbits.com/img/a2969300304_10.jpg",
+  "texto": "2022",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.74,
+  "min": 15.18,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hot-inside-trax",
+  "portada": "https://f4.bcbits.com/img/a2969300304_10.jpg",
+  "texto": "Artistas",
+  "size": 15,
+  "weight": 400,
+  "p2": 13.09,
+  "min": 9.08,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hot-inside-trax",
+  "portada": "https://f4.bcbits.com/img/a2969300304_10.jpg",
+  "texto": "TraxxGender",
+  "size": 15,
+  "weight": 600,
+  "p2": 14.79,
+  "min": 14.6,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hot-inside-trax",
+  "portada": "https://f4.bcbits.com/img/a2969300304_10.jpg",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 12.9,
+  "min": 8.8,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hot-inside-trax",
+  "portada": "https://f4.bcbits.com/img/a2969300304_10.jpg",
+  "texto": "Acid",
+  "size": 15,
+  "weight": 600,
+  "p2": 13.65,
+  "min": 13.46,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hot-inside-trax",
+  "portada": "https://f4.bcbits.com/img/a2969300304_10.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 14.6,
+  "min": 14.41,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hot-inside-trax",
+  "portada": "https://f4.bcbits.com/img/a2969300304_10.jpg",
+  "texto": "Breaks",
+  "size": 15,
+  "weight": 600,
+  "p2": 14.6,
+  "min": 14.41,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hot-inside-trax",
+  "portada": "https://f4.bcbits.com/img/a2969300304_10.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 14.6,
+  "min": 14.41,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hot-inside-trax",
+  "portada": "https://f4.bcbits.com/img/a2969300304_10.jpg",
+  "texto": "Electro",
+  "size": 15,
+  "weight": 600,
+  "p2": 14.99,
+  "min": 14.6,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hot-inside-trax",
+  "portada": "https://f4.bcbits.com/img/a2969300304_10.jpg",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 17.85,
+  "min": 9.37,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hot-inside-trax",
+  "portada": "https://f4.bcbits.com/img/a2969300304_10.jpg",
+  "texto": "1",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.55,
+  "min": 14.99,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 7.85,
+  "min": 7.62,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "Sello",
+  "size": 14,
+  "weight": 600,
+  "p2": 10.54,
+  "min": 9.38,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "Hypersonics",
+  "size": 88,
+  "weight": 700,
+  "p2": 12.3,
+  "min": 6.85,
+  "umbral": 3
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "Países",
+  "size": 15,
+  "weight": 400,
+  "p2": 10.19,
+  "min": 9.73,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "Colombia",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.49,
+  "min": 17.14,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 18.77,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "Ecuador",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 16.79,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 16.92,
+  "min": 16.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "Perú",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 16.4,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 13.08,
+  "min": 11.36,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "2021–2023",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 16.43,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "Artistas",
+  "size": 15,
+  "weight": 400,
+  "p2": 16.35,
+  "min": 14.19,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "Cardozo",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.94,
+  "min": 17.81,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.98,
+  "min": 17.94,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "CRRDR",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.98,
+  "min": 17.82,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.94,
+  "min": 17.82,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "Entrañas",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.78,
+  "min": 17.31,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "2 más",
+  "size": 13,
+  "weight": 600,
+  "p2": 18.35,
+  "min": 18.33,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 17.26,
+  "min": 15.52,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "Dembow",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.13,
+  "min": 17.98,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.27,
+  "min": 18.1,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "Breaks",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.1,
+  "min": 17.95,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.1,
+  "min": 17.95,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "Bass",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.82,
+  "min": 17.61,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "2 más",
+  "size": 13,
+  "weight": 600,
+  "p2": 18.48,
+  "min": 18.35,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 18.74,
+  "min": 16.78,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/hypersonics",
+  "portada": "https://f4.bcbits.com/img/a2249043483_2.jpg",
+  "texto": "3",
+  "size": 15,
+  "weight": 600,
+  "p2": 17.27,
+  "min": 17.09,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/jade",
+  "portada": "https://f4.bcbits.com/img/a3035484268_10.jpg",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 7.39,
+  "min": 7.19,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/jade",
+  "portada": "https://f4.bcbits.com/img/a3035484268_10.jpg",
+  "texto": "Sello",
+  "size": 14,
+  "weight": 600,
+  "p2": 7.6,
+  "min": 7.49,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/jade",
+  "portada": "https://f4.bcbits.com/img/a3035484268_10.jpg",
+  "texto": "Jade",
+  "size": 88,
+  "weight": 700,
+  "p2": 5.33,
+  "min": 4.7,
+  "umbral": 3
+ },
+ {
+  "ruta": "/sello/jade",
+  "portada": "https://f4.bcbits.com/img/a3035484268_10.jpg",
+  "texto": "País",
+  "size": 15,
+  "weight": 400,
+  "p2": 10.41,
+  "min": 9.99,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/jade",
+  "portada": "https://f4.bcbits.com/img/a3035484268_10.jpg",
+  "texto": "Argentina",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.32,
+  "min": 18.13,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/jade",
+  "portada": "https://f4.bcbits.com/img/a3035484268_10.jpg",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 10.55,
+  "min": 10.24,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/jade",
+  "portada": "https://f4.bcbits.com/img/a3035484268_10.jpg",
+  "texto": "2022",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.74,
+  "min": 18.28,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/jade",
+  "portada": "https://f4.bcbits.com/img/a3035484268_10.jpg",
+  "texto": "Artistas",
+  "size": 15,
+  "weight": 400,
+  "p2": 12.49,
+  "min": 11.96,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/jade",
+  "portada": "https://f4.bcbits.com/img/a3035484268_10.jpg",
+  "texto": "Saigg",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.57,
+  "min": 18.47,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/jade",
+  "portada": "https://f4.bcbits.com/img/a3035484268_10.jpg",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 16.47,
+  "min": 14.04,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/jade",
+  "portada": "https://f4.bcbits.com/img/a3035484268_10.jpg",
+  "texto": "Electro",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.61,
+  "min": 18.47,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/jade",
+  "portada": "https://f4.bcbits.com/img/a3035484268_10.jpg",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 18.32,
+  "min": 14.71,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/jade",
+  "portada": "https://f4.bcbits.com/img/a3035484268_10.jpg",
+  "texto": "1",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.84,
+  "min": 18.61,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 9.36,
+  "min": 9.23,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": "Sello",
+  "size": 14,
+  "weight": 600,
+  "p2": 10.78,
+  "min": 9.37,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": "NOBIAS",
+  "size": 88,
+  "weight": 700,
+  "p2": 4.98,
+  "min": 4.7,
+  "umbral": 3
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": "País",
+  "size": 15,
+  "weight": 400,
+  "p2": 5.13,
+  "min": 4.98,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": "Honduras",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 16.11,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 5.79,
+  "min": 5.53,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": "2023–2024",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.6,
+  "min": 14.99,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": "Artistas",
+  "size": 15,
+  "weight": 400,
+  "p2": 8.53,
+  "min": 6.74,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": "Dj Juanny",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.18,
+  "min": 14.6,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 11.29,
+  "min": 6.34,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": "Bass",
+  "size": 15,
+  "weight": 600,
+  "p2": 13.65,
+  "min": 13.46,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 13.46,
+  "min": 13.46,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": "House",
+  "size": 15,
+  "weight": 600,
+  "p2": 12.9,
+  "min": 12.9,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 12.9,
+  "min": 12.9,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": "Acid",
+  "size": 15,
+  "weight": 600,
+  "p2": 12.9,
+  "min": 12.9,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": "2 más",
+  "size": 13,
+  "weight": 600,
+  "p2": 17.85,
+  "min": 17.69,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 15.55,
+  "min": 6.34,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/nobias",
+  "portada": "https://f4.bcbits.com/img/a0715405555_2.jpg",
+  "texto": "2",
+  "size": 15,
+  "weight": 600,
+  "p2": 14.6,
+  "min": 14.41,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": "Catálogo",
+  "size": 14,
+  "weight": 600,
+  "p2": 7.74,
+  "min": 7.18,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": "Sello",
+  "size": 14,
+  "weight": 600,
+  "p2": 10.78,
+  "min": 10.3,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": "Schimmer",
+  "size": 88,
+  "weight": 700,
+  "p2": 9.52,
+  "min": 5.37,
+  "umbral": 3
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": "País",
+  "size": 15,
+  "weight": 400,
+  "p2": 9.74,
+  "min": 7.71,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": "Colombia",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.74,
+  "min": 15.36,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": "Años",
+  "size": 15,
+  "weight": 400,
+  "p2": 6.55,
+  "min": 6.16,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": "2024",
+  "size": 15,
+  "weight": 600,
+  "p2": 18.87,
+  "min": 15.93,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": "Artistas",
+  "size": 15,
+  "weight": 400,
+  "p2": 6.34,
+  "min": 6.05,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": "a:side",
+  "size": 15,
+  "weight": 600,
+  "p2": 13.28,
+  "min": 13.09,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 13.65,
+  "min": 13.65,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": "Bailey IBBS",
+  "size": 15,
+  "weight": 600,
+  "p2": 13.84,
+  "min": 13.65,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": "19 más",
+  "size": 13,
+  "weight": 600,
+  "p2": 18.01,
+  "min": 17.85,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": "Géneros",
+  "size": 15,
+  "weight": 400,
+  "p2": 5.35,
+  "min": 5.05,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": "House",
+  "size": 15,
+  "weight": 600,
+  "p2": 12.9,
+  "min": 12.9,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 14.6,
+  "min": 14.41,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": "Techno",
+  "size": 15,
+  "weight": 600,
+  "p2": 14.6,
+  "min": 14.41,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": ",",
+  "size": 15,
+  "weight": 600,
+  "p2": 14.99,
+  "min": 14.99,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": "Trance",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.74,
+  "min": 15.18,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": "Lanzamientos",
+  "size": 15,
+  "weight": 400,
+  "p2": 7.61,
+  "min": 5.69,
+  "umbral": 4.5
+ },
+ {
+  "ruta": "/sello/schimmer",
+  "portada": "https://f4.bcbits.com/img/a1939817786_2.jpg",
+  "texto": "1",
+  "size": 15,
+  "weight": 600,
+  "p2": 15.93,
+  "min": 15.55,
+  "umbral": 4.5
+ }
+]

@@ -176,6 +176,45 @@ export function puntosHuella(w: number, h: number, op: OpcionesHuella): Float32A
   return out;
 }
 
+/** Radio base de la cuadrícula en cero, en pasos (el mínimo de la huella y un poco más). */
+export const RADIO_CERO = RADIO_MIN + 0.03;
+/** Cuánto varía el radio de la cuadrícula en cero: ±VARIA_CERO de su valor. */
+export const VARIA_CERO = 0.28;
+
+/**
+ * Ruido suave y fijo en [-1, 1] sobre el lienzo: tres ondas largas que no se
+ * repiten dentro de una ventana. Sin semilla ni azar, así que la cuadrícula en
+ * cero es la misma en cada visita y entre un lienzo y otro del mismo tamaño.
+ */
+export const ondaCero = (x: number, y: number, paso: number) => {
+  const u = x / paso, v = y / paso;
+  return (Math.sin(u * 0.43 + 1.3) + Math.sin(v * 0.31 + 0.4) + Math.sin((u + v) * 0.17 + 2.1)) / 3;
+};
+
+/**
+ * La cuadrícula en cero del tablero K (Entrar, onboarding, 404): la rejilla de
+ * la huella sin forma. Los puntos casi iguales (±VARIA_CERO del radio, a lo
+ * largo de ondas largas) para que el fondo respire sin competir con el texto.
+ * Mismo formato que `puntosHuella`: [x, y, radio, banda, …], siempre banda 1.
+ */
+export function puntosCuadricula(w: number, h: number, paso: number): Float32Array {
+  const cols = Math.max(1, Math.floor(w / paso)), filas = Math.max(1, Math.floor(h / paso));
+  const x0 = (w - cols * paso) / 2 + paso / 2, y0 = (h - filas * paso) / 2 + paso / 2;
+  const out = new Float32Array(cols * filas * 4);
+  let k = 0;
+  for (let j = 0; j < filas; j++) {
+    const y = y0 + j * paso;
+    for (let i = 0; i < cols; i++) {
+      const x = x0 + i * paso;
+      out[k++] = x;
+      out[k++] = y;
+      out[k++] = paso * RADIO_CERO * (1 + VARIA_CERO * ondaCero(x, y, paso));
+      out[k++] = 1;
+    }
+  }
+  return out;
+}
+
 /** Firma de un conjunto de puntos (FNV-1a sobre valores redondeados a milésimas). */
 export function firma(puntos: Float32Array): number {
   let texto = '';

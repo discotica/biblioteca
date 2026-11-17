@@ -1,6 +1,6 @@
 # Estado operativo
 
-Actualizado: 2026-11-08.
+Actualizado: 2026-11-12.
 
 > **Orden vigente hasta producción:** [`plan-lanzamiento-2026-10-13.md`](../producto/plan-lanzamiento-2026-10-13.md), con sus [prompts](../producto/prompts-lanzamiento-2026-10-13.md). Sustituye el orden de los planes anteriores, no su contenido. **Siguiente acción segura:**
 >
@@ -13,6 +13,63 @@ Actualizado: 2026-11-08.
 > RC2-P0-01 (enlaces de Auth) quedó corregido y verificado en staging con un correo real el 2026-10-15, con las plantillas nuevas ya en el dashboard ([expediente](./e21-rc2-2026-10-15.md#rc2-p0-01--los-enlaces-de-auth-terminan-en-el-enlace-venció)).
 >
 > El paso 11 (E21-rc2) dio **NO-GO** el 2026-10-15 ([expediente](./e21-rc2-2026-10-15.md)). Los pasos 1 a 10 están cerrados: el 8 se aceptó con la hoja tal como está y el 10 se decidió por delegación ([decisiones](./decisiones.md#pasos-8-y-10-del-lanzamiento-2026-10-15)). La QA manual en dispositivos conviene hacerla después de la corrección.
+
+## Dirección de arte, U26 a U34: QA del 2026-11-12
+
+[Plan](../producto/plan-direccion-arte-2026-11-10.md) y [decisiones](./decisiones.md#dirección-de-arte-u26-a-u29-2026-11-10). Rama `direccion-arte`, sobre `origin/main` `b304175`. **Sin publicar.** U26 a U30 están en commits (`cb445f5` a `bd5ac02`); U31 a U33 y esta QA están en el árbol de trabajo, sin commit, a la espera del «aceptado». Capturas en [`capturas-u34/`](./capturas-u34/).
+
+| Comprobación | Resultado |
+| --- | --- |
+| `npm test` | 234/234 |
+| `lint:tokens` y `build` | OK, sin avisos |
+| `test:browser`, diez corridas completas | La última, 429 pasan, 9 omitidas, 0 fallos. De las nueve anteriores, tres salieron limpias y seis con 1 a 4 fallos distintos: intermitente bajo concurrencia, ver U34-P2-01 |
+| `test:anchos` (39 estados × 1440, 1024, 390 y zoom 200) | 156/156 |
+| `u34-qa` (movimiento reducido, teclado y contraste sobre cenefas) | 45/45 |
+| `visual:compare` contra la línea base del árbol | 190 iguales, 13 diferentes: 12 fichas por el tono de migas y etiquetas, y `lab-u8-D` (361 px, intermitente) |
+| `visual:compare` contra la línea base publicada (U25) | 2 iguales, 191 diferentes y 10 nuevas: es toda la dirección de arte |
+| `visual:compare` solo de U34 (contra `.ref-pre-u34`) | 43: 42 del fondo de acceso y `estudio-propuestas-T` |
+| Recorrido en staging | Visitante, usuario nuevo con alta completa, comunidad, colaborador y admin: 0 hallazgos |
+
+**Movimiento reducido.** El campo de pulso del inicio no cambia con `prefers-reduced-motion`, ni con el cursor encima ni al activarlo con la página abierta; sin reducir sí cambia (control positivo). Ninguna de nueve páginas (inicio, Entrar, registro, 404, perfil, artista, sello, Mis aportes y Editar perfil) tiene animaciones infinitas corriendo; el latido del fondo corre sin reducir y se detiene al reducir. Las cenefas y avatares son estáticos siempre.
+
+**Rendimiento del campo** (`scripts/medir-campo-pulso.mjs`, build de producción, 1440×900, DPR 2, CPU ×4, 6 s en reposo y 6 s con el ratón en un ocho; presupuesto de 4 ms por cuadro):
+
+| Camino | Fase | Mediana | p95 | Media del motor |
+| --- | --- | --- | --- | --- |
+| Worker (normal), dos corridas | Reposo | 0,07–0,66 ms ¹ | 0,77–0,79 ms | 0,71–0,73 ms |
+| | Cursor | 0,91–0,93 ms | 1,03–1,05 ms | 0,90–0,94 ms |
+| Worker, DPR 1 | Reposo / cursor | 0,21 / 0,86 ms | 0,68 / 0,96 ms | 0,65 / 0,84 ms |
+| Hilo principal con ×4 real (Safari < 16.4) | Reposo | 2,0–2,1 ms | 3,2–3,3 ms | 2,75–2,78 ms |
+| | Cursor | 3,5 ms | 4,5 ms | 3,3–3,6 ms |
+
+¹ En reposo dibuja a 30 cps. El ×4 de Chromium no frena al worker: su coste multiplicado por 4 da 2,8–3,8 ms, que es una estimación. El hilo principal no paga ningún cuadro con worker. Sin worker queda bajo 4 ms de media y de mediana, y apenas por encima en el p95 con cursor; una tarea larga en todo el recorrido.
+
+**Contraste AA sobre las cenefas** (medido sobre los píxeles reales: se oculta el texto, se captura la cenefa y se compara cada texto, compuesto sobre cada píxel de su caja, con ese píxel; se reporta el percentil 2 y el mínimo):
+
+- *Portadas sintéticas del peor caso* (blanco, amarillo, cian, rosa y lima, sobre artista, sello y colección, más las huellas de perfil, Mis aportes, Editar perfil y panel de cada rol): 28 escenarios, ninguno bajo AA en el percentil 2. El más justo es «Eliminar» sobre una portada blanca, 4,54:1 (mínimo 4,47).
+- *Portadas reales de staging* (80 artistas y 40 sellos repartidos por el catálogo, 2.141 medidas): antes del ajuste, cuatro textos bajo 4,5:1: «Catálogo» a 3,82 y 4,06 y 4,49, y «Géneros» a 4,34. Se subió el tono de migas y etiquetas (decisiones). Las 18 fichas más justas, vueltas a medir: 335 medidas, ninguna bajo AA; el título no baja de 4,5:1 (umbral 3:1) y el texto pequeño no baja de 4,5:1 ni en el mínimo.
+- Las otras 102 fichas no se volvieron a medir tras el ajuste; el cambio solo sube el contraste.
+
+**Accesibilidad.** En las 156 combinaciones de vista y ancho: ningún control sin nombre accesible, ningún icono suelto sin `aria-hidden` ni nombre, ningún texto bajo AA sobre fondo plano, ningún desborde horizontal ni palabra partida, y todos los controles de la barra alcanzables. Foco visible con Tab a 1440 y con zoom al 200 %. Teclado comprobado en el panel de cuenta (visitante y con sesión: Enter, flechas, Inicio, Fin, vuelta al final, Escape con retorno del foco y Tab que lo cierra), en el «N más» de las chips y de las fichas, y en los tres pasos del alta.
+
+**Corregido en la QA.** Fondo de acceso más suave y con variación de tamaño (petición del usuario); migas y etiquetas sobre la cenefa; resumen de propuesta del Estudio en dos columnas por su ancho (a 1024 partía «Experimental»); anillo de foco en el `<pre>` del Manual.
+
+**Staging** (app local contra staging; solo lectura salvo el alta de la cuenta nueva). Roles comprobados antes por SQL de solo lectura: `jmamanche` admin, `colaborador_qa` y `colab_correo` colaborador, `e21rc2_comunidad` comunidad. El alta usó un alias del buzón de pruebas; el enlace de confirmación se leyó de `auth.users` (el buzón no se abre desde aquí). Aterrizó en `/perfil/<usuario>?aviso=cuenta-confirmada`, `/mis-colecciones` redirigió al perfil y, tras Salir, `/mis-aportes` volvió a pedir Entrar. Comunidad no ve «Estudio» ni entra a él; el colaborador y el admin sí ven «Estudio» y «Volver al catálogo». Los scripts son `scripts/u34-recorrido-staging.mjs` y `scripts/u34-contraste-staging.mjs`.
+
+**Pendiente.**
+
+| # | Severidad | Hallazgo |
+| --- | --- | --- |
+| U34-P2-01 | P2 | `test:browser` es intermitente bajo concurrencia: de diez corridas completas, seis tuvieron 1 a 4 fallos, siempre en pruebas distintas (R1.2 a 390, U9 a 390 y 768, U10 «Reintentar», U15, U17, U19, U29b, E13, E16:294); tres con 5 trabajadores, una con 3 y dos con 2. Tres salieron limpias (dos con 3 trabajadores y una con 2) y la última también. Cada una pasa sola: 510/510 con `--repeat-each` y dos trabajadores. Firma: `element is not stable` o una tecla perdida. Parte de la corrida 1 coincidió con un `visual:capture` de otra sesión sobre el mismo árbol. No se ha encontrado causa en el producto |
+| U34-P3-01 | P3 | E13 «paginación por teclado»: falló en dos de tres corridas con dos trabajadores. El Enter sobre «Página siguiente» se pierde mientras la URL se canoniza a `&orden=match` (la carrera de `canonizarURLActual` que ya anotó U18). Pasa 12/12 sola |
+| U34-P3-02 | P3 | La estimación de 2,8–3,8 ms del worker no es una medida con ×4: el limitador de Chromium no alcanza al worker |
+| U34-P3-03 | P3 | Sobre una portada blanca pura, «Eliminar» de la colección toca 4,47:1 en su mínimo. Con portadas reales no ocurrió |
+| U34-P3-04 | P3 | Los reproductores embebidos (iframes) no dibujan nuestro anillo de foco |
+| U34-P3-05 | P3 | No se pudo comprobar que el correo de confirmación llegó al buzón (la sesión no lo lee). Se comprobó el enlace a partir del token de la base |
+| U34-P3-06 | P3 | La cuenta de prueba `u34_qa_11120724` queda en staging. Borrarla por SQL exige tu autorización |
+| U34-P3-07 | P3 | Siguen abiertos U25-P3-01 y U25-P3-02 (Propuestas cuenta 1 de más; columna Estado hacia 800 px). No se volvieron a revisar |
+
+**Línea base visual.** No se aceptó nada. Las 191 PNG modificadas de `tests/visual/baseline/darwin` las escribió la sesión de U33 (00:45 a 01:02) y ya incluyen el fondo de acceso nuevo; no están en commit. Al aceptar hay que volver a capturar las 12 fichas del tono (`artista-D/M`, `sello-D/M`, `crate-D/M/T`, `crate-lista-D/M`, `crate-visitante-D/M`, `crate-editar-D`; `VISUAL_WORKERS=2 npm run visual:capture -g " (artista|sello|crate…)"`), y actualizar el «Estado de la línea base» del README de `tests/visual`. Informes: [`informe-visual-u25-a-u34.md`](./capturas-u34/informe-visual-u25-a-u34.md), [`visual-u34-solo/`](./capturas-u34/visual-u34-solo/).
 
 ## Rediseño del Estudio, U20 a U25: publicado (2026-11-08)
 

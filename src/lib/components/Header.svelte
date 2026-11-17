@@ -63,8 +63,7 @@
   $: huellaName = username || $user?.email || '';
   $: accountName = username ? `@${username}` : 'Tu cuenta';
 
-  // Panel de cuenta (§3): la fila del perfil, «Tu cuenta» y «El sitio». Ajustes
-  // lleva a /cuenta hasta que U33 le dé página propia.
+  // Panel de cuenta (§3): la fila del perfil, «Tu cuenta» y «El sitio».
   const siteGroup: MenuGroup = {
     label: 'El sitio',
     items: [
@@ -78,7 +77,7 @@
       label: 'Tu cuenta',
       items: [
         { label: 'Editar perfil', href: '/cuenta', icon: 'editar' },
-        { label: 'Ajustes', href: '/cuenta', icon: 'ajustes' },
+        { label: 'Ajustes', href: '/cuenta/ajustes', icon: 'ajustes' },
         { label: 'Salir', icon: 'salir', onselect: cerrarSesion }
       ] satisfies MenuItem[]
     },

@@ -1,7 +1,8 @@
 <script lang="ts">
-  // Colección en un listado (U14): mosaico de 4 portadas y nombre. Toda la pieza
-  // abre la colección; el resto de acciones va en el "…" (decisiones.md, ronda 3:
-  // "todas menos abrir"), que solo aparece si se pasan `actions`.
+  // Colección en un listado (U14; U31, tablero F): mosaico de 4 portadas y
+  // nombre. Toda la pieza abre la colección; el resto de acciones va en el "…"
+  // (decisiones.md, ronda 3: "todas menos abrir"), que solo aparece si se pasan
+  // `actions`.
   import { Menu, type MenuItem } from '$lib/ui';
   import type { Crate } from '$lib/stores/cratesStore';
   import CollectionMosaic from './CollectionMosaic.svelte';
@@ -12,7 +13,7 @@
     href: string;
     /** Acciones del "…": compartir, editar y eliminar. Sin ellas, no hay menú. */
     actions?: MenuItem[];
-    /** Muestra "Privada" en las privadas (Mis colecciones). */
+    /** Muestra "Privada" en las privadas (perfil propio). */
     showVisibility?: boolean;
   };
 
@@ -20,7 +21,7 @@
 
   const count = $derived(crate.item_count ?? 0);
   const meta = $derived(
-    [`${count} ${count === 1 ? 'lanzamiento' : 'lanzamientos'}`, showVisibility && !crate.is_public ? 'Privada' : '']
+    [count === 0 ? 'Vacía' : `${count} ${count === 1 ? 'lanzamiento' : 'lanzamientos'}`, showVisibility && !crate.is_public ? 'Privada' : '']
       .filter(Boolean)
       .join(' · ')
   );
@@ -59,9 +60,9 @@
   .collection-tile__name {
     margin: 0;
     color: var(--color-texto);
-    font-size: var(--text-md);
-    font-weight: 800;
-    line-height: 1.3;
+    font-size: var(--text-tile);
+    font-weight: 600;
+    line-height: var(--text-tile-lh);
     overflow-wrap: anywhere;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -77,9 +78,16 @@
   .collection-tile:hover .collection-tile__name { color: var(--color-acento-texto); }
 
   .collection-tile__meta {
-    margin: var(--space-1) 0 0;
-    color: var(--color-texto-tenue);
-    font-size: var(--text-xs);
+    margin: 0;
+    color: var(--color-texto-medio);
+    font-size: var(--text-sm);
+    line-height: 1.25rem;
+  }
+
+  @media (max-width: 768px) {
+    .collection-tile { gap: var(--space-2); }
+    .collection-tile__name { font-size: var(--text-tile-m); line-height: var(--text-tile-m-lh); }
+    .collection-tile__meta { font-size: var(--text-xs); line-height: 1.125rem; }
   }
 
   /* El "…" queda por encima del enlace estirado. */

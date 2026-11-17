@@ -1,0 +1,156 @@
+[
+ {
+  "pagina": "coleccion",
+  "portada": "blanco",
+  "texto": "@comunidad",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 9.5,
+  "min": 9.23,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "blanco",
+  "texto": "Colecciones",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 9.5,
+  "min": 9.23,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "blanco",
+  "texto": "Para abrir el set",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 11.29,
+  "min": 10.95,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "blanco",
+  "texto": "Para abrir el set",
+  "fuente": "88px/700",
+  "grande": true,
+  "p2": 9.52,
+  "min": 8.66,
+  "umbral": 3,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "blanco",
+  "texto": "Intros lentas, texturas y percusión que ",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 12.1,
+  "min": 5.84,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "blanco",
+  "texto": "Compartir",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 15.55,
+  "min": 15.55,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "blanco",
+  "texto": "Editar",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 18.87,
+  "min": 15.55,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "blanco",
+  "texto": "Eliminar",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 4.54,
+  "min": 4.47,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "blanco",
+  "texto": "Curada por",
+  "fuente": "15px/400",
+  "grande": false,
+  "p2": 15.55,
+  "min": 9.37,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "blanco",
+  "texto": "@comunidad",
+  "fuente": "15px/600",
+  "grande": false,
+  "p2": 14.79,
+  "min": 14.6,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "blanco",
+  "texto": "Lanzamientos",
+  "fuente": "15px/400",
+  "grande": false,
+  "p2": 18.87,
+  "min": 8.94,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "blanco",
+  "texto": "6",
+  "fuente": "15px/600",
+  "grande": false,
+  "p2": 15.18,
+  "min": 14.99,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "blanco",
+  "texto": "Visibilidad",
+  "fuente": "15px/400",
+  "grande": false,
+  "p2": 18.87,
+  "min": 8.8,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "blanco",
+  "texto": "Pública",
+  "fuente": "15px/600",
+  "grande": false,
+  "p2": 15.74,
+  "min": 15.55,
+  "umbral": 4.5,
+  "ok": true
+ }
+]
