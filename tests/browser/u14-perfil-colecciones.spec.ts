@@ -212,7 +212,9 @@ test('U14 colección: dueño frente a visitante, sin notas y cargada por ID', as
   await expect(handles(visitor)).toHaveCount(0);
   await expect(visitor.getByRole('button', { name: /^Quitar «/ })).toHaveCount(0);
   await expect(visitor.getByText('Arrastra el asa')).toHaveCount(0);
-  await expect(visitor.locator('.l-page')).toContainText('@comunidad');
+  // U32: Curada por, con enlace al perfil.
+  await expect(visitor.locator('.ficha-dato').filter({ hasText: 'Curada por' }).getByRole('link', { name: '@comunidad' }))
+    .toHaveAttribute('href', '/perfil/comunidad');
 });
 
 test('U14 colección: reordenar con teclado envía la colección completa (D1)', async ({ page }) => {
@@ -270,6 +272,9 @@ test.describe('U14 colección táctil', () => {
     await page.addInitScript(() => localStorage.setItem('discotica:vista:coleccion', 'list'));
     await openCollection(page);
     await expect(page.locator('.collection-results .fila')).toHaveCount(4);
+    // U32: la cabecera de ficha deja la lista bajo el pliegue a 390; el gesto
+    // se hace con las filas a la vista.
+    await page.locator('.collection-results').evaluate((el) => el.scrollIntoView({ block: 'center' }));
     const from = await center(handles(page).first());
     const third = await center(page.locator('.collection-results .fila').nth(2));
     const cdp = await page.context().newCDPSession(page);
@@ -335,13 +340,14 @@ test('U14 colección: editar y eliminar desde los botones de arriba', async ({ p
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Para cerrar el set');
   expect(state.patches.at(-1)).toMatchObject({ name: 'Para cerrar el set', is_public: false });
   await expect(page.locator('.collection-actions').getByRole('button', { name: 'Compartir' })).toBeDisabled();
-  await expect(page.getByText('Privada: solo tú la ves')).toBeVisible();
+  await expect(page.locator('.ficha-dato').filter({ hasText: 'Visibilidad' })).toContainText('Privada');
 
   await page.getByRole('button', { name: 'Eliminar', exact: true }).click();
   const confirm = page.getByRole('dialog', { name: '¿Eliminar «Para cerrar el set»?' });
   await expect(confirm).toContainText('Sus 4 lanzamientos siguen en el catálogo.');
   await confirm.getByRole('button', { name: 'Eliminar' }).click();
-  await expect(page).toHaveURL(/\/mis-colecciones$/);
+  // U31: las colecciones viven en el perfil propio.
+  await expect(page).toHaveURL(/\/perfil\/comunidad$/);
   expect(state.deletes).toContain('crate');
 });
 
@@ -355,12 +361,12 @@ test('U14 colección sin D1 en el entorno: orden por fecha y sin asas', async ({
 });
 
 // ---------------------------------------------------------------------------
-// Mis colecciones
+// Mis colecciones (U31: en el perfil propio)
 
-test('U14 mis colecciones: mosaico y "…" con compartir, editar y eliminar', async ({ page, context }) => {
+test('U14 y U31 colecciones propias: mosaico y "…" con compartir, editar y eliminar en el perfil', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const state = await setup(page);
-  await page.goto('/mis-colecciones');
+  await page.goto('/perfil/comunidad');
   const tile = page.locator('.collection-tile').first();
   await expect(tile.getByRole('link', { name: 'Para abrir el set' })).toHaveAttribute('href', COLLECTION_URL);
   await expect(tile.locator('.mosaic .ui-cover')).toHaveCount(4);
@@ -390,8 +396,10 @@ test('U14 perfil propio: redes, Estudio fuera para comunidad e interruptor de ap
   const state = await setup(page, { showAccepted: false });
   await page.goto('/perfil/comunidad');
   await expect(page.getByRole('list', { name: 'Redes de @comunidad' }).getByRole('link')).toHaveCount(2);
-  await expect(page.getByRole('link', { name: 'Editar redes' })).toHaveAttribute('href', '/cuenta#redes');
-  await expect(page.locator('.l-page a[href="/mis-aportes"]')).toHaveCount(1);
+  // U31 (tablero F): las redes se editan desde Editar perfil; con redes no hay «Añade tus redes».
+  await expect(page.locator('main').getByRole('link', { name: 'Editar perfil' })).toHaveAttribute('href', '/cuenta');
+  await expect(page.getByRole('link', { name: 'Añade tus redes' })).toHaveCount(0);
+  await expect(page.locator('main a[href="/mis-aportes"]')).toHaveCount(1);
   await expect(page.locator('.studio')).toHaveCount(0);
   const toggle = page.getByRole('switch', { name: /Mostrar mis aportes aceptados/ });
   await expect(toggle).not.toBeChecked();

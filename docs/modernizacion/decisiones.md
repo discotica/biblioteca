@@ -522,6 +522,104 @@ Lienzo aprobado el 2026-11-07; D1 a D7 en el [plan](../producto/plan-estudio-red
 
 **Otro enlace, otro lanzamiento (2026-11-08).** En Sugerir, un enlace distinto vacía el formulario y empieza un borrador nuevo. Al retomar un borrador con `?draft=`, cambiar el enlace es corregirlo y conserva los datos.
 
+### Dirección de arte, U26 a U29 (2026-11-10)
+
+Plan: [`plan-direccion-arte-2026-11-10.md`](../producto/plan-direccion-arte-2026-11-10.md), con el lienzo aprobado el 2026-11-10 y D1 a D7 cerradas ese día (A2 para el pulso, Mis aportes solo para su dueño, sin «más grande del mundo», Gmail y Outlook siempre, los dos caminos del perfil vacío). Los commits de cada etapa: U26 `cb445f5`, U27 `a4ad075`, U28 `45b2b17`, U29 `263c3ed`, U30 `bd5ac02`; U31 a U33, abajo.
+
+**U26 — Base: tipografía, botones, iconos y tokens.**
+- **Work Sans de verdad.** Hasta U26 `tokens.css` la nombraba sin cargarla. Ahora va alojada (`static/fonts`, `woff2` latín y latín extendido, licencia OFL al lado), con `font-display: swap` y precarga de 400 y 600. Sin proveedor nuevo.
+- **El peso más alto es 700** (decisión del usuario, 2026-11-10): el 800 del lienzo pesa demasiado. La cara 700 cubre 700–900, así que un 800 que quede en el código se dibuja a 700.
+- `Button` a 600 y tamaño de 48 para la acción de un formulario. Tokens nuevos: `--color-rol-admin` (#682cc6), alturas del cabecero (72/60), contenedor de formulario y ritmo 22/36. Iconos `menu`, `estudio`, `ajustes`, `pin` y `externo`. `FormPanel` es el contenedor de formulario. Todo se muestra en `/lab`.
+
+**U27 — Motor generativo** (`src/lib/generative/`, sin dependencias; [expediente](../producto/u27-motor-generativo-2026-11-10.md)).
+- **Semilla** FNV-1a de 32 bits y PRNG mulberry32. El mismo nombre da la misma huella; el rol solo cambia el color, nunca la forma.
+- **Huella reconstruida, no copiada.** El motor del lienzo se perdió; quedan los parámetros y las imágenes. La forma son dos o tres manchas gaussianas con un halo 2,1× más ancho, sobre una rejilla de paso fijo. No es idéntica píxel a píxel al tablero B, y el tono exacto de cada nombre tampoco coincide (la función original se perdió).
+- **Gamas por rol:** verdes para usuarios (66° a 166°), grises para colaboradores y alrededor de #682cc6 para admin.
+- **Cenefa con portada:** un `<img>` con filtro CSS bajo una máscara de puntos que es un canvas propio. La portada nunca entra en un canvas ni se lee con `getImageData` (las de otro dominio lo contaminarían).
+- **Pulso A2** portado sin cambios de comportamiento, en un worker con `OffscreenCanvas`. Una sola instancia viva por pantalla; fotograma fijo con movimiento reducido o Save-Data; pausa fuera de pantalla y con la pestaña oculta; DPR ≤ 2.
+- **Rendimiento:** con worker, 0,7–0,9 ms por cuadro y el hilo principal sin cuadros. El ×4 de Chromium no frena al worker, así que el cumplimiento del presupuesto de 4 ms es una estimación (2,8–3,6 ms); sin worker queda en el límite. Medido de nuevo en U34.
+
+**U28 — Cabecero único y panel de cuenta** (tablero J).
+- Barra opaca de 72 (60 en móvil), con el ancho del sitio en todas las páginas, Estudio incluido. «beta» junto al logo; controles de 40.
+- Visitante: Sugerir (verde, con +) a Entrar con retorno, y la hamburguesa «Menú» sin texto. Con sesión: avatar de huella con chevron. Colaborador y admin: «Estudio» en contorno; dentro del Estudio, «Volver al catálogo».
+- `headerMode.ts` decide las excepciones por ruta: en `/auth/login`, Sugerir en contorno; en el alta, barra mínima con Entrar.
+- **Panel de cuenta** sobre `Menu` (presentación `panel`, a pantalla en móvil): cenefa con el color del rol y «@usuario», «Perfil y colecciones», «Tu cuenta» (Editar perfil, Ajustes, Salir) y «El sitio» (Manual, Reportar). El visitante ve Entrar y Crear cuenta. Mismo teclado que `Menu`.
+- Se conservan E14 (ocultar al hacer scroll en móvil), `--header-offset`, `--header-reserve` y el arreglo de U13 (un solo menú montado).
+
+**U29 — Entrada y catálogo** (tablero D).
+- La franja lleva el único `CampoPulso` de la pantalla, título 102/92 y el buscador de 560 con el placeholder «Buscar por país, género, artista, sello o álbum».
+- **Chips en la misma fila.** Con más de cuatro, un «N más» con caret abre el resto en un panel con teclado (Enter abre, Tab entra, Escape cierra y devuelve el foco al botón).
+- **La nota beta deja de ser modal:** bienvenida y nota comparten un solo hueco a todo el ancho. La lógica de E19 (sesión, cierres, `beta` y `nombre` en la URL) no cambió.
+
+### Franja de entrada reducida (2026-11-10, U29b)
+
+Tablero D, variante «Reducida»: tras el primer scroll, solo en el catálogo y conservando la búsqueda.
+
+- **Cuándo.** Solo en desktop (>768). La primera vez que el scroll baja y pasa de 48 px (`FRANJA_UMBRAL_SCROLL`), la franja con bienvenida o nota beta pasa a la banda de 120: título 28, campo de 420 y chips a la derecha. Subir antes del umbral no cuenta. En móvil no hay banda reducida y el scroll no cambia nada.
+- **Al volver arriba no se reexpande.** Se queda reducida mientras la página siga montada (una visita). El tablero dice «tras el primer scroll», no «mientras se está abajo»; reexpandir ligaría la altura de la franja a la posición del scroll, y esa realimentación (la altura cambia el scroll y el scroll cambia la altura) es la fuente de saltos y bucles. Un solo sentido lo evita. Recargar o volver a la página desde otra ruta monta una visita nueva.
+- **Reducir no es cerrar.** El texto de la bienvenida o la nota sigue montado, oculto (`visibility`, fuera del tabulador y del árbol de accesibilidad), con su sesión (`welcomeSession`) y sus cierres sin tocar. `beta` y `nombre` siguen en la URL, así que recargar la muestra otra vez; el historial no se escribe. Si el foco estaba dentro del texto, pasa al campo de búsqueda.
+- **Solo lectura del scroll.** `franjaReduccion.ts` escucha `scroll` pasivo y lo suelta al reducir; no hay `scrollTo` ni `scrollBy` por la reducción. La transición es un FLIP con WAAPI sobre un estado ya aplicado: la grilla parte donde estaba y llega donde la deja el CSS (altura y margen inferior de la franja de partida absorben lo que el buscador ocupa de más en la banda); el texto se desvanece, el título aparece y el campo se estrecha de 560 a 420. Con `prefers-reduced-motion` no se crea ninguna animación. El lienzo del campo de pulso no se remonta ni se remuestrea: se queda con su alto de partida y la banda lo recorta.
+- **Paginación y orden.** `desplazarAGrilla` reduce la franja al instante (sin animar) y espera a que el DOM esté en su forma final antes de `scrollIntoView`. Así la grilla aterriza igual haya o no scroll previo, con `scroll-padding` (`--header-reserve` + `--search-reserve`) y `scroll-margin` sin cambios. Si no, un scroll suave iniciado con la franja a medio encoger aterrizaría tantos píxeles más abajo como hubiera encogido.
+- **Salto fuera de vista.** Si la franja ya está entera fuera de la vista al decidir (End, restauración del scroll), la reducción es instantánea. El navegador compensa con su anclaje de scroll (Chromium, Firefox); donde no existe (Safari) el contenido sube lo que ocupaba la franja. No se corrige reescribiendo el scroll.
+
+### Acceso y alta en tres pasos (2026-11-10, U30)
+
+Tableros E, K y M.
+
+- **Entrar.** El título es «Haz parte de la biblioteca de electrónica sudaca» (D3: sin «más grande del mundo», porque no es verificable). Tres puntos con icono —aporta, guarda y comparte— y «Crear cuenta» como botón de contorno verde bajo Entrar.
+- **El alta son tres pasos de interfaz, con los mismos campos y la misma llamada de hoy:** correo y contraseña; usuario y nombre (con la nota «No se podrá cambiar después.» bajo Usuario); redes, novedades y privacidad. Progreso solo con barritas. La huella de fondo va de gris quieto (1) a reorganizarse con cada tecla del usuario (2) y a revelar su color (3).
+- **Fondo de acceso.** `AccesoFondo` es la huella a toda la ventana, fija y detrás del contenido; con el nombre vacío es la «cuadrícula en cero» del tablero K. `AccesoPagina` pone el contenedor del sistema sobre ella y `FormPanel` va encima.
+- **Revisa tu correo.** «Abrir Gmail» y «Abrir Outlook» siempre, los dos (D4), Reenviar y Usar otro correo. El usuario elegido viaja en `pendingSignup` (es público) para sembrar la huella. El correo de confirmación no cambia.
+- **Adónde se aterriza.** El enlace de confirmación lleva al perfil propio con `?aviso=cuenta-confirmada`, no a Mis colecciones. `ownProfilePath()` toma el usuario de los metadatos del alta y, si faltan, de `profiles`; sin sesión o sin perfil, al catálogo.
+- **Recuperar, contraseña nueva y enlace vencido** comparten contenedor. El enlace vencido tiene una acción y ningún aviso rojo.
+
+### Perfil como casa y Mis aportes (2026-11-11, U31)
+
+Tableros F, K y N del plan de dirección de arte. Sustituye, para el perfil y Mis colecciones, lo dicho en «Cuenta y comunidad» y en U12.
+
+- **Mis colecciones desaparece.** El perfil propio lleva todas las colecciones del dueño, privadas incluidas (marcadas «Privada»), con el «…» de compartir, editar y eliminar y los dos diálogos. El dueño las lee con `cargarCrates` (el store de siempre, filtrado por `owner_id`); los demás siguen con `is_public`. Sin cambios de RLS.
+- **`/mis-colecciones` redirige en el cliente** al perfil propio, con su query y su hash: `?aviso=` muestra el aviso en el perfil y `?crear=1` abre el diálogo. **No hay 301 en `.htaccess`:** el destino depende de la sesión y Apache no la conoce. `/mis-crates` sigue con su 301 a `/mis-colecciones`, que hace el segundo salto. Sin sesión, `/mis-colecciones` pasa por Entrar y vuelve.
+- **Mis aportes es un tile fijado**, primero en la cuadrícula y solo para el dueño (D2): borde verde, pin «Fijada», mosaico de portadas de los aceptados y «N lanzamientos · N en revisión». «Lanzamientos» cuenta todos los aportes, borradores incluidos, como el tablero N.
+- **Perfil recién nacido:** tile vacío «Sin aportes todavía», tile verde «Crea tu primera colección» (mismo diálogo que «+ Nueva colección», D5) y huecos punteados hasta llenar la fila (ninguno en móvil). «Escribe tu bio» lleva a `/cuenta` y «Añade tus redes» a `/cuenta#redes`.
+- **Se quedan en el perfil**, aunque el tablero no los dibuja: «Aportes aceptados» (con el interruptor del dueño, D1 de 2026-10-06) y el bloque «Estudio» para admin y colaborador, ahora al final. «En Discótica desde» y el avatar de inicial se van: la cenefa los sustituye.
+- **Huella del perfil ajeno:** `role` entra en las columnas públicas del perfil (la tabla ya es legible por cualquiera) para que la cenefa use la gama del rol, igual que el cabecero del dueño.
+- **Mis aportes (tablero N):** tres grupos (Por resolver: cambios solicitados antes que borradores; En revisión; Resueltos), sin la fuente. «Retomar» pasa a «Editar». Lo que el equipo ya tomó muestra «Editar» gris con `aria-disabled` y la explicación como descripción accesible. Fechas cortas sin punto: «5 nov 2026».
+
+### Fichas de colección, artista y sello (2026-11-11, U32)
+
+Tablero G2. `FichaCabecera` sustituye a la cabecera de `PageLayout` en las tres fichas.
+
+- **Título en su propia fila** (§3), aunque el tablero lo pone al lado de la columna. Debajo, la descripción y las acciones de la colección a la izquierda y la columna de 372 a la derecha. La cenefa mide 400 y crece si migas, título y columna no caben (un artista con cinco filas pide unos 420). En móvil, cenefa de 180 con las migas encima, y título, texto y datos debajo.
+- **Las migas se quedan**, sobre la cenefa, aunque el tablero no las dibuja: «Catálogo» devuelve la búsqueda intacta (U11) y la colección lleva a su dueño.
+- **Datos sin consultas nuevas.** `fichaDatos.ts` (puro, con pruebas) calcula todo de los lanzamientos ya cargados. Las listas cuentan una vez por lanzamiento, van por frecuencia y, a igual frecuencia, por nombre. Se agrupan sin mayúsculas ni tildes («techno» y «Techno» son uno) y muestran la primera forma vista. Una lista vacía no ocupa fila, y «País» va en singular cuando hay uno solo. Artistas del sello: solo los principales.
+- **Enlaces.** Sellos y artistas llevan a su ficha. Países y géneros no tienen ficha, así que llevan al catálogo filtrado, con la misma URL que la ficha de lanzamiento (`/?pais=…&orden=match`). Los nombres de la fila también enlazan.
+- **«N más».** Caben hasta tres nombres en la fila, los que entren junto al chip. Se miden con copias ocultas en la misma fuente, y se vuelve a medir al cambiar el ancho y al cargar Work Sans. El desplegable es `Menu` con la presentación nueva `lista`: opaco (#121212), filas de 38 (44 con puntero táctil) y su cantidad, 8 filas y luego scroll. Lleva la lista completa, también los nombres que ya se ven. Se cuelga de la fila con su ancho exacto (`anchor`, y `matchWidth: 'exact'` en `anchoredLayer`). El teclado y el foco son los de `Menu`: flechas, Inicio, Fin, primera letra, Escape, Tab y clic fuera.
+- **Colección.** «Privada: solo tú la ves» pasa a la fila Visibilidad. La cenefa usa la huella hasta que cargan los lanzamientos y luego la portada más reciente. Sin portada, las fichas de artista y sello usan la gama gris y la colección la verde.
+
+### Vistas restantes (2026-11-12, U33)
+
+Tablero M. Capturas en [`capturas-u33/`](../producto/capturas-u33/).
+
+- **404 y error** comparten pantalla: `AccesoPagina` (campo de puntos en gris) con `FormPanel` de 480 y `role="alert"`. Sin el rojo de `ErrorState`.
+- **`/cuenta` es Editar perfil**: cenefa pequeña de 96 con la huella del rol y «@usuario» (24/28; el h1 es solo para lectores), Nombre para mostrar, Sobre ti y Redes (las cinco, con los placeholders de URL de U30). `updateOwnAccountProfile` ya no manda `newsletter_opt_in` si no se le pasa.
+- **`/cuenta/ajustes`** (ruta nueva, misma guarda de sesión): Correo, Contraseña y novedades. La lógica de correo y contraseña se movió sin cambios (mismas llamadas a Auth, `emailRedirectTo` = `/auth/reset`, mismos avisos). Las novedades se guardan al marcar la casilla, con `updateOwnNewsletterOptIn` (un `PATCH` solo de esa columna, misma política del dueño); si falla, la casilla vuelve a su estado.
+- **Enlace del correo.** `/auth/reset?flow=email_change` aterriza ahora en `/cuenta/ajustes?aviso=correo` (el aviso vive donde está el correo) y «Ir a mi cuenta», en los dos estados de error de ese flujo, lleva también a Ajustes. Las Redirect URLs de Supabase no cambian. El panel del cabecero y el botón del perfil propio enlazan a `/cuenta/ajustes`.
+- **Reportar**: un solo panel de 576. «Añadir captura» (pasa a «Cambiar captura» con el nombre del archivo y «Quitar»). La línea «Incluimos datos técnicos de la página. Nunca cookies.» es cierta: `technicalReportContext` manda ruta, fecha, versión, fuente de catálogo, navegador, viewport, idioma y conexión, y ninguna cookie. Se quitaron el aviso «Contexto técnico incluido», el texto de introducción, «(opcional)» y el límite de 5 MB (un archivo no válido sigue avisando al elegirlo).
+- **Sugerir**: panel de 576 con cuatro barritas (el paso se anuncia a lectores en el `<li aria-current="step">`), título «Sugerir un lanzamiento» y «Enlace de la fuente». Se quitó la descripción del paso 1, que el tablero no tiene. El título del paso (h2) queda visible desde el paso 2 y oculto en el 1. El flujo y los botones son los de U13/U19; solo cambia su alto, a 48 (los textos son los actuales, «Detectar»/«Continuar», no «Seguir» del tablero).
+- **Manual y Privacidad**: `ReadingLayout` con índice de 260 a la izquierda (a la altura del título) y columna de 720, h1 40/44, h2 22/28 y cuerpo 18/28. Privacidad gana índice, con las mismas siete secciones; los textos no cambian. Sin campo de puntos.
+
+### QA y cierre de la dirección de arte (2026-11-12, U34)
+
+Informe completo en [`estado.md`](./estado.md#dirección-de-arte-u26-a-u34-qa-del-2026-11-12) y capturas en [`capturas-u34/`](./capturas-u34/).
+
+- **Fondo de las pantallas de acceso: menos contraste y una variación de tamaño suave** (petición del usuario durante la QA: la cuadrícula de puntos era demasiado densa y no tenía vida). Los puntos grises bajan al 50 % de opacidad (`--acceso-punto-alfa`) y, con el color revelado en el paso 3, al 72 % (`--acceso-punto-alfa-color`). La cuadrícula en cero pasa a `puntosCuadricula()`, en el motor: el radio varía ±28 % a lo largo de tres ondas largas y fijas, sin azar punto a punto, así que vecinos casi iguales y el mismo fondo en cada visita. El fondo sigue sin animarse; su único movimiento es el latido de opacidad que ya tenían el paso 1 y «Revisa tu correo».
+- **Migas y etiquetas de la columna sobre la cenefa suben de tono.** Con portadas reales de staging (120 fichas, 2.141 medidas) el contraste de «Catálogo» (migas, `--color-texto-medio`) llegaba a 3,8:1 y el de la etiqueta «Géneros» a 4,3:1. Las migas sobre la cenefa usan `--color-texto-cenefa` y las etiquetas, `--color-texto`. Las 18 fichas más justas quedaron todas sobre 4,5:1. El título (88/700, texto grande, AA 3:1) no bajó de 4,5:1 en ninguna.
+- **El resumen de propuesta del Estudio se organiza por su ancho, no por el de la ventana.** A 1024 vive en una columna de unos 350 y partía «Experimental» en tres columnas; ahora pasa a dos columnas por debajo de 480 de contenedor (`container-type` en `.summary`).
+- **Foco visible en regiones con scroll.** Un `<pre>` con `overflow-x` es enfocable por el navegador y no tenía anillo (el comando de ejemplo del Manual); `pre` entra en la regla global de `:focus-visible`.
+- **Los reproductores de terceros (iframes) no dibujan nuestro foco.** La comprobación de foco los salta; el indicador es el del reproductor.
+- **`npm run test:anchos` recorre el inventario del tablero L a 1440, 1024, 390 y con zoom al 200 %** (39 estados por ancho: los del tablero, el panel de cuenta de visitante, comunidad y admin, y los pasos del alta). Suma palabras partidas, nombre de controles e iconos, contraste AA sobre fondo plano y foco visible con Tab. Las capturas van a `tests/visual/results/anchos/` y no a `docs/modernizacion/capturas-e21rc2/`, que dejó de pisarse; `ANCHOS_OUT` las lleva a otra carpeta.
+- **El presupuesto de §4 se cumple, con una salvedad.** Con CPU ×4 el worker no se frena (solo se limita el hilo principal); su coste sin limitar es de 0,7–0,9 ms por cuadro, unos 2,8–3,8 ms si se multiplica por 4 (estimación, no medida). Sin worker (el camino de Safari anterior a 16.4), en el hilo principal y con ×4 real: media del motor 2,8 ms en reposo y 3,3–3,6 con cursor, mediana de 3,5 con cursor y p95 de 4,5, o sea, por debajo de 4 ms de media y un poco por encima en el p95.
+
 ### Manual
 
 - Sigue como página, con mejor tipografía.

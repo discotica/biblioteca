@@ -27,22 +27,25 @@
     values: SocialFormValues;
     errors?: SocialFieldErrors;
     disabled?: boolean;
+    /** Orden de los campos. Por defecto, el del perfil; el alta (U30) abre con Instagram. */
+    order?: readonly SocialNetwork[];
   };
 
-  let { values = $bindable(), errors = {}, disabled = false }: Props = $props();
+  let { values = $bindable(), errors = {}, disabled = false, order = SOCIAL_NETWORKS }: Props = $props();
 
   // Bandcamp pide el enlace: un nombre suelto no dice si es página de artista o de fan (D1).
+  // Los placeholders son los del tablero K (U30): el enlace tal como se pega.
   const PLACEHOLDERS: Record<SocialNetwork, string> = {
-    bandcamp: 'https://artista.bandcamp.com',
-    soundcloud: '@usuario o enlace',
-    instagram: '@usuario o enlace',
-    x: '@usuario o enlace',
-    facebook: 'usuario o enlace'
+    bandcamp: 'tuusuario.bandcamp.com',
+    soundcloud: 'soundcloud.com/tu_usuario',
+    instagram: 'instagram.com/tu_usuario',
+    x: 'x.com/tu_usuario',
+    facebook: 'facebook.com/tu_usuario'
   };
 </script>
 
 <div class="social-fields">
-  {#each SOCIAL_NETWORKS as network (network)}
+  {#each order as network (network)}
     <Field
       label={socialLabel(network)}
       name={`social_${network}`}

@@ -18,6 +18,7 @@
     EmptyState,
     ErrorState,
     Field,
+    FormPanel,
     Icon,
     IconButton,
     LoadingIndicator,
@@ -59,13 +60,31 @@
     RELEASE_SAMPLES,
     SOCIAL_SAMPLE,
     SORTABLE_SAMPLES,
+    sampleArtwork,
     sampleCover
   } from './samples';
+  import { page as pagina } from '$app/state';
+  import { CampoPulso, Cenefa, Huella, tonosDe, type Rol } from '$lib/generative';
 
   const variants = ['primary', 'secondary', 'accent', 'ghost', 'destructive', 'link'] as const;
   const variantNames = { primary: 'Primario', secondary: 'Secundario', accent: 'Acento', ghost: 'Ghost', destructive: 'Destructivo', link: 'Enlace' };
-  const sizes = ['sm', 'md', 'lg'] as const;
+  const sizes = ['sm', 'md', 'form', 'lg'] as const;
+  /** U26: iconos de la dirección de arte. menu y flecha-externa ya existían. */
+  const U26_ICONS = ['menu', 'estudio', 'ajustes', 'pin', 'flecha-externa'] as const;
+  const U26_WEIGHTS = [400, 500, 600, 700] as const;
   const iconVariants = ['ghost', 'secondary', 'primary', 'destructive'] as const;
+
+  /** U27: tres huellas por rol, con nombres del tablero B. */
+  const U27_HUELLAS: { rol: Rol; titulo: string; nombres: string[] }[] = [
+    { rol: 'usuario', titulo: 'Usuario · verdes', nombres: ['comunidad', 'laura_rios', 'pachanga'] },
+    { rol: 'colaborador', titulo: 'Colaborador · grises', nombres: ['colaboradora', 'archivo_sur', 'cinta_lenta'] },
+    { rol: 'admin', titulo: 'Admin · alrededor de --color-rol-admin', nombres: ['jmamanche', 'curaduria', 'mesa_central'] }
+  ];
+  const U27_PORTADA = sampleArtwork();
+  /** Media de coste por cuadro del campo, en ms (avanzar + dibujar). */
+  let campoMs = $state(0);
+  /** `/lab?campo=pantalla`: el campo ocupa el viewport, para medirlo a 1440×900 (§4). */
+  const campoPantalla = pagina.url.searchParams.get('campo') === 'pantalla';
 
   /** U8: la tarjeta y la fila llaman a onabrir en lugar de abrir el modal. */
   let opened = $state('');
@@ -219,6 +238,146 @@
   </header>
 
   <!-- ================================================================ -->
+  <div class="lab__u26">
+    <section class="lab__section" id="direccion-arte" aria-labelledby="t-u26">
+      <h2 id="t-u26">Dirección de arte: base (U26)</h2>
+      <p class="lab__note">Work Sans alojada en <code>static/fonts</code>, botones a 600, el tamaño <code>form</code> de 48, los iconos nuevos y <code>FormPanel</code>.</p>
+
+      <h3>Work Sans</h3>
+      <ul class="lab__u26-type">
+        {#each U26_WEIGHTS as weight}
+          <li style:font-weight={weight}><span class="lab__label">{weight}</span>Biblioteca de electrónica sudaca · Ñandú, Pájaros, ¿Qué?</li>
+        {/each}
+      </ul>
+
+      <h3>Button: peso antes y después</h3>
+      <div class="lab__matrix">
+        <div class="lab__row lab__u26-antes">
+          <span class="lab__label">Antes · 700</span>
+          <Button icon="agregar">Sugerir</Button>
+          <Button variant="secondary" icon="estudio">Estudio</Button>
+          <Button variant="accent">Crear cuenta</Button>
+          <Button variant="ghost" icon="ajustes">Ajustes</Button>
+        </div>
+        <div class="lab__row">
+          <span class="lab__label">Después · 600</span>
+          <Button icon="agregar">Sugerir</Button>
+          <Button variant="secondary" icon="estudio">Estudio</Button>
+          <Button variant="accent">Crear cuenta</Button>
+          <Button variant="ghost" icon="ajustes">Ajustes</Button>
+        </div>
+        <div class="lab__row">
+          <span class="lab__label">44 · 48</span>
+          <Button variant="secondary" icon="flecha-izquierda">Atrás</Button>
+          <Button iconEnd="flecha-derecha">Seguir</Button>
+          <Button variant="secondary" size="form" icon="flecha-izquierda">Atrás</Button>
+          <Button size="form" iconEnd="flecha-derecha">Seguir</Button>
+        </div>
+      </div>
+
+      <h3>Iconos nuevos</h3>
+      <ul class="lab__icons">
+        {#each U26_ICONS as name}
+          <li><Icon {name} size="lg" /><span>{name}</span></li>
+        {/each}
+      </ul>
+      <div class="lab__row">
+        <IconButton icon="ajustes" label="Ajustes de la cuenta" variant="secondary" />
+        <IconButton icon="pin" label="Fijada" />
+        <IconButton icon="flecha-externa" label="Abrir en otra pestaña" />
+        <span class="lab__note">Solo icono: siempre con nombre accesible y ayuda emergente.</span>
+      </div>
+
+      <h3>FormPanel</h3>
+      <p class="lab__note">Fondo #121212, borde de 12 %, radio 14 y padding 32 (24 en móvil, 20 por debajo de 480). 22 entre bloques y 36 hasta las acciones. narrow 480 · wide 576.</p>
+      <div class="lab__u26-panels">
+        <FormPanel as="section" aria-label="FormPanel narrow, 480">
+          <p class="lab__u26-title">Entrar</p>
+          <Field label="Correo o usuario" placeholder="tu@correo.com" />
+          <Field label="Clave" type="password" hint="Mínimo 8 caracteres." />
+          {#snippet actions()}
+            <Button variant="link" href="/lab#direccion-arte">Recuperar acceso</Button>
+            <Button size="form">Seguir</Button>
+          {/snippet}
+        </FormPanel>
+        <FormPanel as="section" size="wide" aria-label="FormPanel wide, 576">
+          <p class="lab__u26-title">Tu usuario</p>
+          <Field label="Usuario" placeholder="nombre" hint="No se podrá cambiar después." />
+          <Field label="Nombre visible" placeholder="Como quieres aparecer" />
+          {#snippet actions()}
+            <Button variant="secondary" size="form" icon="flecha-izquierda">Atrás</Button>
+            <Button size="form" iconEnd="flecha-derecha">Seguir</Button>
+          {/snippet}
+        </FormPanel>
+      </div>
+    </section>
+  </div>
+
+  <!-- ================================================================ -->
+  <div class="lab__u27">
+    <section class="lab__section" id="motor-generativo" aria-labelledby="t-u27">
+      <h2 id="t-u27">Motor generativo (U27)</h2>
+      <p class="lab__note">Huella por nombre y rol, cenefa con portada y sin ella, y el campo de pulso del tablero A2. Todo en <code>$lib/generative</code>.</p>
+
+      <h3>Huellas por rol</h3>
+      <p class="lab__note">El mismo nombre da siempre la misma forma y el mismo tono. Avatar de 96, 40 y 32, cacheado como dataURL.</p>
+      {#each U27_HUELLAS as grupo}
+        <h4 class="lab__u27-rol">{grupo.titulo}</h4>
+        <ul class="lab__u27-huellas">
+          {#each grupo.nombres as nombre}
+            <li>
+              <Cenefa {nombre} rol={grupo.rol} alto={192} paso={6} velo={false} class="lab__u27-muestra" />
+              <div class="lab__row">
+                <Huella {nombre} rol={grupo.rol} tamano={96} />
+                <Huella {nombre} rol={grupo.rol} tamano={40} />
+                <Huella {nombre} rol={grupo.rol} tamano={32} alt="@{nombre}" />
+              </div>
+              <p class="lab__u27-nombre">@{nombre}</p>
+              <p class="lab__u27-tonos">
+                {#each tonosDe(nombre, grupo.rol) as tono}<span class="lab__u27-tono" style:background={tono}></span>{/each}
+              </p>
+            </li>
+          {/each}
+        </ul>
+      {/each}
+
+      <h3>Cenefa con portada</h3>
+      <p class="lab__note">Portada de prueba local, desenfocada al máximo con saturate(1.3) brightness(1.4), troquelada por la máscara de puntos de «Para abrir el set». Velo vertical y zona derecha atenuada desde el 62 %.</p>
+      <Cenefa nombre="Para abrir el set" portada={U27_PORTADA} alto={400} zonaDerecha={0.62} class="lab__u27-cenefa">
+        <div class="lab__u27-ficha">
+          <div>
+            <p class="lab__u27-titulo">Para abrir el set</p>
+            <p class="lab__u27-bajada">Intros lentas, texturas y percusión que crece.</p>
+          </div>
+          <dl class="lab__u27-datos">
+            <div><dt>Curada por</dt><dd>@comunidad</dd></div>
+            <div><dt>Lanzamientos</dt><dd>6</dd></div>
+            <div><dt>Actualizada</dt><dd>nov 2026</dd></div>
+          </dl>
+        </div>
+      </Cenefa>
+
+      <h3>Cenefa sin portada</h3>
+      <p class="lab__note">Perfil y panel: la huella con el color del rol, sobre el fondo, con el velo vertical.</p>
+      <Cenefa nombre="comunidad" alto={380} class="lab__u27-cenefa">
+        <div class="lab__u27-ficha">
+          <p class="lab__u27-titulo">@comunidad</p>
+        </div>
+      </Cenefa>
+
+      <h3>Campo de pulso (A2)</h3>
+      <p class="lab__note">Una sola instancia viva por pantalla, sin eventos propios y dibujada en un worker (OffscreenCanvas): el hilo principal solo le pasa el puntero. Quieto, respira; al mover el cursor encima, late donde estuvo y despierta los nodos. Se pausa fuera de pantalla y con la pestaña oculta. Con <code>?campo=pantalla</code> ocupa el viewport, para medirlo. Coste medio por cuadro en el worker: <output class="lab__u27-ms">{campoMs ? `${campoMs.toFixed(2)} ms` : '—'}</output>.</p>
+      <div class="lab__u27-campo" class:lab__u27-campo--pantalla={campoPantalla} data-ms={campoMs.toFixed(3)}>
+        <CampoPulso bind:ms={campoMs} />
+      </div>
+      <p class="lab__note">Fotograma fijo, el que se ve con movimiento reducido o Save-Data:</p>
+      <div class="lab__u27-campo lab__u27-campo--fijo">
+        <CampoPulso fijo />
+      </div>
+    </section>
+  </div>
+
+  <!-- ================================================================ -->
   <section class="lab__section" id="iconos" aria-labelledby="t-iconos">
     <h2 id="t-iconos">Iconos</h2>
     <p class="lab__note">SVG con <code>currentColor</code>; tamaños sm 16 · md 20 · lg 24.</p>
@@ -239,7 +398,7 @@
   <!-- ================================================================ -->
   <section class="lab__section" id="botones" aria-labelledby="t-botones">
     <h2 id="t-botones">Button</h2>
-    <p class="lab__note">sm 32 (área táctil 44) · md 44, como Comprar · lg 52.</p>
+    <p class="lab__note">sm 32 (área táctil 44) · md 44, como Comprar · form 48, acción de formulario (U26) · lg 52. Peso 600.</p>
     <div class="lab__matrix">
       {#each variants as variant}
         <div class="lab__row">
@@ -1051,6 +1210,31 @@
     letter-spacing: var(--nav-letter-spacing);
   }
   .lab__narrow { max-width: 24rem; }
+
+  /* U26 */
+  .lab__u26-type { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; font-size: var(--text-2xl); line-height: var(--leading-heading); }
+  .lab__u26-type .lab__label { display: inline-block; width: 4rem; }
+  /* Muestra del peso anterior: solo aquí, para comparar. */
+  .lab__u26-antes :global(.ui-btn) { font-weight: 700; }
+  .lab__u26-panels { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-5); }
+  .lab__u27-rol { margin: var(--space-5) 0 var(--space-3); font-size: var(--text-sm); font-weight: 600; color: var(--color-texto-tenue); }
+  .lab__u27-huellas { display: grid; grid-template-columns: repeat(auto-fill, 12rem); gap: var(--space-5); margin: 0; padding: 0; list-style: none; }
+  .lab__u27-huellas li { display: flex; flex-direction: column; gap: var(--space-3); }
+  .lab__u27-huellas :global(.lab__u27-muestra) { border-radius: var(--radius-base); }
+  .lab__u27-nombre { margin: 0; font-weight: 600; }
+  .lab__u27-tonos { display: flex; gap: var(--space-1); margin: 0; }
+  .lab__u27-tono { width: var(--space-5); height: var(--space-3); border-radius: var(--radius-xs); }
+  .lab__u27 :global(.lab__u27-cenefa) { border-radius: var(--radius-base); }
+  .lab__u27-ficha { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-5); height: 100%; box-sizing: border-box; padding: var(--space-6); }
+  .lab__u27-titulo { margin: 0; font-size: var(--text-display); font-weight: 700; line-height: 1; letter-spacing: -0.035em; }
+  .lab__u27-bajada { margin: var(--space-3) 0 0; }
+  .lab__u27-datos { width: min(100%, 23rem); margin: 0; }
+  .lab__u27-datos div { display: flex; justify-content: space-between; align-items: center; min-height: 44px; border-top: 1px solid var(--color-linea-fuerte); }
+  .lab__u27-datos dd { margin: 0; font-weight: 600; }
+  .lab__u27-campo { position: relative; height: 30rem; border-radius: var(--radius-base); overflow: hidden; }
+  .lab__u27-campo--fijo { height: 15rem; }
+  .lab__u27-campo--pantalla { position: fixed; inset: 0; z-index: var(--layer-overlay); height: auto; border-radius: 0; }
+  .lab__u26-title { margin: 0; font-size: var(--text-3xl); font-weight: 700; line-height: var(--leading-heading); }
   /* La paginación completa es de desktop; a 390 se desplaza en lugar de ensanchar la página. */
   .lab__scroll { display: flex; flex-direction: column; gap: var(--space-3); overflow-x: auto; padding: var(--space-2); }
   .lab__accent { color: var(--color-acento); }

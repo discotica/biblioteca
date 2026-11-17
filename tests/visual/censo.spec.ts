@@ -182,32 +182,34 @@ each(['D', 'M'], 'ficha', `/lanzamiento/${B}`, { ready: '.release-detail', full:
 add('ficha-comp-D', 'D', `/lanzamiento/${COMP}`, { ready: '.release-detail', full: true, maxH: 2400 });
 
 // Header / footer
-add('header-menu-D', 'D', '/', { setup: async (page) => { await page.click('.menu-trigger'); await settle(page); } });
-add('header-menu-M', 'M', '/', { setup: async (page) => { await page.click('.hamburger'); await settle(page); } });
+add('header-menu-D', 'D', '/', { setup: async (page) => { await page.click('.header-panel button'); await settle(page); } });
+add('header-menu-M', 'M', '/', { setup: async (page) => { await page.click('.header-panel button'); await settle(page); } });
 add('header-auth-D', 'D', '/', { role: 'comunidad', selector: '.site-header' });
-add('header-auth-menu-M', 'M', '/', { role: 'comunidad', setup: async (page) => { await page.click('.hamburger'); await settle(page); } });
+add('header-auth-menu-M', 'M', '/', { role: 'comunidad', setup: async (page) => { await page.click('.header-panel .ui-menu__trigger'); await settle(page); } });
 add('header-anon-D', 'D', '/', { selector: '.site-header' });
 add('footer-D', 'D', '/', { selector: 'footer' });
 add('footer-M', 'M', '/', { selector: 'footer' });
 // U7: menú de cuenta del avatar (desktop) y acceso al Estudio desde el perfil propio.
-add('header-account-menu-D', 'D', '/', { role: 'comunidad', supplementary: true, setup: async (page) => { await page.click('.account-menu .ui-menu__trigger'); await page.waitForSelector('[role=menu]'); await settle(page); } });
+add('header-account-menu-D', 'D', '/', { role: 'comunidad', supplementary: true, setup: async (page) => { await page.click('.header-panel .ui-menu__trigger'); await page.waitForSelector('[role=menu]'); await settle(page); } });
 
 // Taxonomías
 each(['D', 'M'], 'artista', `/artista/${ARTIST_SLUG}`, { full: true, maxH: 3000 });
 each(['D', 'M'], 'sello', `/sello/${LABEL_SLUG}`, { full: true, maxH: 3000 });
 
 // Cuenta
-const fillRegistro = async (page: Page, valueFor: (type: string | null, index: number, autocomplete: string) => string | null) => {
-  // Las redes (U12) son opcionales: el relleno las deja vacías.
-  const inputs = page.locator('form input:not([name^="social_"])');
-  const n = await inputs.count();
-  for (let i = 0; i < n; i++) {
-    const el = inputs.nth(i);
-    const type = await el.getAttribute('type');
-    const value = valueFor(type, i, (await el.getAttribute('autocomplete')) || '');
-    if (type === 'checkbox') { if (value) await el.check(); continue; }
-    if (value != null) await el.fill(value);
-  }
+// U30: el alta son tres pasos. Recorre los que se pidan; las redes quedan vacías (son opcionales).
+const registroEnPasos = async (page: Page, o: { email?: string; password?: string; repite?: string; username?: string; hasta: 1 | 2 | 3; privacy?: boolean }) => {
+  const { email = 'nueva@example.test', password = 'una-contraseña', repite = password, username = 'nueva_persona', hasta } = o;
+  await page.getByLabel('Correo', { exact: true }).fill(email);
+  await page.getByLabel('Contraseña', { exact: true }).fill(password);
+  await page.getByLabel('Repite la contraseña').fill(repite);
+  if (hasta < 2) return;
+  await page.getByRole('button', { name: 'Seguir' }).click();
+  await page.getByLabel('Usuario').fill(username);
+  if (hasta < 3) return;
+  await page.getByRole('button', { name: 'Seguir' }).click();
+  await page.getByLabel('Instagram').waitFor();
+  if (o.privacy) await page.getByLabel(/Acepto la política/).check();
 };
 each(['D', 'M'], 'login', '/auth/login');
 add('login-error-D', 'D', '/auth/login', {
@@ -223,27 +225,44 @@ each(['D', 'M'], 'registro', '/auth/registro', { full: true });
 add('registro-filled-D', 'D', '/auth/registro', {
   full: true,
   setup: async (page) => {
-    await fillRegistro(page, (type, i, ac) => type === 'checkbox' ? null : type === 'email' ? 'nueva@example.test' : type === 'password' ? 'una-contraseña' : /user/.test(ac) || i === 0 ? 'usuario_tomado' : 'Nueva Persona');
-    await page.locator('form input').first().blur();
+    await registroEnPasos(page, { hasta: 2, username: 'usuario_tomado' });
+    await page.getByLabel('Usuario').blur();
     await settle(page);
   }
 });
 add('registro-error-D', 'D', '/auth/registro', {
   full: true,
   setup: async (page) => {
-    let pw = 0;
-    await fillRegistro(page, (type) => type === 'checkbox' ? null : type === 'email' ? 'nueva@example.test' : type === 'password' ? (pw++ ? 'distinta-1' : 'una-contraseña') : 'nueva_persona');
-    await page.click('button[type=submit]');
+    await registroEnPasos(page, { hasta: 1, repite: 'distinta-1' });
+    await page.getByRole('button', { name: 'Seguir' }).click();
+    await settle(page);
+  }
+});
+// U30: los pasos 2 y 3 del alta (tablero K), con la huella que nace.
+each(['D', 'M'], 'registro-paso2', '/auth/registro', {
+  full: true,
+  supplementary: true,
+  setup: async (page) => {
+    await registroEnPasos(page, { hasta: 2, username: 'laura_rios' });
+    await page.getByText('Disponible').waitFor();
+    await settle(page);
+  }
+});
+each(['D', 'M'], 'registro-paso3', '/auth/registro', {
+  full: true,
+  supplementary: true,
+  setup: async (page) => {
+    await registroEnPasos(page, { hasta: 3, username: 'laura_rios' });
     await settle(page);
   }
 });
 add('registro-success-D', 'D', '/auth/registro', {
   full: true,
   setup: async (page) => {
-    await fillRegistro(page, (type) => type === 'checkbox' ? 'check' : type === 'email' ? 'nueva@example.test' : type === 'password' ? 'una-contraseña' : 'nueva_persona_x');
+    await registroEnPasos(page, { hasta: 3, username: 'nueva_persona_x', privacy: true });
     await settle(page);
-    await page.click('button[type=submit]');
-    await page.waitForSelector('form', { state: 'detached' }).catch(() => {});
+    await page.getByRole('button', { name: 'Crear cuenta' }).click();
+    await page.waitForURL('**/auth/confirmar');
     await settle(page);
   }
 });
@@ -262,15 +281,18 @@ add('reset-signup-D', 'D', '/auth/reset?flow=signup&type=signup', { supplementar
 add('confirmar-M', 'M', '/auth/registro', {
   supplementary: true,
   setup: async (page) => {
-    await fillRegistro(page, (type) => type === 'checkbox' ? 'check' : type === 'email' ? 'nueva@gmail.com' : type === 'password' ? 'una-contraseña' : 'nueva_persona_x');
-    await page.click('button[type=submit]');
+    await registroEnPasos(page, { hasta: 3, email: 'nueva@gmail.com', username: 'nueva_persona_x', privacy: true });
+    await page.getByRole('button', { name: 'Crear cuenta' }).click();
     await page.waitForURL('**/auth/confirmar');
     await settle(page);
   }
 });
 add('confirmar-sin-correo-D', 'D', '/auth/confirmar', { supplementary: true });
-add('miscrates-confirmada-D', 'D', '/mis-colecciones?aviso=cuenta-confirmada', { role: 'comunidad', supplementary: true, ready: '.crates-grid' });
-each(['D', 'M'], 'cuenta', '/cuenta', { role: 'comunidad', full: true, ready: '.account-sections', supplementary: true });
+// U31: /mis-colecciones redirige al perfil propio; los IDs miscrates-* se conservan y muestran el perfil.
+add('miscrates-confirmada-D', 'D', '/mis-colecciones?aviso=cuenta-confirmada', { role: 'comunidad', supplementary: true, ready: '.perfil-grid' });
+// U33 (tablero M): Editar perfil en /cuenta y Ajustes en /cuenta/ajustes.
+each(['D', 'M'], 'cuenta', '/cuenta', { role: 'comunidad', full: true, ready: '.cuenta-form .ui-cenefa', supplementary: true });
+each(['D', 'M'], 'cuenta-ajustes', '/cuenta/ajustes', { role: 'comunidad', full: true, ready: '.ajustes__bloque', supplementary: true });
 
 // Correos: reconstrucción de las plantillas por defecto de Supabase (no hay plantillas en el repositorio).
 // Si supabase/config.toml declara content_path para confirmation/recovery, se captura esa plantilla.
@@ -321,6 +343,8 @@ add('reportar-anon-D', 'D', '/reportar', { supplementary: true });
 add('miscrates-anon-D', 'D', '/mis-colecciones', { supplementary: true });
 each(['D', 'M'], 'miscrates', '/mis-colecciones', { role: 'comunidad', full: true });
 add('miscrates-empty-D', 'D', '/mis-colecciones', { role: 'comunidad', mock: { noCrates: true } });
+// U31 (tablero K): el perfil recién nacido a 390.
+add('perfil-vacio-M', 'M', '/perfil/comunidad', { role: 'comunidad', mock: { noCrates: true }, ready: '.perfil-crear', full: true, supplementary: true });
 each(['D', 'M'], 'crate-crear', '/mis-colecciones?crear=1', { role: 'comunidad' });
 each(['D', 'M'], 'crate', '/coleccion/para-abrir-el-set?usuario=comunidad', { role: 'comunidad', full: true });
 each(['D', 'M'], 'perfil', '/perfil/comunidad', { role: 'comunidad', full: true });
@@ -334,7 +358,7 @@ const listView = async (page: Page) => {
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await settle(page);
 };
-each(['D', 'M'], 'aportes', '/mis-aportes', { role: 'comunidad', ready: '.aportes', full: true, supplementary: true });
+each(['D', 'M'], 'aportes', '/mis-aportes', { role: 'comunidad', ready: '.aportes-grupo', full: true, supplementary: true });
 add('aportes-anon-D', 'D', '/mis-aportes', { supplementary: true });
 each(['D', 'M'], 'perfil-visitante', '/perfil/comunidad', { ready: '#aportes .fila', full: true, supplementary: true });
 add('perfil-oculto-D', 'D', '/perfil/colaboradora', { role: 'comunidad', ready: '#colecciones', full: true, supplementary: true });
@@ -551,10 +575,13 @@ add('estudio-colab-catalogo-D', 'D', STUDIO, { role: 'colaborador', supplementar
 // Información
 each(['D', 'M'], 'manual', '/manual', { full: true, maxH: 5200 });
 add('privacidad-D', 'D', '/privacidad', { full: true, maxH: 3600 });
+add('privacidad-M', 'M', '/privacidad', { full: true, maxH: 3600, supplementary: true });
 each(['D', 'M'], '404', '/ruta-que-no-existe');
+// U33: el error general comparte pantalla con el 404 (una colección sin el parámetro ?usuario= falla con 400).
+each(['D', 'M'], 'error', '/coleccion/sin-usuario', { supplementary: true });
 
 // Primitivas (U5): catálogo interno /lab, fuera de la navegación. Página completa.
-each(['D', 'M'], 'lab', '/lab', { full: true, maxH: 10000, ready: '.lab', supplementary: true });
+each(['D', 'M'], 'lab', '/lab', { full: true, maxH: 10000, ready: '.lab .ui-cenefa__superficie--lista', supplementary: true }); // U27: la máscara de la cenefa con portada se genera aparte
 // Primitivas compuestas (U6): solo sus secciones, para que no dependan del largo de las de U5.
 each(['D', 'M'], 'lab-u6', '/lab', { selector: '.lab__u6', ready: '.lab__u6', supplementary: true });
 each(['D', 'M'], 'lab-u7', '/lab', { selector: '.lab__u7', ready: '.lab__u7', supplementary: true });

@@ -1,0 +1,13 @@
+[
+ {
+  "pagina": "cuenta-usuario",
+  "portada": "huella",
+  "texto": "@comunidad",
+  "fuente": "24px/700",
+  "grande": true,
+  "p2": 16.49,
+  "min": 14.69,
+  "umbral": 3,
+  "ok": true
+ }
+]

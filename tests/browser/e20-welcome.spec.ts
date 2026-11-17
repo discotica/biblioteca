@@ -23,7 +23,7 @@ test('E20: primera entrada directa muestra un banner no modal; cierre persiste a
 
   const banner = page.locator('[data-welcome-banner]');
   await expect(banner).toBeVisible();
-  await expect(banner).toContainText('Explora la biblioteca de Discótica');
+  await expect(banner).toContainText('Explora la biblioteca');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('search').getByRole('combobox', { name: 'Buscar por país, género, artista, sello o álbum' })).toBeVisible();
 
@@ -52,13 +52,14 @@ test('E20: filtros, modal, beta válida y navegación iniciada fuera de home no 
   await expect(page.locator('[data-welcome-banner]')).toHaveCount(0);
 });
 
-test('E20: Explorar deja el catálogo accesible, enfoca el campo de búsqueda y no deja banner al recargar', async ({ page }) => {
+test('E20/U29: cerrar la bienvenida deja el catálogo y el campo de búsqueda accesibles y no deja banner al recargar', async ({ page }) => {
   await stubCatalog(page);
   await page.goto('/');
-  await page.getByRole('button', { name: 'Explorar' }).click();
-  // U10b: el destino es el campo de texto; enfocarlo no abre el panel.
+  await expect(page.getByRole('button', { name: 'Explorar' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Cerrar bienvenida' }).click();
+  // U10b: el campo de texto no abre el panel por sí solo.
   const search = page.getByRole('search').getByRole('combobox', { name: 'Buscar por país, género, artista, sello o álbum' });
-  await expect(search).toBeFocused();
+  await expect(search).toBeVisible();
   await expect(page.locator('#panel-busqueda')).toHaveCount(0);
   await expect(page.locator('.resultados__grid')).toBeVisible();
   await page.reload();

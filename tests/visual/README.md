@@ -33,6 +33,18 @@ Variables opcionales:
    - La línea base nueva se versiona junto con el cambio que la produjo.
 4. **Si una etapa cambia rutas, selectores o textos que usa la suite:** se actualiza `censo.spec.ts` en la misma etapa, sin borrar IDs. Ejemplo: U3 cambia `/mis-crates` y `/crate/…`; en ese caso la captura conserva su ID y cambia su URL.
 
+## Pruebas de QA que no comparan capturas
+
+Usan la misma red simulada y comparten `support/checks.ts` (desborde, palabras partidas, nombre de controles e iconos, contraste del texto sobre fondo plano, foco visible).
+
+| Comando | Qué hace |
+| --- | --- |
+| `npm run test:anchos` | Cada vista del inventario de la dirección de arte (tablero L, 39 estados) a 1440, 1024, 390 y con zoom al 200 % (640 × 400 a DPR 2): sin scroll horizontal ni palabras partidas, header y contenido a la vista, controles alcanzables y con nombre, iconos con `aria-hidden` o nombre, contraste AA, y foco visible con Tab a 1440 y con zoom (U34). Guarda una captura por estado en `tests/visual/results/anchos/`; con `ANCHOS_OUT=docs/modernizacion/capturas-xx` las lleva a otra carpeta. Antes escribía en `docs/modernizacion/capturas-e21rc2/` y pisaba esas capturas. |
+| `VISUAL_SPEC=u25-estudio.spec.ts npx playwright test -c tests/visual/playwright.config.ts --reporter=list` | El Estudio a 390 y con zoom (U25). |
+| `VISUAL_SPEC=u34-qa.spec.ts npx playwright test -c tests/visual/playwright.config.ts --reporter=list` | Movimiento reducido (el campo de pulso y el latido del fondo, con control positivo sin reducir), teclado (panel de cuenta, «N más» de las chips y de las fichas, pasos del registro) y contraste AA de cada texto sobre la cenefa, medido sobre los píxeles reales con portadas del peor caso (U34). Escribe `results/u34-contraste/`. |
+
+Contra staging, con la app local: `scripts/u34-recorrido-staging.mjs` (recorrido por rol) y `scripts/u34-contraste-staging.mjs` (contraste sobre portadas reales).
+
 ## Estado de la línea base
 
 - **Estado que representa:** el árbol tras G4 de U19 (paso 11b del lanzamiento, aceptado el 2026-10-16): pantalla de diccionarios del Estudio. Incluye G3 (la cola se corrige en el editor del Estudio), G2 (Sugerir como único flujo para crear) y G1: botón «Estudio» en el header para admin y colaborador. Antes representaba la corrección de H1 y H15 de U18 (paso 5, aceptada el 2026-10-14) sobre el cierre de U17 (commit `02223ea`), que incluye R1, R2, U2 y U3 además de U4–U17.
@@ -83,7 +95,7 @@ La línea base está fuera de `static/` y de `build/`, así que nunca entra en e
 
 ## Limitaciones conocidas
 
-- **Fuente.** El sitio no carga Work Sans (no hay `@font-face` ni enlace): solo se ve si está instalada en el sistema. La línea base actual se tomó con Work Sans instalada. Si falta, el informe lo avisa y las capturas no son comparables.
+- **Fuente.** Desde U26 el sitio aloja Work Sans (`static/fonts`). Esta máquina la tiene además instalada en el sistema, así que las diferencias de tipo entre una captura local y lo que ve un visitante sin ella son más pequeñas que las reales.
 - **Plataforma.** El render cambia entre sistemas operativos. Hoy solo existe `baseline/darwin/`; para CI en Linux hay que capturar `baseline/linux/` en ese entorno.
 - **Barras de scroll.** Chromium sin interfaz oculta las barras de scroll. Las barras propias que pide la ronda 3 no aparecerán en estas capturas.
 - **Correos** (`email-confirm`, `email-reset`). Reconstruyen las plantillas por defecto de Supabase dentro de un marco de cliente de correo. Cuando D3 declare `content_path` para `confirmation` y `recovery` en `supabase/config.toml`, la suite capturará esas plantillas.

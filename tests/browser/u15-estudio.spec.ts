@@ -197,8 +197,10 @@ test.describe('U15 acceso desde el header', () => {
         await noHorizontalOverflow(page);
         await studioButton.click();
         await expect(page).toHaveURL(new RegExp(`/estudio/${section}$`));
-        // Dentro del Estudio sobra.
+        // Dentro del Estudio sobra: U28 pone «Volver al catálogo» en su lugar.
         await expect(studioButton).toHaveCount(0);
+        await expect(header.getByRole('link', { name: 'Volver al catálogo' })).toHaveAttribute('href', '/');
+        await noHorizontalOverflow(page);
       });
     }
   }

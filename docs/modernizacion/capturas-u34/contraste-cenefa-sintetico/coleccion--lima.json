@@ -1,0 +1,156 @@
+[
+ {
+  "pagina": "coleccion",
+  "portada": "lima",
+  "texto": "@comunidad",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 9.8,
+  "min": 9.56,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "lima",
+  "texto": "Colecciones",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 9.8,
+  "min": 9.53,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "lima",
+  "texto": "Para abrir el set",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 11.68,
+  "min": 11.34,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "lima",
+  "texto": "Para abrir el set",
+  "fuente": "88px/700",
+  "grande": true,
+  "p2": 9.92,
+  "min": 9.09,
+  "umbral": 3,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "lima",
+  "texto": "Intros lentas, texturas y percusión que ",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 12.1,
+  "min": 6.09,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "lima",
+  "texto": "Compartir",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 15.81,
+  "min": 15.77,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "lima",
+  "texto": "Editar",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 18.87,
+  "min": 15.77,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "lima",
+  "texto": "Eliminar",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 4.79,
+  "min": 4.69,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "lima",
+  "texto": "Curada por",
+  "fuente": "15px/400",
+  "grande": false,
+  "p2": 15.77,
+  "min": 9.77,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "lima",
+  "texto": "@comunidad",
+  "fuente": "15px/600",
+  "grande": false,
+  "p2": 15.08,
+  "min": 14.86,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "lima",
+  "texto": "Lanzamientos",
+  "fuente": "15px/400",
+  "grande": false,
+  "p2": 18.87,
+  "min": 9.4,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "lima",
+  "texto": "6",
+  "fuente": "15px/600",
+  "grande": false,
+  "p2": 15.41,
+  "min": 15.23,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "lima",
+  "texto": "Visibilidad",
+  "fuente": "15px/400",
+  "grande": false,
+  "p2": 18.87,
+  "min": 9.22,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "lima",
+  "texto": "Pública",
+  "fuente": "15px/600",
+  "grande": false,
+  "p2": 15.96,
+  "min": 15.77,
+  "umbral": 4.5,
+  "ok": true
+ }
+]

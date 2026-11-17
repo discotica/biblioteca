@@ -6,6 +6,7 @@
   import { resolveReleaseId } from '$lib/utils/catalogoStore';
   import { anchoredLayer, dropdownMenu } from '$lib/ui/overlay';
   import { withoutBetaInvitationSearch } from '$lib/domain/betaInvitation';
+  import { ownProfilePath } from '$lib/services/profiles';
   import Button from '$lib/ui/Button.svelte';
   import Icon from '$lib/ui/Icon.svelte';
 
@@ -97,7 +98,8 @@
 
   async function crearNuevoCrate() {
     cerrar();
-    await goto('/mis-colecciones?crear=1');
+    // Las colecciones se crean en el perfil propio (U31).
+    await goto(`${await ownProfilePath()}?crear=1`);
   }
 </script>
 

@@ -2,15 +2,26 @@
   import ReadingLayout from '$lib/layouts/ReadingLayout.svelte';
 
   const fechaActualizacion = '24 de septiembre de 2026';
+
+  // Lectura (U33, tablero M): índice a la izquierda con las mismas secciones.
+  const secciones = [
+    { id: 'quienes', label: 'Quiénes somos' },
+    { id: 'datos', label: 'Qué datos guardamos' },
+    { id: 'usos', label: 'Para qué usamos tus datos' },
+    { id: 'proveedores', label: 'Proveedores' },
+    { id: 'derechos', label: 'Tus derechos' },
+    { id: 'seguridad', label: 'Seguridad' },
+    { id: 'cambios', label: 'Cambios' }
+  ];
 </script>
 
 <svelte:head>
   <title>Política de privacidad — Biblioteca Discótica</title>
 </svelte:head>
 
-<ReadingLayout title="Política de privacidad" eyebrow="Información" meta={`Última actualización: ${fechaActualizacion}`}>
+<ReadingLayout title="Política de privacidad" eyebrow="Información" meta={`Última actualización: ${fechaActualizacion}`} toc={secciones}>
 
-    <section>
+    <section id="quienes">
       <h2>Quiénes somos</h2>
       <p>
         Discótica es un archivo curado de música electrónica sudamericana. Puedes contactarnos en
@@ -18,7 +29,7 @@
       </p>
     </section>
 
-    <section>
+    <section id="datos">
       <h2>Qué datos guardamos</h2>
       <p>Cuando creas una cuenta, guardamos:</p>
       <ul>
@@ -35,7 +46,7 @@
       <p>Si usas <strong>Reportar un problema</strong>, guardamos tu descripción, categoría, URL y lanzamiento relacionados, y una captura si eliges adjuntarla. También incluimos contexto técnico mínimo: ruta, fecha, versión, fuente de catálogo, navegador, viewport, idioma y estado de conexión. No incluimos cookies, tokens, contraseñas ni el contenido de otros formularios.</p>
     </section>
 
-    <section>
+    <section id="usos">
       <h2>Para qué usamos tus datos</h2>
       <ul>
         <li>Para que puedas iniciar sesión y usar tu cuenta.</li>
@@ -47,7 +58,7 @@
       <p>Los reportes y sus capturas son privados: sólo la persona autora y administración autorizada pueden acceder a ellos.</p>
     </section>
 
-    <section>
+    <section id="proveedores">
       <h2>Proveedores</h2>
       <p>
         Usamos <strong>Supabase</strong> para almacenar los datos. Puedes consultar su
@@ -55,7 +66,7 @@
       </p>
     </section>
 
-    <section>
+    <section id="derechos">
       <h2>Tus derechos</h2>
       <p>Puedes en cualquier momento:</p>
       <ul>
@@ -67,7 +78,7 @@
       <p>Escríbenos a <a href="mailto:hola@discotica.com">hola@discotica.com</a>.</p>
     </section>
 
-    <section>
+    <section id="seguridad">
       <h2>Seguridad</h2>
       <p>
         Las contraseñas se almacenan con hashing seguro y nunca en texto plano.
@@ -75,7 +86,7 @@
       </p>
     </section>
 
-    <section>
+    <section id="cambios">
       <h2>Cambios</h2>
       <p>
         Si hacemos cambios importantes, te avisamos por email y actualizamos la fecha al inicio de esta página.

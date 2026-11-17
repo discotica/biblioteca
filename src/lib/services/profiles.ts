@@ -9,6 +9,7 @@ import {
   type SocialNetwork,
   type SocialProfileColumns
 } from '$lib/domain/profileSocial';
+import { profileHref } from '$lib/domain/account';
 
 /**
  * Perfil (D1). Lecturas públicas y escrituras del dueño sobre `profiles`.
@@ -16,15 +17,20 @@ import {
  * columnas sociales y la RPC de aportes no existen y estas llamadas fallan.
  */
 
-/** Columnas públicas del perfil. RLS ya permite leer perfiles a cualquiera. */
+/**
+ * Columnas públicas del perfil. RLS ya permite leer perfiles a cualquiera. El
+ * rol da la gama de la huella (U31, plan de dirección de arte §2).
+ */
 export const PUBLIC_PROFILE_COLUMNS =
-  'id, username, display_name, bio, created_at, social_bandcamp, social_bandcamp_kind, social_soundcloud, social_instagram, social_x, social_facebook, show_accepted_contributions';
+  'id, username, display_name, bio, role, created_at, social_bandcamp, social_bandcamp_kind, social_soundcloud, social_instagram, social_x, social_facebook, show_accepted_contributions';
 
 export type PublicProfile = {
   id: string;
   username: string;
   display_name: string | null;
   bio: string | null;
+  /** Gama de la huella. Puede faltar en datos de prueba: se trata como comunidad. */
+  role?: 'comunidad' | 'colaborador' | 'admin' | null;
   created_at: string;
   show_accepted_contributions: boolean;
   /** Forma del perfil de Bandcamp; null si no hay Bandcamp. */
@@ -53,7 +59,22 @@ export async function loadPublicProfile(username: string): Promise<PublicProfile
   return data as PublicProfile | null;
 }
 
-const PROFILE_BASE_COLUMNS = 'id, username, display_name, bio, created_at';
+/**
+ * Perfil de la sesión actual (U30): adonde se llega al entrar sin un destino
+ * propio y al confirmar la cuenta. El usuario viaja en los metadatos del alta;
+ * si faltan, se lee de `profiles`. Sin sesión o sin perfil, el catálogo.
+ */
+export async function ownProfilePath(): Promise<string> {
+  const { data } = await supabase.auth.getSession();
+  const user = data.session?.user;
+  if (!user) return '/';
+  const fromMetadata = user.user_metadata?.username;
+  if (typeof fromMetadata === 'string' && fromMetadata) return profileHref(fromMetadata);
+  const { data: row } = await supabase.from('profiles').select('username').eq('id', user.id).maybeSingle();
+  return row?.username ? profileHref(row.username) : '/';
+}
+
+const PROFILE_BASE_COLUMNS = 'id, username, display_name, bio, role, created_at';
 
 /**
  * Perfil público para `/perfil/[username]` (U14). Sin D1 en el entorno, las
@@ -77,7 +98,7 @@ export async function loadProfilePage(
   if (!data) return null;
   return {
     profile: {
-      ...(data as Pick<PublicProfile, 'id' | 'username' | 'display_name' | 'bio' | 'created_at'>),
+      ...(data as Pick<PublicProfile, 'id' | 'username' | 'display_name' | 'bio' | 'role' | 'created_at'>),
       show_accepted_contributions: false,
       social_bandcamp: null,
       social_bandcamp_kind: null,
@@ -170,7 +191,8 @@ export type OwnAccountProfile = PublicProfile & { newsletter_opt_in: boolean };
 export interface OwnAccountUpdate {
   display_name: string | null;
   bio: string | null;
-  newsletter_opt_in: boolean;
+  /** Editar perfil no lo manda (la preferencia vive en Ajustes, U33): sin él, la columna no se toca. */
+  newsletter_opt_in?: boolean;
   /** Redes tal como las escribe la persona; se omite si el entorno no tiene D1. */
   social?: Partial<Record<SocialNetwork, string | null>>;
 }
@@ -217,7 +239,7 @@ export async function updateOwnAccountProfile(
     .update({
       display_name: input.display_name,
       bio: input.bio,
-      newsletter_opt_in: input.newsletter_opt_in,
+      ...(input.newsletter_opt_in === undefined ? {} : { newsletter_opt_in: input.newsletter_opt_in }),
       ...columns
     })
     .eq('id', profileId)
@@ -225,4 +247,14 @@ export async function updateOwnAccountProfile(
     .single();
   fail(error);
   return { ok: true, profile: data as unknown as OwnAccountProfile };
+}
+
+/**
+ * Guarda solo la preferencia de novedades por correo (Ajustes, U33). Es la misma
+ * tabla y la misma política del dueño que `updateOwnAccountProfile`, sin tocar
+ * nombre, bio ni redes.
+ */
+export async function updateOwnNewsletterOptIn(profileId: string, optIn: boolean): Promise<void> {
+  const { error } = await supabase.from('profiles').update({ newsletter_opt_in: optIn }).eq('id', profileId);
+  fail(error);
 }

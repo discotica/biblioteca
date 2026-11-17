@@ -2,13 +2,14 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import PageLayout from '$lib/layouts/PageLayout.svelte';
-  import { Button, Cover, Notice, Select, Skeleton, Textarea } from '$lib/ui';
+  import AccesoPagina from '$lib/components/account/AccesoPagina.svelte';
+  import AccesoTitulo from '$lib/components/account/AccesoTitulo.svelte';
+  import { Button, Cover, FormPanel, Notice, Select, Skeleton, Textarea } from '$lib/ui';
   import { user } from '$lib/stores/authStore';
   import { fetchReleasesForCrate, type Lanzamiento } from '$lib/utils/catalogoStore';
   import { createProblemReport, REPORT_CATEGORIES, type ReportCategory, validateScreenshot } from '$lib/services/problemReports';
 
-  // Flujo de E18. Desde la ficha (U9) se llega con ?release_id={uuid}: el
+  // Flujo de E18 (U33, tablero M: un solo panel de 576 sobre el campo de puntos). Desde la ficha (U9) se llega con ?release_id={uuid}: el
   // lanzamiento se muestra identificado y la categoría parte de "Error de
   // catálogo". Desde el menú global, sin lanzamiento.
 
@@ -93,71 +94,62 @@
 
 <svelte:head><title>Reportar un problema — Discótica</title></svelte:head>
 
-<PageLayout
-  container="narrow"
-  eyebrow="Soporte"
-  title="Reportar un problema"
-  description="Cuéntanos sobre un error de catálogo, un problema técnico o una mejora. Este canal requiere una sesión para proteger tu reporte."
->
-  {#if releaseId}
-    <section class="reportar__release" aria-label="Lanzamiento del reporte">
-      {#if releaseState === 'ready' && release}
-        <div class="reportar__cover"><Cover src={release.coverUrl} alt="" radius="sm" loading="eager" /></div>
-        <div class="reportar__release-text">
-          <span class="reportar__release-kicker">Lanzamiento</span>
-          <strong>{release.title}</strong>
-          {#if releaseArtists}<span>{releaseArtists}</span>{/if}
-        </div>
-        <Button variant="link" size="sm" href={`/lanzamiento/${release.slug}`}>Ver ficha</Button>
-      {:else if releaseState === 'loading'}
-        <Skeleton variant="row" class="reportar__skeleton" />
-      {:else}
-        <p class="reportar__release-text">Este reporte incluye el lanzamiento desde el que llegaste.</p>
-      {/if}
-    </section>
-  {/if}
+<AccesoPagina contenedor="narrow" alinea="arriba">
+  <FormPanel as="form" size="wide" onsubmit={submit} novalidate aria-label="Reportar un problema">
+    <AccesoTitulo titulo="Reportar un problema" />
 
-  <form class="reportar__form" novalidate onsubmit={submit}>
+    {#if releaseId}
+      <section class="reportar__release" aria-label="Lanzamiento del reporte">
+        {#if releaseState === 'ready' && release}
+          <div class="reportar__cover"><Cover src={release.coverUrl} alt="" radius="sm" loading="eager" /></div>
+          <div class="reportar__release-text">
+            <span class="reportar__release-kicker">Lanzamiento</span>
+            <strong>{release.title}</strong>
+            {#if releaseArtists}<span>{releaseArtists}</span>{/if}
+          </div>
+          <Button variant="link" size="sm" href={`/lanzamiento/${release.slug}`}>Ver ficha</Button>
+        {:else if releaseState === 'loading'}
+          <Skeleton variant="row" class="reportar__skeleton" />
+        {:else}
+          <p class="reportar__release-text">Este reporte incluye el lanzamiento desde el que llegaste.</p>
+        {/if}
+      </section>
+    {/if}
+
     <Select label="Categoría" id="report-category" options={categoryOptions} bind:value={category} />
     <Textarea
       label="Descripción"
       id="report-description"
       bind:value={description}
-      rows={7}
+      rows={5}
       maxlength={5000}
-      placeholder="¿Qué ocurrió y qué esperabas que pasara?"
+      placeholder="Cuéntanos qué pasó"
       error={descriptionError}
       required
     />
 
     <div class="reportar__file">
-      <span class="reportar__file-label" id="report-screenshot-label">Captura <span class="reportar__optional">(opcional)</span></span>
       <input
         bind:this={fileInput}
         class="sr-only"
         id="report-screenshot"
         type="file"
         accept="image/jpeg,image/png,image/webp"
-        aria-labelledby="report-screenshot-label"
-        aria-describedby="report-screenshot-hint"
+        aria-label="Captura de pantalla"
         tabindex="-1"
         onchange={chooseFile}
       />
       <div class="reportar__file-row">
-        <Button variant="secondary" size="sm" icon="agregar" onclick={() => fileInput?.click()}>
-          {screenshot ? 'Cambiar imagen' : 'Elegir imagen'}<span class="sr-only"> para la captura</span>
-        </Button>
-        <span class="reportar__file-name" class:is-empty={!screenshot} aria-live="polite">{screenshot?.name ?? 'Ningún archivo elegido'}</span>
+        <Button variant="secondary" icon="agregar" onclick={() => fileInput?.click()}>{screenshot ? 'Cambiar captura' : 'Añadir captura'}</Button>
         {#if screenshot}
+          <span class="reportar__file-name" aria-live="polite">{screenshot.name}</span>
           <Button variant="ghost" size="sm" onclick={clearFile}>Quitar<span class="sr-only"> la captura</span></Button>
         {/if}
       </div>
-      <p class="reportar__hint" id="report-screenshot-hint">JPEG, PNG o WebP de hasta 5 MB.</p>
     </div>
 
-    <Notice title="Contexto técnico incluido">
-      Ruta, lanzamiento si aplica, fecha, versión, fuente de catálogo, navegador, viewport, idioma y conexión. Nunca incluimos cookies, tokens, contraseñas ni el contenido de otros formularios.
-    </Notice>
+    <!-- Verificado contra technicalReportContext (problemReports.ts): ruta, fecha, versión, fuente, navegador, viewport, idioma y conexión. Ninguna cookie. -->
+    <p class="reportar__hint">Incluimos datos técnicos de la página. Nunca cookies.</p>
 
     {#if error}<Notice tone="error">{error}</Notice>{/if}
     {#if notice}
@@ -169,11 +161,11 @@
       </Notice>
     {/if}
 
-    <div class="reportar__actions">
-      <Button type="submit" loading={busy}>{busy ? 'Enviando…' : 'Enviar reporte'}</Button>
-    </div>
-  </form>
-</PageLayout>
+    {#snippet actions()}
+      <Button type="submit" size="form" block loading={busy}>{busy ? 'Enviando…' : 'Enviar reporte'}</Button>
+    {/snippet}
+  </FormPanel>
+</AccesoPagina>
 
 <style>
   .reportar__release {
@@ -181,10 +173,9 @@
     grid-template-columns: var(--reportar-cover) minmax(0, 1fr) auto;
     align-items: center;
     gap: var(--space-4);
-    margin-top: var(--space-5);
     padding: var(--space-3);
     border: 1px solid var(--color-linea-sutil);
-    border-radius: var(--radius-base);
+    border-radius: var(--radius-sm);
     background: var(--color-superficie-1);
     --reportar-cover: calc(var(--space-8) + var(--space-5));
   }
@@ -195,21 +186,12 @@
   .reportar__release-text > span:last-child:not(.reportar__release-kicker) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .reportar__release-kicker { color: var(--color-texto-tenue); font-size: var(--text-2xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 
-  .reportar__form { display: grid; gap: var(--space-5); margin-top: var(--space-5); }
-
-  .reportar__file { display: grid; gap: var(--space-2); }
-  .reportar__file-label { color: var(--color-texto-alto); font-size: var(--text-sm); font-weight: 600; line-height: 1.3; }
-  .reportar__optional { margin-left: var(--space-1); color: var(--color-texto-tenue); font-weight: 400; }
   .reportar__file-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); min-width: 0; }
   .reportar__file-name { min-width: 0; overflow: hidden; color: var(--color-texto); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
-  .reportar__file-name.is-empty { color: var(--color-texto-tenue); }
-  .reportar__hint { margin: 0; color: var(--color-texto-tenue); font-size: var(--text-2xs); line-height: 1.45; }
-
-  .reportar__actions { display: flex; }
+  .reportar__hint { margin: calc(-1 * var(--space-2)) 0 0; color: var(--color-texto-medio); font-size: var(--text-xs); line-height: 1.4; }
 
   @media (max-width: 679px) {
     .reportar__release { grid-template-columns: var(--reportar-cover) minmax(0, 1fr); }
     .reportar__release :global(.ui-btn) { grid-column: 2; justify-self: start; }
-    .reportar__actions :global(.ui-btn) { flex: 1 1 auto; }
   }
 </style>

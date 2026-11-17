@@ -198,7 +198,7 @@ test.describe('móvil', () => {
 });
 
 test.describe('desktop', () => {
-  test('U10: el panel es una sola caja compacta, el campo de texto mide 52 y "Reiniciar filtros" es secundario', async ({ page }) => {
+  test('U10: el panel es una sola caja compacta, el campo de texto mide 48 (banda reducida, U29) y "Reiniciar filtros" es secundario', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/?pais=Colombia');
     // U10b: el campo de texto, fuera de la caja, es el disparador; el cierre es
@@ -212,7 +212,7 @@ test.describe('desktop', () => {
     await panel.evaluate((node) => Promise.all(node.closest('section')!.getAnimations({ subtree: true }).map((animation) => animation.finished)));
     await expect(panel.locator('.filtros-panel')).toHaveCSS('border-top-width', '0px');
     const field = await search.locator('.busqueda-input-row').boundingBox();
-    expect(Math.round(field!.height)).toBeGreaterThanOrEqual(52);
+    expect(Math.round(field!.height)).toBe(48);
     await expect(search.locator('.busqueda-input')).toHaveCSS('font-size', '16px');
     await expect(page.getByRole('button', { name: 'Cerrar búsqueda' })).toHaveText('');
 

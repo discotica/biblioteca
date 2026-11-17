@@ -52,7 +52,11 @@ for (const { name, viewport } of VIEWPORTS) {
           const points = [[cx, cy - half], [cx, cy + half], [cx - half, cy], [cx + half, cy]];
           for (const [x, y] of points) {
             const hit = document.elementFromPoint(x, y);
-            if (!hit || !(hit === control || control.contains(hit))) {
+            // La misma excepción "en línea", vista desde la casilla (U26): el enlace
+            // dentro de su propio texto queda encima del input que cubre la fila.
+            // Dónde cae depende de cómo parte la línea (la métrica de la fuente).
+            const inlineInOwnLabel = !!hit?.closest('.ui-checkbox__text a') && !!control.closest('.ui-checkbox__label')?.contains(hit);
+            if (!hit || !(hit === control || control.contains(hit) || inlineInOwnLabel)) {
               failed.push(`${control.tagName.toLowerCase()} "${(control.getAttribute('aria-label') || control.textContent || '').trim().slice(0, 30)}" ${Math.round(rect.width)}×${Math.round(rect.height)} en (${Math.round(x - cx)},${Math.round(y - cy)})`);
               break;
             }

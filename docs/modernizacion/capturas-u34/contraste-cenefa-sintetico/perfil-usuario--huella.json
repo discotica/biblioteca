@@ -1,0 +1,123 @@
+[
+ {
+  "pagina": "perfil-usuario",
+  "portada": "huella",
+  "texto": "Comunidad",
+  "fuente": "88px/700",
+  "grande": true,
+  "p2": 14.32,
+  "min": 9.04,
+  "umbral": 3,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-usuario",
+  "portada": "huella",
+  "texto": "·",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 11.24,
+  "min": 10.99,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-usuario",
+  "portada": "huella",
+  "texto": "·",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 11.24,
+  "min": 10.99,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-usuario",
+  "portada": "huella",
+  "texto": "·",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 12.04,
+  "min": 12.04,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-usuario",
+  "portada": "huella",
+  "texto": "·",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 11.01,
+  "min": 10.92,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-usuario",
+  "portada": "huella",
+  "texto": "·",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 10.59,
+  "min": 9.48,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-usuario",
+  "portada": "huella",
+  "texto": "·",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 10.59,
+  "min": 9.48,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-usuario",
+  "portada": "huella",
+  "texto": "@comunidad",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 11.24,
+  "min": 10.99,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-usuario",
+  "portada": "huella",
+  "texto": "Escucha de sellos pequeños y radio comun",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 10.59,
+  "min": 9.48,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-usuario",
+  "portada": "huella",
+  "texto": "Editar perfil",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 17.57,
+  "min": 17.44,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-usuario",
+  "portada": "huella",
+  "texto": "Ajustes",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 17.14,
+  "min": 17.14,
+  "umbral": 4.5,
+  "ok": true
+ }
+]

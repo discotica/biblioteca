@@ -59,13 +59,13 @@ test('E15: aplica el breakpoint semántico y nunca introduce scroll horizontal',
     if (viewport.width <= 768) {
       await expect(mobileSearch).toBeVisible();
       await expect(mobileInput).toBeVisible();
-      await expect(page.locator('.home-search__row')).toBeHidden();
+      await expect(page.locator('.home-search__field')).toBeHidden();
       await expect(mobileSearch).toHaveCSS('min-height', '44px');
       await expect(page.locator('.mobile-search-row .busqueda-input-row')).toHaveCSS('min-height', '44px');
     } else {
       await expect(mobileSearch).toBeHidden();
       await expect(mobileInput).toBeHidden();
-      await expect(page.locator('.home-search__row')).toBeVisible();
+      await expect(page.locator('.home-search__field')).toBeVisible();
     }
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }

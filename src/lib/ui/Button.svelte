@@ -1,6 +1,6 @@
 <script module lang="ts">
   export type ButtonVariant = 'primary' | 'secondary' | 'accent' | 'ghost' | 'destructive' | 'link';
-  export type ButtonSize = 'sm' | 'md' | 'lg';
+  export type ButtonSize = 'sm' | 'md' | 'form' | 'lg';
 </script>
 
 <script lang="ts">
@@ -13,8 +13,9 @@
     /** primary (lleno) · secondary (borde) · accent (borde y texto de acento) · ghost · destructive · link */
     variant?: ButtonVariant;
     /**
-     * sm 32 · md 44 (Comprar) · lg 52. sm amplía su área táctil a 44.
+     * sm 32 · md 44 (Comprar) · form 48 · lg 52. sm amplía su área táctil a 44.
      * md sigue la densidad (U20): 36 con 12 a los lados en [data-density='compact'].
+     * form (U26): la acción de un formulario; texto y padding de md, sin densidad.
      */
     size?: ButtonSize;
     /** Con href se renderiza como enlace con el mismo aspecto. */
@@ -137,7 +138,7 @@
     color: var(--color-texto);
     font-family: var(--font-ui);
     font-size: var(--control-font-size);
-    font-weight: 700;
+    font-weight: var(--button-font-weight);
     line-height: 1;
     text-decoration: none;
     white-space: nowrap;
@@ -157,6 +158,7 @@
 
   :global([data-density='compact']) .ui-btn--md:not(.ui-btn--link) { --btn-px: var(--density-control-px); }
   .ui-btn--sm { --btn-h: var(--button-h-sm); --btn-px: var(--button-px-sm); font-size: var(--text-xs); gap: var(--space-1); }
+  .ui-btn--form { --btn-h: var(--button-h-form); --btn-px: var(--button-px-form); }
   .ui-btn--lg { --btn-h: var(--button-h-lg); --btn-px: var(--button-px-lg); font-size: var(--text-md); }
   .ui-btn--square { width: var(--btn-h); padding: 0; }
   .ui-btn--block { display: flex; width: 100%; }
@@ -183,7 +185,6 @@
   .ui-btn--link {
     --btn-px: 0;
     color: var(--color-acento);
-    font-weight: 600;
   }
   /* El subrayado va en la etiqueta: un ítem flex no hereda la decoración del padre. */
   .ui-btn--link .ui-btn__label {

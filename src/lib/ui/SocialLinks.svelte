@@ -9,12 +9,14 @@
     /** Nombre accesible del grupo. */
     label?: string;
     size?: ButtonSize;
+    /** ghost por defecto; secondary (con borde) sobre una cenefa (perfil, U31). */
+    variant?: 'ghost' | 'secondary';
     /** Abre en otra pestaña; el nombre accesible lo avisa. */
     newTab?: boolean;
     class?: string;
   };
 
-  let { links, label = 'Redes', size = 'md', newTab = false, class: className = '' }: Props = $props();
+  let { links, label = 'Redes', size = 'md', variant = 'ghost', newTab = false, class: className = '' }: Props = $props();
 </script>
 
 {#if links.length}
@@ -26,6 +28,7 @@
           label={`${link.label}: ${link.handle}${newTab ? ' (se abre en otra pestaña)' : ''}`}
           href={link.url}
           {size}
+          {variant}
           target={newTab ? '_blank' : undefined}
           rel={newTab ? 'noopener noreferrer' : undefined}
         />

@@ -1,0 +1,156 @@
+[
+ {
+  "pagina": "coleccion",
+  "portada": "mock",
+  "texto": "@comunidad",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 13.52,
+  "min": 13.36,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "mock",
+  "texto": "Colecciones",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 13.54,
+  "min": 13.13,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "mock",
+  "texto": "Para abrir el set",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 16.04,
+  "min": 15.57,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "mock",
+  "texto": "Para abrir el set",
+  "fuente": "88px/700",
+  "grande": true,
+  "p2": 15.24,
+  "min": 14.33,
+  "umbral": 3,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "mock",
+  "texto": "Intros lentas, texturas y percusión que ",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 12.1,
+  "min": 9.42,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "mock",
+  "texto": "Compartir",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 17.85,
+  "min": 17.81,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "mock",
+  "texto": "Editar",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 18.87,
+  "min": 17.66,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "mock",
+  "texto": "Eliminar",
+  "fuente": "14px/600",
+  "grande": false,
+  "p2": 7.64,
+  "min": 7.52,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "mock",
+  "texto": "Curada por",
+  "fuente": "15px/400",
+  "grande": false,
+  "p2": 17.63,
+  "min": 14.76,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "mock",
+  "texto": "@comunidad",
+  "fuente": "15px/600",
+  "grande": false,
+  "p2": 17.69,
+  "min": 17.5,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "mock",
+  "texto": "Lanzamientos",
+  "fuente": "15px/400",
+  "grande": false,
+  "p2": 18.87,
+  "min": 14.56,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "mock",
+  "texto": "6",
+  "fuente": "15px/600",
+  "grande": false,
+  "p2": 17.73,
+  "min": 17.57,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "mock",
+  "texto": "Visibilidad",
+  "fuente": "15px/400",
+  "grande": false,
+  "p2": 18.87,
+  "min": 14.38,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "coleccion",
+  "portada": "mock",
+  "texto": "Pública",
+  "fuente": "15px/600",
+  "grande": false,
+  "p2": 18.01,
+  "min": 17.84,
+  "umbral": 4.5,
+  "ok": true
+ }
+]

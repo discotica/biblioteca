@@ -1,18 +1,26 @@
 <script lang="ts">
-  import { tick } from 'svelte';
-  import AccountLayout from '$lib/layouts/AccountLayout.svelte';
-  import FormSection from '$lib/components/account/FormSection.svelte';
+  import { onDestroy, tick } from 'svelte';
+  import AccesoPagina from '$lib/components/account/AccesoPagina.svelte';
   import SocialFields, { emptySocialForm } from '$lib/components/account/SocialFields.svelte';
   import { confirmationRedirect, writePendingSignup } from '$lib/components/account/pendingSignup';
-  import { Button, Checkbox, Field, Notice, PasswordField } from '$lib/ui';
+  import { Button, Checkbox, Field, FormPanel, Notice, PasswordField } from '$lib/ui';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { supabase } from '$lib/supabase';
   import { USERNAME_PATTERN } from '$lib/domain/account';
   import { signupSocialMetadata } from '$lib/services/profiles';
-  import type { SocialFieldErrors } from '$lib/domain/profileSocial';
+  import type { SocialFieldErrors, SocialNetwork } from '$lib/domain/profileSocial';
 
+  // Registro en tres pasos (U30, tablero K). Los pasos son solo de interfaz:
+  // la llamada de alta y sus metadatos son los de siempre y salen del paso 3.
+  type Step = 1 | 2 | 3;
   type FieldErrors = Partial<Record<'email' | 'password' | 'confirm' | 'username' | 'privacy', string>>;
+
+  // Instagram, SoundCloud y Bandcamp abren el paso, como en el tablero.
+  const SOCIAL_ORDER: readonly SocialNetwork[] = ['instagram', 'soundcloud', 'bandcamp', 'x', 'facebook'];
+  const CHECK_DELAY_MS = 450;
+
+  let step = $state<Step>(1);
 
   let email = $state('');
   let password = $state('');
@@ -29,63 +37,132 @@
   let formError = $state('');
   let loading = $state(false);
   let usernameStatus = $state<'idle' | 'checking' | 'available' | 'taken'>('idle');
-  let form = $state<HTMLFormElement>();
+
+  let checkTimer: ReturnType<typeof setTimeout> | undefined;
+  let checking: Promise<void> | null = null;
+
+  onDestroy(() => clearTimeout(checkTimer));
 
   const loginHref = $derived.by(() => {
     const redirect = $page.url.searchParams.get('redirect');
     return redirect ? `/auth/login?redirect=${encodeURIComponent(redirect)}` : '/auth/login';
   });
 
-  const usernameHint = $derived(
-    usernameStatus === 'checking'
-      ? 'Comprobando…'
-      : usernameStatus === 'available'
-        ? 'Disponible.'
-        : 'Minúsculas, números, - y _ · de 3 a 30 caracteres. No podrás cambiarlo después.'
-  );
-
   // El usuario es público (aparece en /perfil/usuario), así que avisar de que
   // está tomado no revela nada que no se vea ya. El correo nunca se comprueba.
-  async function checkUsername() {
+  function checkUsername(): Promise<void> {
+    clearTimeout(checkTimer);
     usernameStatus = 'idle';
-    if (!USERNAME_PATTERN.test(username)) return;
+    if (!USERNAME_PATTERN.test(username)) return Promise.resolve();
     const checked = username;
     usernameStatus = 'checking';
-    const { data, error } = await supabase.from('profiles').select('id').eq('username', checked).maybeSingle();
-    if (checked !== username) return;
-    usernameStatus = error ? 'idle' : data ? 'taken' : 'available';
-    if (usernameStatus === 'taken') errors = { ...errors, username: 'Ese usuario ya está en uso. Prueba con otro.' };
-    else if (errors.username) errors = { ...errors, username: undefined };
+    const run = (async () => {
+      const { data, error } = await supabase.from('profiles').select('id').eq('username', checked).maybeSingle();
+      if (checked !== username) return;
+      usernameStatus = error ? 'idle' : data ? 'taken' : 'available';
+      if (usernameStatus === 'taken') errors = { ...errors, username: 'Ese usuario ya está en uso. Prueba con otro.' };
+      else if (errors.username) errors = { ...errors, username: undefined };
+    })();
+    checking = run;
+    run.finally(() => {
+      if (checking === run) checking = null;
+    });
+    return run;
   }
 
-  function validate(): FieldErrors {
+  // Mientras se escribe: minúsculas, el aviso anterior se retira y se comprueba
+  // cuando la persona hace una pausa.
+  function onUsernameInput() {
+    username = username.toLowerCase();
+    usernameStatus = 'idle';
+    if (errors.username) errors = { ...errors, username: undefined };
+    clearTimeout(checkTimer);
+    if (USERNAME_PATTERN.test(username)) checkTimer = setTimeout(() => void checkUsername(), CHECK_DELAY_MS);
+  }
+
+  function validateAccess(): FieldErrors {
     const next: FieldErrors = {};
     const trimmedEmail = email.trim();
     if (!trimmedEmail) next.email = 'Escribe tu correo.';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) next.email = 'Revisa el formato del correo.';
     if (!passwordValid) next.password = 'La contraseña necesita 8 caracteres o más.';
     if (confirmPassword !== password) next.confirm = 'Las contraseñas no coinciden.';
-    if (!USERNAME_PATTERN.test(username)) next.username = 'Usa de 3 a 30 minúsculas, números, - o _.';
-    else if (usernameStatus === 'taken') next.username = 'Ese usuario ya está en uso. Prueba con otro.';
-    if (!privacyAccepted) next.privacy = 'Para crear la cuenta tienes que aceptar la política de privacidad.';
     return next;
+  }
+
+  async function validateName(): Promise<FieldErrors> {
+    const next: FieldErrors = {};
+    if (!USERNAME_PATTERN.test(username)) {
+      next.username = 'Usa de 3 a 30 minúsculas, números, - o _.';
+      return next;
+    }
+    // Un usuario que aún no se comprobó (se pulsó Seguir sin pausa) se comprueba ahora.
+    if (usernameStatus === 'idle') await checkUsername();
+    else if (checking) await checking;
+    if (usernameStatus === 'taken') next.username = 'Ese usuario ya está en uso. Prueba con otro.';
+    return next;
+  }
+
+  function validateExtras(): FieldErrors {
+    return privacyAccepted ? {} : { privacy: 'Para crear la cuenta tienes que aceptar la política de privacidad.' };
+  }
+
+  async function goToStep(next: Step, focus = true) {
+    step = next;
+    formError = '';
+    if (!focus) return;
+    await tick();
+    document.querySelector<HTMLElement>('.registro-panel input:not([type="checkbox"])')?.focus();
   }
 
   async function focusFirstError() {
     await tick();
-    form?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+    document.querySelector<HTMLElement>('.registro-panel [aria-invalid="true"]')?.focus();
   }
 
-  async function register(event: SubmitEvent) {
+  const hasErrors = (e: FieldErrors) => Object.values(e).some(Boolean);
+
+  async function onSubmit(event: SubmitEvent) {
     event.preventDefault();
+    if (loading) return;
     formError = '';
-    errors = validate();
+
+    if (step === 1) {
+      errors = validateAccess();
+      if (hasErrors(errors)) return void (await focusFirstError());
+      return void (await goToStep(2));
+    }
+
+    if (step === 2) {
+      errors = await validateName();
+      if (hasErrors(errors)) return void (await focusFirstError());
+      return void (await goToStep(3));
+    }
+
+    await register();
+  }
+
+  async function register() {
+    // Todo se vuelve a comprobar: si algo de un paso anterior falla, se vuelve a él.
+    const access = validateAccess();
+    if (hasErrors(access)) {
+      errors = access;
+      await goToStep(1, false);
+      return void (await focusFirstError());
+    }
+    const name = await validateName();
+    if (hasErrors(name)) {
+      errors = name;
+      await goToStep(2, false);
+      return void (await focusFirstError());
+    }
+
+    errors = validateExtras();
     const socialResult = signupSocialMetadata(social);
     socialErrors = socialResult.ok ? {} : socialResult.errors;
-    if (Object.values(errors).some(Boolean) || !socialResult.ok) {
+    if (hasErrors(errors) || !socialResult.ok) {
       formError = 'Revisa los campos marcados.';
-      await focusFirstError();
-      return;
+      return void (await focusFirstError());
     }
 
     loading = true;
@@ -109,7 +186,8 @@
     // la pantalla no puede decir si la cuenta existía.
     if (error && !['user_already_exists', 'email_exists'].includes(error.code ?? '')) {
       if (error.code === 'weak_password') {
-        errors = { ...errors, password: 'Esa contraseña es demasiado fácil de adivinar. Prueba con otra.' };
+        errors = { password: 'Esa contraseña es demasiado fácil de adivinar. Prueba con otra.' };
+        await goToStep(1, false);
         await focusFirstError();
       } else if (error.status === 429 || error.code?.startsWith('over_')) {
         formError = 'Hay muchos registros en este momento. Espera unos minutos y vuelve a intentarlo.';
@@ -119,8 +197,8 @@
       return;
     }
 
-    writePendingSignup({ email: trimmedEmail, sentAt: Date.now() });
-    goto('/auth/confirmar', { state: { email: trimmedEmail } });
+    writePendingSignup({ email: trimmedEmail, sentAt: Date.now(), username });
+    goto('/auth/confirmar', { state: { email: trimmedEmail, username } });
   }
 </script>
 
@@ -128,9 +206,18 @@
   <title>Crear cuenta — Biblioteca Discótica</title>
 </svelte:head>
 
-<AccountLayout title="Crear cuenta" help="Guarda colecciones, compártelas y sugiere lanzamientos.">
-  <form class="account-form" bind:this={form} onsubmit={register} novalidate>
-    <FormSection legend="Acceso">
+<!-- La huella va gris y quieta en el paso 1, se reorganiza con cada tecla del usuario en el 2 y revela su color en el 3. -->
+<AccesoPagina contenedor="wide" alinea="inicio" nombre={username} color={step === 3} latido={step === 1 ? 8 : 0}>
+  <h1 class="sr-only">Crear cuenta</h1>
+
+  <FormPanel as="form" size="wide" class="registro-panel" onsubmit={onSubmit} novalidate>
+    <div class="registro-progreso" aria-hidden="true">
+      <i class:on={step >= 1}></i><i class:on={step >= 2}></i><i class:on={step >= 3}></i>
+    </div>
+    <p class="sr-only" role="status">Paso {step} de 3</p>
+
+    {#if step === 1}
+      <p class="registro-linea">Crea tu cuenta con tu correo y una contraseña.</p>
       <Field label="Correo" type="email" name="email" autocomplete="email" bind:value={email} error={errors.email} required />
       <PasswordField label="Contraseña" name="password" bind:value={password} bind:valid={passwordValid} error={errors.password} required />
       <PasswordField
@@ -142,9 +229,8 @@
         error={errors.confirm}
         required
       />
-    </FormSection>
-
-    <FormSection legend="Perfil">
+    {:else if step === 2}
+      <p class="registro-linea">Elige tu usuario y el nombre que se verá en tu perfil.</p>
       <Field
         label="Usuario"
         name="username"
@@ -153,12 +239,20 @@
         spellcheck="false"
         maxlength={30}
         bind:value={username}
-        oninput={() => (username = username.toLowerCase())}
-        onblur={checkUsername}
-        hint={errors.username ? undefined : usernameHint}
+        oninput={onUsernameInput}
+        onblur={() => {
+          if (usernameStatus === 'idle') void checkUsername();
+        }}
+        hint={errors.username ? undefined : 'No se podrá cambiar después.'}
         error={errors.username}
         required
-      />
+      >
+        {#snippet end()}
+          <span class="registro-estado" aria-live="polite">
+            {#if usernameStatus === 'checking'}Comprobando…{:else if usernameStatus === 'available'}Disponible{/if}
+          </span>
+        {/snippet}
+      </Field>
       <Field
         label="Nombre para mostrar"
         name="display_name"
@@ -168,38 +262,83 @@
         bind:value={displayName}
         hint="Si lo dejas vacío, se muestra tu usuario."
       />
-    </FormSection>
+    {:else}
+      <fieldset class="registro-redes">
+        <legend>Redes <span class="registro-opcional">(opcional)</span></legend>
+        <SocialFields bind:values={social} errors={socialErrors} order={SOCIAL_ORDER} />
+      </fieldset>
+      <div class="registro-casillas">
+        <Checkbox name="newsletter" bind:checked={newsletterOptIn}>Quiero recibir novedades de Discótica por correo.</Checkbox>
+        <Checkbox name="privacy" bind:checked={privacyAccepted} error={errors.privacy}>
+          Acepto la <a href="/privacidad" target="_blank" rel="noopener">política de privacidad</a>.
+        </Checkbox>
+      </div>
+      {#if formError}<Notice tone="error">{formError}</Notice>{/if}
+    {/if}
 
-    <FormSection
-      legend="Redes"
-      optional
-      description="Son voluntarias. Aparecen en tu perfil y ayudan a que otras personas te encuentren y te sigan."
-    >
-      <SocialFields bind:values={social} errors={socialErrors} />
-    </FormSection>
-
-    <FormSection legend="Privacidad">
-      <Checkbox name="newsletter" bind:checked={newsletterOptIn}>Quiero recibir novedades de Discótica por correo.</Checkbox>
-      <Checkbox name="privacy" bind:checked={privacyAccepted} error={errors.privacy}>
-        Leí y acepto la <a href="/privacidad" target="_blank" rel="noopener">política de privacidad</a>.
-      </Checkbox>
-    </FormSection>
-
-    {#if formError}<Notice tone="error">{formError}</Notice>{/if}
-
-    <Button type="submit" block {loading}>Crear cuenta</Button>
-  </form>
-
-  {#snippet footer()}
-    <span>¿Ya tienes cuenta?</span>
-    <a href={loginHref}>Entrar</a>
-  {/snippet}
-</AccountLayout>
+    {#snippet actions()}
+      {#if step === 1}
+        <a class="registro-enlace" href={loginHref}>¿Ya tienes cuenta?</a>
+        <Button type="submit" size="form" iconEnd="flecha-derecha" {loading}>Seguir</Button>
+      {:else if step === 2}
+        <Button variant="ghost" size="form" icon="chevron-izquierda" onclick={() => goToStep(1)}>Atrás</Button>
+        <Button type="submit" size="form" iconEnd="flecha-derecha">Seguir</Button>
+      {:else}
+        <Button variant="ghost" size="form" icon="chevron-izquierda" onclick={() => goToStep(2)}>Atrás</Button>
+        <Button type="submit" size="form" {loading}>Crear cuenta</Button>
+      {/if}
+    {/snippet}
+  </FormPanel>
+</AccesoPagina>
 
 <style>
-  .account-form {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-6);
+  :global(.registro-panel) { position: relative; }
+
+  /* Progreso: solo tres barritas, sin titulares ni «1 de 3». El paso se anuncia en el status oculto. */
+  .registro-progreso { display: flex; gap: var(--space-2); }
+  .registro-progreso i {
+    width: var(--space-6);
+    height: var(--space-1);
+    border-radius: var(--radius-xs);
+    background: var(--color-linea-fuerte);
+    transition: background var(--motion-base) ease;
   }
+  .registro-progreso i.on { background: var(--color-acento); }
+
+  .registro-linea {
+    margin: 0;
+    color: var(--color-texto);
+    font-size: var(--text-lg);
+    font-weight: 500;
+    line-height: 1.45;
+  }
+
+  .registro-estado { color: var(--color-acento); font-size: var(--text-xs); font-weight: 600; white-space: nowrap; }
+
+  .registro-redes { min-width: 0; margin: 0; padding: 0; border: 0; }
+  .registro-redes legend {
+    float: left;
+    width: 100%;
+    margin-bottom: var(--space-4);
+    padding: 0;
+    color: var(--color-texto-alto);
+    font-size: var(--text-sm);
+    font-weight: 600;
+  }
+  .registro-redes :global(.social-fields) { clear: both; }
+  .registro-opcional { margin-left: 0.3em; color: var(--color-texto-tenue); font-weight: 400; }
+
+  .registro-casillas { display: flex; flex-direction: column; gap: var(--space-3); }
+
+  .registro-enlace {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--target-touch);
+    color: var(--color-texto-alto);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-decoration: none;
+    transition: color var(--motion-fast) ease;
+  }
+  .registro-enlace:hover { color: var(--color-acento); }
 </style>

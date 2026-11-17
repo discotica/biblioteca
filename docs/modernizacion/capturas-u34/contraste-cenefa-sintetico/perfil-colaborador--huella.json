@@ -1,0 +1,101 @@
+[
+ {
+  "pagina": "perfil-colaborador",
+  "portada": "huella",
+  "texto": "JD Mamanché",
+  "fuente": "88px/700",
+  "grande": true,
+  "p2": 6.99,
+  "min": 6.32,
+  "umbral": 3,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-colaborador",
+  "portada": "huella",
+  "texto": "·",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 11.03,
+  "min": 10.78,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-colaborador",
+  "portada": "huella",
+  "texto": "·",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 11.03,
+  "min": 10.78,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-colaborador",
+  "portada": "huella",
+  "texto": "·",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 10.87,
+  "min": 10.76,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-colaborador",
+  "portada": "huella",
+  "texto": "·",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 12.1,
+  "min": 10.87,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-colaborador",
+  "portada": "huella",
+  "texto": "·",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 10.34,
+  "min": 9.29,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-colaborador",
+  "portada": "huella",
+  "texto": "·",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 10.34,
+  "min": 9.29,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-colaborador",
+  "portada": "huella",
+  "texto": "@colaboradora",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 11.03,
+  "min": 10.78,
+  "umbral": 4.5,
+  "ok": true
+ },
+ {
+  "pagina": "perfil-colaborador",
+  "portada": "huella",
+  "texto": "Escucha de sellos pequeños y radio comun",
+  "fuente": "18px/400",
+  "grande": false,
+  "p2": 10.34,
+  "min": 9.29,
+  "umbral": 4.5,
+  "ok": true
+ }
+]

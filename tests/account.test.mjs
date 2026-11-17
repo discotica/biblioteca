@@ -5,8 +5,9 @@ import {
   parseLoginIdentifier,
   readAuthLink,
   retryAfterSeconds,
+  profileHref,
   safeRedirect,
-  webmailFor
+  WEBMAILS
 } from '../src/lib/domain/account.ts';
 
 test('U12: con @ se entra por correo; sin @, por usuario', () => {
@@ -21,16 +22,14 @@ test('U12: un usuario con formato imposible no se envía', () => {
   }
 });
 
-test('U12: "Abrir correo" solo para Gmail, Outlook e iCloud', () => {
-  assert.equal(webmailFor('a@gmail.com')?.label, 'Gmail');
-  assert.equal(webmailFor('A@GoogleMail.com')?.label, 'Gmail');
-  assert.equal(webmailFor('a@hotmail.com')?.label, 'Outlook');
-  assert.equal(webmailFor('a@outlook.es')?.label, 'Outlook');
-  assert.equal(webmailFor('a@icloud.com')?.label, 'iCloud Mail');
-  assert.equal(webmailFor('a@me.com')?.label, 'iCloud Mail');
-  for (const email of ['a@yahoo.com', 'a@discotica.com', 'a@gmail.com.co', 'sin-arroba', '']) {
-    assert.equal(webmailFor(email), null, email);
-  }
+test('U30 (D4): «Revisa tu correo» ofrece siempre Gmail y Outlook', () => {
+  assert.deepEqual(
+    WEBMAILS.map((webmail) => [webmail.label, webmail.url]),
+    [
+      ['Gmail', 'https://mail.google.com/mail/'],
+      ['Outlook', 'https://outlook.live.com/mail/']
+    ]
+  );
 });
 
 test('U12: el límite de Auth dice cuántos segundos esperar', () => {
@@ -41,10 +40,22 @@ test('U12: el límite de Auth dice cuántos segundos esperar', () => {
 
 test('U12: el destino tras entrar es siempre interno', () => {
   assert.equal(safeRedirect('/coleccion/a?x=1'), '/coleccion/a?x=1');
-  assert.equal(safeRedirect('//evil.example'), '/mis-colecciones');
-  assert.equal(safeRedirect('https://evil.example'), '/mis-colecciones');
-  assert.equal(safeRedirect(null), '/mis-colecciones');
+  assert.equal(safeRedirect('//evil.example'), '/');
+  assert.equal(safeRedirect('https://evil.example'), '/');
+  assert.equal(safeRedirect(null), '/');
   assert.equal(safeRedirect('', '/'), '/');
+});
+
+test('U30: sin destino propio, safeRedirect cae en el que le pasa quien llama y nunca en Mis colecciones', () => {
+  assert.equal(safeRedirect(null, '/perfil/laura_rios'), '/perfil/laura_rios');
+  assert.equal(safeRedirect('//evil.example', '/perfil/laura_rios'), '/perfil/laura_rios');
+  assert.equal(safeRedirect('/sugerir', '/perfil/laura_rios'), '/sugerir');
+  assert.notEqual(safeRedirect(undefined), '/mis-colecciones');
+});
+
+test('U30: el perfil de un usuario es /perfil/{usuario}', () => {
+  assert.equal(profileHref('laura_rios'), '/perfil/laura_rios');
+  assert.equal(profileHref('a-b_c'), '/perfil/a-b_c');
 });
 
 test('RC2-P0-01: los enlaces de Auth van a /auth/reset sin query', () => {

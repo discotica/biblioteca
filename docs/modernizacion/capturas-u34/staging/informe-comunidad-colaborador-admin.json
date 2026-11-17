@@ -1,0 +1,18 @@
+{
+ "base": "staging",
+ "resultados": {},
+ "hallazgos": [
+  {
+   "rol": "comunidad-1440",
+   "vista": "estudio",
+   "tipo": "guarda",
+   "detalle": "la comunidad entró al Estudio"
+  },
+  {
+   "rol": "comunidad-390",
+   "vista": "estudio",
+   "tipo": "guarda",
+   "detalle": "la comunidad entró al Estudio"
+  }
+ ]
+}

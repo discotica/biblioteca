@@ -1,0 +1,12 @@
+{
+ "base": "staging",
+ "resultados": {
+  "nuevo": {
+   "aterrizaEn": "/perfil/<usuario>",
+   "query": "?aviso=cuenta-confirmada",
+   "usuario": "u34_qa_11120724",
+   "correoAlias": "…+u34-11120724@mamanche.com"
+  }
+ },
+ "hallazgos": []
+}

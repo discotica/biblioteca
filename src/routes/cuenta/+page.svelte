@@ -1,12 +1,14 @@
 <script lang="ts">
+  // Editar perfil (U33, tablero M): lo que ve la gente. Cenefa pequeña con
+  // «@usuario», nombre para mostrar, sobre ti y redes. Correo, contraseña y
+  // novedades viven en /cuenta/ajustes.
   import { onMount, tick } from 'svelte';
-  import AccountLayout from '$lib/layouts/AccountLayout.svelte';
+  import AccesoPagina from '$lib/components/account/AccesoPagina.svelte';
   import FormSection from '$lib/components/account/FormSection.svelte';
   import SocialFields, { emptySocialForm, socialFormFromProfile } from '$lib/components/account/SocialFields.svelte';
-  import { Button, Checkbox, Field, Notice, PasswordField, Textarea } from '$lib/ui';
-  import { afterNavigate, replaceState } from '$app/navigation';
-  import { supabase } from '$lib/supabase';
-  import { authLinkRedirect } from '$lib/domain/account';
+  import { Button, Field, FormPanel, Notice, Textarea } from '$lib/ui';
+  import { Cenefa, type Rol } from '$lib/generative';
+  import { loadProfileRole, profileRole } from '$lib/stores/profileRole';
   import { loadOwnAccountProfile, updateOwnAccountProfile, type OwnAccountProfile } from '$lib/services/profiles';
   import type { SocialFieldErrors } from '$lib/domain/profileSocial';
 
@@ -14,41 +16,26 @@
 
   type Message = { tone: 'success' | 'error'; text: string } | null;
 
-  // ---------- Perfil, redes y preferencias ----------
   let profile = $state<OwnAccountProfile | null>(null);
   let socialAvailable = $state(false);
   let loadError = $state('');
   let displayName = $state('');
   let bio = $state('');
-  let newsletterOptIn = $state(false);
   let social = $state(emptySocialForm());
   let socialErrors = $state<SocialFieldErrors>({});
-  let profileMessage = $state<Message>(null);
-  let savingProfile = $state(false);
-  let profileForm = $state<HTMLFormElement>();
+  let message = $state<Message>(null);
+  let saving = $state(false);
 
-  // ---------- Correo ----------
-  let pendingEmail = $state(data.newEmail);
-  let newEmail = $state('');
-  let emailError = $state('');
-  let emailMessage = $state<Message>(null);
-  let savingEmail = $state(false);
-
-  // ---------- Contraseña ----------
-  let password = $state('');
-  let passwordValid = $state(false);
-  let confirmPassword = $state('');
-  let passwordErrors = $state<{ password?: string; confirm?: string }>({});
-  let passwordMessage = $state<Message>(null);
-  let savingPassword = $state(false);
-
-  let arrivalNotice = $state('');
+  // La huella lleva el color del rol (§2): verdes, grises o morado.
+  const rol = $derived.by<Rol>(() => {
+    const value = $profileRole?.userId === data.userId ? $profileRole.role : '';
+    return value === 'admin' ? 'admin' : value === 'colaborador' ? 'colaborador' : 'usuario';
+  });
 
   function fillForm(next: OwnAccountProfile) {
     profile = next;
     displayName = next.display_name ?? '';
     bio = next.bio ?? '';
-    newsletterOptIn = next.newsletter_opt_in;
     if (socialAvailable) social = socialFormFromProfile(next);
   }
 
@@ -63,231 +50,119 @@
     }
   }
 
-  // replaceState necesita el router iniciado: en una carga directa onMount corre antes.
-  afterNavigate(({ to }) => {
-    if (to?.url.searchParams.get('aviso') !== 'correo') return;
-    arrivalNotice = 'Confirmamos el enlace. Si también te llegó un correo a la otra dirección, ábrelo para terminar el cambio.';
-    const url = new URL(to.url);
-    url.searchParams.delete('aviso');
-    replaceState(url, {});
-  });
-
   onMount(() => {
     void load();
+    void loadProfileRole(data.userId).catch(() => {});
   });
 
-  async function saveProfile(event: SubmitEvent) {
+  async function save(event: SubmitEvent) {
     event.preventDefault();
     if (!profile) return;
-    profileMessage = null;
+    message = null;
     socialErrors = {};
-    savingProfile = true;
+    saving = true;
     try {
       const result = await updateOwnAccountProfile(profile.id, {
         display_name: displayName.trim() || null,
         bio: bio.trim() || null,
-        newsletter_opt_in: newsletterOptIn,
         social: socialAvailable ? social : undefined
       });
       if (result.ok) {
         fillForm(result.profile);
-        profileMessage = { tone: 'success', text: 'Guardamos los cambios.' };
+        message = { tone: 'success', text: 'Guardamos los cambios.' };
       } else {
         socialErrors = result.errors;
-        profileMessage = { tone: 'error', text: 'Revisa las redes marcadas.' };
+        message = { tone: 'error', text: 'Revisa las redes marcadas.' };
         await tick();
-        profileForm?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+        document.querySelector<HTMLElement>('.cuenta-form [aria-invalid="true"]')?.focus();
       }
     } catch {
-      profileMessage = { tone: 'error', text: 'No pudimos guardar los cambios. Vuelve a intentarlo.' };
+      message = { tone: 'error', text: 'No pudimos guardar los cambios. Vuelve a intentarlo.' };
     } finally {
-      savingProfile = false;
+      saving = false;
     }
-  }
-
-  async function changeEmail(event: SubmitEvent) {
-    event.preventDefault();
-    emailError = '';
-    emailMessage = null;
-    const target = newEmail.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target)) {
-      emailError = 'Revisa el formato del correo.';
-      return;
-    }
-    if (target === data.email.toLowerCase()) {
-      emailError = 'Ese ya es tu correo.';
-      return;
-    }
-    savingEmail = true;
-    const { error } = await supabase.auth.updateUser(
-      { email: target },
-      { emailRedirectTo: authLinkRedirect(window.location.origin) }
-    );
-    savingEmail = false;
-    // Un correo que ya usa otra cuenta recibe la misma respuesta que uno libre:
-    // la pantalla no puede revelar qué correos están registrados.
-    if (error && !['email_exists', 'user_already_exists'].includes(error.code ?? '')) {
-      emailMessage = {
-        tone: 'error',
-        text:
-          error.status === 429 || error.code?.startsWith('over_')
-            ? 'Espera unos minutos antes de pedir otro cambio.'
-            : 'No pudimos pedir el cambio. Vuelve a intentarlo.'
-      };
-      return;
-    }
-    pendingEmail = target;
-    newEmail = '';
-    emailMessage = {
-      tone: 'success',
-      text: 'Te enviamos un enlace para confirmar el cambio. Puede llegar a tu correo actual y al nuevo: ábrelo en los dos.'
-    };
-  }
-
-  async function changePassword(event: SubmitEvent) {
-    event.preventDefault();
-    passwordMessage = null;
-    passwordErrors = {
-      password: passwordValid ? undefined : 'La contraseña necesita 8 caracteres o más.',
-      confirm: confirmPassword === password ? undefined : 'Las contraseñas no coinciden.'
-    };
-    if (passwordErrors.password || passwordErrors.confirm) return;
-    savingPassword = true;
-    const { error } = await supabase.auth.updateUser({ password });
-    savingPassword = false;
-    if (error) {
-      passwordMessage = {
-        tone: 'error',
-        text:
-          error.code === 'same_password'
-            ? 'La contraseña nueva tiene que ser distinta de la actual.'
-            : error.code === 'weak_password'
-              ? 'Esa contraseña es demasiado fácil de adivinar. Prueba con otra.'
-              : error.code === 'reauthentication_needed'
-                ? 'Por seguridad, cámbiala con "Olvidé mi contraseña": te enviamos un enlace a tu correo.'
-                : 'No pudimos cambiar la contraseña. Vuelve a intentarlo.'
-      };
-      return;
-    }
-    password = '';
-    confirmPassword = '';
-    passwordMessage = { tone: 'success', text: 'Tu contraseña cambió.' };
   }
 </script>
 
 <svelte:head>
-  <title>Editar cuenta — Biblioteca Discótica</title>
+  <title>Editar perfil — Biblioteca Discótica</title>
 </svelte:head>
 
-<AccountLayout title="Editar cuenta" help={profile ? `@${profile.username}` : undefined}>
-  {#if arrivalNotice}<Notice tone="success" class="account-notice">{arrivalNotice}</Notice>{/if}
-
+<AccesoPagina contenedor="narrow" alinea="arriba">
+  <h1 class="sr-only">Editar perfil</h1>
   {#if loadError}
-    <Notice tone="error">
-      {loadError}
-      {#snippet actions()}<Button variant="secondary" size="sm" onclick={load}>Reintentar</Button>{/snippet}
-    </Notice>
+    <FormPanel size="wide">
+      <Notice tone="error">
+        {loadError}
+        {#snippet actions()}<Button variant="secondary" size="sm" onclick={load}>Reintentar</Button>{/snippet}
+      </Notice>
+    </FormPanel>
   {:else if !profile}
-    <p class="account-loading" role="status">Cargando tu cuenta…</p>
+    <FormPanel size="wide">
+      <p class="cuenta-carga" role="status">Cargando tu cuenta…</p>
+    </FormPanel>
   {:else}
-    <div class="account-sections">
-      <form class="account-form" bind:this={profileForm} onsubmit={saveProfile} novalidate aria-label="Perfil">
-        <FormSection legend="Perfil">
-          <Field label="Usuario" name="username" value={profile.username} readonly hint="El usuario no se puede cambiar." />
-          <Field
-            label="Nombre para mostrar"
-            name="display_name"
-            autocomplete="name"
-            maxlength={60}
-            optional
-            bind:value={displayName}
-            hint="Si lo dejas vacío, se muestra tu usuario."
-          />
-          <Textarea label="Sobre ti" name="bio" optional maxlength={280} rows={3} bind:value={bio} />
+    <FormPanel as="form" size="wide" class="cuenta-form" onsubmit={save} novalidate aria-label="Editar perfil">
+      <Cenefa nombre={profile.username} {rol} alto={96} velo={false} class="cuenta-cenefa">
+        <div class="cuenta-cenefa__velo" aria-hidden="true"></div>
+        <p class="cuenta-cenefa__nombre">@{profile.username}</p>
+      </Cenefa>
+
+      <Field
+        label="Nombre para mostrar"
+        name="display_name"
+        autocomplete="name"
+        maxlength={60}
+        optional
+        bind:value={displayName}
+        hint="Si lo dejas vacío, se muestra tu usuario."
+      />
+      <Textarea label="Sobre ti" name="bio" optional maxlength={280} rows={3} bind:value={bio} />
+
+      {#if socialAvailable}
+        <FormSection id="redes" legend="Redes" optional description="Aparecen en tu perfil. Deja un campo vacío para quitar esa red.">
+          <SocialFields bind:values={social} errors={socialErrors} />
         </FormSection>
+      {/if}
 
-        {#if socialAvailable}
-          <FormSection
-            id="redes"
-            legend="Redes"
-            optional
-            description="Son voluntarias. Aparecen en tu perfil y ayudan a que otras personas te encuentren y te sigan. Deja un campo vacío para quitar esa red."
-          >
-            <SocialFields bind:values={social} errors={socialErrors} />
-          </FormSection>
-        {/if}
+      {#if message}<Notice tone={message.tone}>{message.text}</Notice>{/if}
 
-        <FormSection legend="Correos de Discótica">
-          <Checkbox name="newsletter" bind:checked={newsletterOptIn}>Quiero recibir novedades de Discótica por correo.</Checkbox>
-        </FormSection>
-
-        {#if profileMessage}<Notice tone={profileMessage.tone}>{profileMessage.text}</Notice>{/if}
-        <Button type="submit" block loading={savingProfile}>Guardar cambios</Button>
-      </form>
-
-      <form class="account-form" onsubmit={changeEmail} novalidate aria-label="Correo">
-        <FormSection legend="Correo">
-          <Field label="Correo actual" name="current-email" value={data.email} readonly />
-          {#if pendingEmail}
-            <p class="account-pending">Cambio pendiente a <strong>{pendingEmail}</strong>. Confírmalo desde el enlace que te enviamos.</p>
-          {/if}
-          <Field label="Correo nuevo" type="email" name="new-email" autocomplete="email" bind:value={newEmail} error={emailError} />
-        </FormSection>
-        {#if emailMessage}<Notice tone={emailMessage.tone}>{emailMessage.text}</Notice>{/if}
-        <Button type="submit" variant="secondary" block loading={savingEmail}>Cambiar correo</Button>
-      </form>
-
-      <form class="account-form" onsubmit={changePassword} novalidate aria-label="Contraseña">
-        <FormSection legend="Contraseña">
-          <PasswordField
-            label="Contraseña nueva"
-            name="new-password"
-            bind:value={password}
-            bind:valid={passwordValid}
-            error={passwordErrors.password}
-          />
-          <PasswordField
-            label="Repite la contraseña"
-            name="new-password-confirm"
-            autocomplete="new-password"
-            showRules={false}
-            bind:value={confirmPassword}
-            error={passwordErrors.confirm}
-          />
-        </FormSection>
-        {#if passwordMessage}<Notice tone={passwordMessage.tone}>{passwordMessage.text}</Notice>{/if}
-        <Button type="submit" variant="secondary" block loading={savingPassword}>Cambiar contraseña</Button>
-      </form>
-    </div>
+      {#snippet actions()}
+        <Button type="submit" size="form" block loading={saving}>Guardar cambios</Button>
+      {/snippet}
+    </FormPanel>
   {/if}
-
-  {#snippet footer()}
-    {#if profile}<a href="/perfil/{profile.username}">Ver mi perfil</a>{/if}
-  {/snippet}
-</AccountLayout>
+</AccesoPagina>
 
 <style>
-  .account-sections {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-8);
-  }
-  .account-form {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-5);
-  }
-  .account-loading {
+  .cuenta-carga {
     margin: 0;
     color: var(--color-texto-medio);
     font-size: var(--text-sm);
   }
-  .account-pending {
-    margin: 0;
-    color: var(--color-texto-medio);
-    font-size: var(--text-sm);
-    line-height: 1.5;
-    overflow-wrap: anywhere;
+
+  /* La cenefa pequeña ocupa el ancho del panel y se redondea como un campo. */
+  :global(.cuenta-cenefa) {
+    border-radius: var(--radius-sm);
   }
-  :global(.account-notice) { margin-bottom: var(--space-6); }
+  .cuenta-cenefa__velo {
+    position: absolute;
+    inset: 0;
+    background: var(--cenefa-menor-velo);
+  }
+  .cuenta-cenefa__nombre {
+    position: absolute;
+    left: var(--space-3);
+    bottom: var(--space-2);
+    max-width: calc(100% - 2 * var(--space-3));
+    margin: 0;
+    overflow: hidden;
+    color: var(--color-texto);
+    font-size: var(--text-cenefa-menor);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: var(--text-cenefa-menor-lh);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 </style>

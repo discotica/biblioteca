@@ -238,6 +238,7 @@ test('E10 conserva edición manual tras fallo, enfoca obligatorios y muestra err
 });
 
 // U14: los aportes propios viven en /mis-aportes (filas compactas), no en el perfil.
+// U31 (tablero N): en tres grupos, con StatusDot y «Editar» en lugar de «Retomar».
 test('E10 Mis aportes lista estados, reanuda borrador/cambios y no filtra datos en perfil ajeno', async ({ page }) => {
   const rows = [
     contribution({ id: ids.draft, status: 'draft', payload: payload('Borrador'), queue_kind: null }),
@@ -249,11 +250,12 @@ test('E10 Mis aportes lista estados, reanuda borrador/cambios y no filtra datos 
   await mockBase(page, 'comunidad', { contributions: rows });
   await page.goto('/mis-aportes');
   await expect(page.getByRole('heading', { level: 1, name: 'Mis aportes' })).toBeVisible();
-  const list = page.getByRole('list', { name: 'Aportes' });
-  for (const status of ['Borrador', 'Pendiente', 'Cambios solicitados', 'Aceptado', 'Rechazado']) await expect(list.locator('.ui-chip__label', { hasText: new RegExp(`^${status}$`) })).toBeVisible();
+  const groups = page.locator('.aportes-grupo h2');
+  await expect(groups).toHaveText(['Por resolver 2', 'En revisión 1', 'Resueltos 2']);
+  for (const status of ['Borrador', 'Pendiente', 'Cambios solicitados', 'Aceptado', 'Rechazado']) await expect(page.locator('main .ui-status__label', { hasText: new RegExp(`^${status}$`) })).toBeVisible();
   await expect(page.getByText('Aclara los créditos.')).toBeVisible();
   await expect(page.getByText('Fuera del alcance.')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Retomar: Borrador' })).toHaveAttribute('href', `/sugerir?draft=${ids.draft}`);
+  await expect(page.getByRole('link', { name: 'Editar: Borrador' })).toHaveAttribute('href', `/sugerir?draft=${ids.draft}`);
   await page.getByRole('link', { name: 'Corregir: Corregir' }).click();
   await expect(page).toHaveURL(new RegExp(`/sugerir\\?draft=${ids.changes}`));
   await expect(page.getByLabel('Título')).toHaveValue('Corregir');
@@ -262,7 +264,7 @@ test('E10 Mis aportes lista estados, reanuda borrador/cambios y no filtra datos 
   await page.route(`https://${project}.supabase.co/rest/v1/profiles**`, (route) => json(route, { id: 'otro-id', username: 'otra', display_name: 'Otra', bio: null, created_at: '2026-01-01T00:00:00Z' }));
   await page.goto('/perfil/otra');
   await expect(page.getByRole('heading', { level: 1, name: 'Otra' })).toBeVisible();
-  await expect(page.locator('.l-page a[href="/mis-aportes"]')).toHaveCount(0);
+  await expect(page.locator('main a[href="/mis-aportes"]')).toHaveCount(0);
   await expect(page.getByText('Aclara los créditos.')).toHaveCount(0);
 });
 
@@ -270,7 +272,7 @@ test('E10 Mis aportes representa vacío y fallo remoto', async ({ page }) => {
   await mockBase(page, 'comunidad', { contributions: [] });
   await page.goto('/mis-aportes');
   await expect(page.getByText('Todavía no has sugerido lanzamientos.')).toBeVisible();
-  await expect(page.locator('.l-page').getByRole('link', { name: 'Sugerir un lanzamiento' }).first()).toHaveAttribute('href', '/sugerir');
+  await expect(page.locator('main').getByRole('link', { name: 'Sugerir un lanzamiento' }).first()).toHaveAttribute('href', '/sugerir');
 
   await page.route(`https://${project}.supabase.co/rest/v1/contributions**`, (route) => json(route, { code: 'PGRST000', message: 'Perfil remoto no disponible' }, 400));
   await page.reload();

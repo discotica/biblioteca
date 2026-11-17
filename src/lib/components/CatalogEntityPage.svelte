@@ -1,12 +1,15 @@
 <script lang="ts">
-  // Página de artista o de sello (U11): migas "Catálogo › Artista|Sello",
-  // cabecera solo con el nombre, sin filtros internos, y la barra de
+  // Página de artista o de sello (U11; U32, tablero G2): migas "Catálogo ›
+  // Artista|Sello" sobre la cenefa de la ficha, el nombre y la columna de datos
+  // calculada de sus lanzamientos; sin filtros internos, y debajo la barra de
   // resultados del inicio (paginación "x de y", contador y orden).
   // La página vive en el componente: la query de esta URL es la búsqueda del
   // catálogo (incluida su `p`), que la miga "Catálogo" devuelve intacta.
   import { tick } from 'svelte';
   import { page } from '$app/stores';
   import PageLayout from '$lib/layouts/PageLayout.svelte';
+  import FichaCabecera from '$lib/components/ficha/FichaCabecera.svelte';
+  import { datosArtista, datosSello, portadaMasReciente } from '$lib/domain/fichaDatos';
   import { catalogCrumb } from '$lib/layouts/crumbs';
   import LanzamientoCard from '$lib/components/LanzamientoCard.svelte';
   import LanzamientoModal from '$lib/components/LanzamientoModal.svelte';
@@ -39,6 +42,8 @@
   let activeRelease: any = null;
 
   $: catalog = catalogCrumb($page.url.search);
+  $: datos = kind === 'Artista' ? datosArtista(releases) : datosSello(releases);
+  $: portada = portadaMasReciente(releases);
 
   $: sorted = (() => {
     const list = [...releases];
@@ -70,10 +75,14 @@
   <title>{name} | Discótica</title>
 </svelte:head>
 
-<PageLayout breadcrumbs={[catalog, { label: kind }]} title={name}>
-  {#if !sorted.length}
+{#if !sorted.length}
+  <PageLayout breadcrumbs={[catalog, { label: kind }]} title={name}>
     <EmptyState message={emptyMessage} actionLabel="Volver al catálogo" actionHref={catalog.href} />
-  {:else}
+  </PageLayout>
+{:else}
+  <FichaCabecera nombre={name} {portada} {datos} breadcrumbs={[catalog, { label: kind }]} />
+
+  <div class="l-container l-container--wide entity">
     <SearchResultsBar
       page={shownPage}
       {totalPages}
@@ -95,8 +104,8 @@
       {#if summary}<p class="entity__summary">{summary}</p>{/if}
       <Pagination page={shownPage} {totalPages} label="Paginación inferior de resultados" onchange={goToPage} />
     </div>
-  {/if}
-</PageLayout>
+  </div>
+{/if}
 
 {#if activeRelease}
   {#key slugFromLanzamiento(activeRelease)}
@@ -105,6 +114,7 @@
 {/if}
 
 <style>
+  .entity { padding-top: var(--space-5); padding-bottom: var(--page-pad-bottom); }
   .entity__grid { scroll-margin-top: var(--spacing-lg); }
   /* Mismo pie que el inicio: contador solo en móvil (en desktop va arriba) y paginación. */
   .entity__bottom { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); margin: var(--spacing-lg) 0 0; }

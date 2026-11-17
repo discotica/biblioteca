@@ -79,6 +79,31 @@
   --color-cat-sello-borde: rgba(251, 191, 36, 0.3);
   --color-cat-lanzamiento-borde: rgba(248, 113, 113, 0.3);
 
+  /* Roles (U26, plan de dirección de arte §2). Solo en huellas y su cenefa:
+     verdes para usuarios y grises para colaboradores salen de la paleta;
+     admin es el único tono propio. Nunca en controles ni superficies grandes. */
+  --color-rol-admin: #682cc6;
+
+  /* Cenefa (U27, §4): velos de lectura sobre la huella. Vertical de 0,66 a
+     0,46 y la zona derecha, detrás de la columna de datos, al 72 %. */
+  --color-velo-cenefa-arriba: rgba(14, 14, 14, 0.66);
+  --color-velo-cenefa-abajo: rgba(14, 14, 14, 0.46);
+  --color-velo-cenefa-zona: rgba(14, 14, 14, 0.72);
+
+  /* Contenedor de formulario (U26, §3): un punto más claro que el fondo y un
+     borde entre --color-linea y --color-linea-fuerte, para apoyarse sobre el
+     campo de puntos sin perderse. */
+  --color-panel-formulario: #121212;
+  --color-linea-formulario: rgba(248, 255, 238, 0.12);
+
+  /* Panel de cuenta (U28, tablero J): borde un punto más visible que el del
+     formulario y velo horizontal de lectura sobre la cenefa, desde el color
+     del panel (--color-panel) hasta transparente. */
+  --color-linea-panel: rgba(248, 255, 238, 0.14);
+  --color-velo-panel: rgba(22, 22, 22, 0.86);
+  --color-velo-panel-medio: rgba(22, 22, 22, 0.5);
+  --color-velo-panel-nada: rgba(22, 22, 22, 0);
+
   /* ---- Tipografía: 9 pasos -------------------------------------------------
      El paso menor (12px) sube los metadatos de la tarjeta de 10.7px a 12px
      (+12 %); con --color-texto-tenue su contraste pasa de ~2.6:1 a ≥ 4.5:1. */
@@ -124,14 +149,16 @@
   --radius-lg: 20px;
   --radius-pill: 999px;
 
-  /* ---- Controles: 32 · 36 · 40 · 44 · 52 -------------------------------------
+  /* ---- Controles: 32 · 36 · 40 · 44 · 48 · 52 --------------------------------
      Padding horizontal mayor que el vertical. Referencia: Comprar (44px,
      1.5rem a los lados, radio sm). 36 es la altura de la densidad compacta
-     (Estudio, U20); ningún control la usa fuera de [data-density='compact']. */
+     (Estudio, U20); ningún control la usa fuera de [data-density='compact'].
+     48 es la acción de un formulario (U26): Button size="form". */
   --control-h-sm: 32px;
   --control-h-compact: 36px;
   --control-h-md: 40px;
   --control-h-lg: 44px;
+  --control-h-form: 48px;
   --control-h-xl: 52px;
   --control-px-sm: var(--space-3);
   --control-px-md: var(--space-4);
@@ -142,14 +169,20 @@
   --target-touch: var(--control-h-lg);
 
   /* ---- Primitivas (U5) --------------------------------------------------------
-     Botón: sm 32 · md 44 (Comprar) · lg 52. Cualquier control más bajo que
-     --target-touch amplía su área táctil hasta 44 sin cambiar su caja visible. */
+     Botón: sm 32 · md 44 (Comprar) · form 48 · lg 52. Cualquier control más
+     bajo que --target-touch amplía su área táctil hasta 44 sin cambiar su caja
+     visible. Peso 600 en todas las variantes (U26; antes 700).
+     form (U26): la acción de un formulario, con el texto y el padding de md;
+     no sigue la densidad. */
   --button-h-sm: var(--control-h-sm);
   --button-h-md: var(--control-h-lg);
+  --button-h-form: var(--control-h-form);
   --button-h-lg: var(--control-h-xl);
   --button-px-sm: var(--control-px-sm);
   --button-px-md: var(--control-px-lg);
+  --button-px-form: var(--control-px-lg);
   --button-px-lg: var(--control-px-xl);
+  --button-font-weight: 600;
   /* Campo: md 44 · lg 52 (el texto de búsqueda del panel) */
   --field-h-md: var(--control-h-lg);
   --field-h-lg: var(--control-h-xl);
@@ -266,11 +299,73 @@
   --tool-pad-panel-y: 1.25rem;            /* 20 · panel (resumen, detalle, barra de acciones), arriba y abajo */
   --tool-pad-panel-x: var(--space-5);     /* 24 · panel, a los lados */
   --tool-pad-section: 1.75rem;            /* 28 · sección del editor, arriba y abajo */
-  /* Header: avatar del menú de cuenta y logo */
+  /* Cabecero de la dirección de arte (U26, §3; U28): opaco, 72 en desktop y 60
+     hasta --breakpoint-mobile, con controles de 40 separados 8 e iconos de 18.
+     El avatar de huella deja 4 a la izquierda y 10 a la derecha del chevron. */
+  --header-h: 72px;
+  --header-h-mobile: 60px;
+  --header-control-h: var(--control-h-md);
+  --header-avatar-pad-start: var(--space-1);
+  --header-avatar-pad-end: 10px;
+  --icon-nav: 18px;
+  /* Panel de cuenta (U28, tablero J): Menu presentation="panel". 320 de ancho,
+     cenefa de 96 y radio 12, entre --radius-sm y --radius-base como en el
+     lienzo. En móvil ocupa la pantalla bajo el cabecero. */
+  --menu-panel-w: 20rem;
+  --menu-panel-radius: 12px;
+  /* Contenedor de formulario (U26, §3; FormPanel). Ancho 480 en las vistas
+     cortas (entrar, recuperar, contraseña nueva, enlace vencido, 404) y 576 en
+     onboarding, Editar perfil, Ajustes, Reportar y Sugerir. Padding 32; 24 por
+     debajo de --breakpoint-mobile y 20 por debajo de --breakpoint-compact.
+     Ritmo: 22 entre bloques de campos y 36 entre los campos y las acciones. */
+  --form-panel-w: 30rem;       /* 480 */
+  --form-panel-w-wide: 36rem;  /* 576 */
+  --form-panel-bg: var(--color-panel-formulario);
+  --form-panel-border: var(--color-linea-formulario);
+  --form-panel-radius: var(--radius-base);
+  --form-panel-pad: var(--space-6);           /* 32 */
+  --form-panel-pad-mobile: var(--space-5);    /* 24 */
+  --form-panel-pad-compact: 1.25rem;          /* 20 */
+  --form-gap-block: 1.375rem;                 /* 22 · entre bloques de campos */
+  --form-gap-actions: 2.25rem;                /* 36 · campos → acciones */
+  /* Acceso y onboarding (U30, tableros E, K y M). Título dentro del panel 28/34
+     y título de Entrar 60/66 (36/40 en móvil). La huella de fondo se revela en
+     0,6 s. Velo de lectura de Entrar: a la izquierda en desktop, arriba en móvil.
+     --acceso-inicio-top: aire sobre el panel del onboarding, alineado a la
+     izquierda del contenedor; en móvil deja a la vista la huella que nace. */
+  --text-titulo-panel: 1.75rem;               /* 28 */
+  --text-titulo-panel-lh: 2.125rem;           /* 34 */
+  --text-acceso: clamp(2.25rem, 4.1667vw, 3.75rem);   /* 36–60px */
+  --text-acceso-lh: 1.1;                      /* 66 / 60 · 40 / 36 */
+  --acceso-revela: 600ms;
+  --acceso-punto-alfa: 0.5;                   /* puntos grises del fondo: textura, no contenido (U34) */
+  --acceso-punto-alfa-color: 0.72;            /* con el color revelado se queda algo más presente */
+  --acceso-alto-min: 32rem;
+  --acceso-pie: 10rem;
+  --acceso-inicio-top: var(--space-7);
+  --acceso-inicio-top-movil: 10rem;
+  --acceso-velo: linear-gradient(90deg, rgba(14, 14, 14, 0.88) 0, rgba(14, 14, 14, 0.82) 58%, rgba(14, 14, 14, 0) 74%);
+  --acceso-velo-movil: linear-gradient(180deg, rgba(14, 14, 14, 0.88) 0, rgba(14, 14, 14, 0.82) 420px, rgba(14, 14, 14, 0) 560px);
+  --acceso-punto-w: 41.25rem;                 /* 660 · columna del texto de Entrar */
+  /* Editar perfil (U33, tablero M): cenefa pequeña de 96 con «@usuario» a 24/28 y
+     un velo a la izquierda para leerlo sobre la huella. */
+  --text-cenefa-menor: 1.5rem;                /* 24 */
+  --text-cenefa-menor-lh: 1.75rem;            /* 28 */
+  --cenefa-menor-velo: linear-gradient(90deg, rgba(22, 22, 22, 0.86), rgba(22, 22, 22, 0.5) 60%, rgba(22, 22, 22, 0));
+  /* Lectura (U33, tablero M): sin campo de puntos, índice de 260 a la izquierda y
+     columna de 720. h1 40/44, h2 22/28 y cuerpo 18/28. */
+  --lectura-toc-w: 16.25rem;                  /* 260 */
+  --lectura-w: 45rem;                         /* 720 */
+  --text-lectura-h1: 2.5rem;                  /* 40 */
+  --text-lectura-h1-lh: 2.75rem;              /* 44 */
+  --text-lectura-h2: 1.375rem;                /* 22 */
+  --text-lectura-h2-lh: 1.75rem;              /* 28 */
+  --text-lectura-cuerpo: 1.125rem;            /* 18 */
+  --text-lectura-cuerpo-lh: 1.75rem;          /* 28 */
+  /* Header: logo (36 en desktop y 30 en móvil, U28) y avatar de iniciales de /lab */
   --avatar-sm: 28px;
-  --header-logo-h: 22px;
-  --header-logo-h-mobile: 20px;
-  --header-pad-block: 0.85rem;
+  --header-logo-h: 36px;
+  --header-logo-h-mobile: 30px;
   /* Alto del header mientras se ve, para lo que es sticky debajo de él. Lo
      publica Header.svelte (0 mientras está oculto). */
   --header-offset: 0px;
@@ -305,17 +400,101 @@
   --switch-h: var(--icon-lg);
   --switch-inset: 3px;
 
-  /* ---- Bienvenida del inicio (U11) -------------------------------------------
-     Bloque editorial: ilustración a la izquierda e información a la derecha,
-     como la ficha. Por debajo de --breakpoint-mobile, la información primero y
-     la ilustración como banda al pie del bloque.
-     --welcome-art-ratio: proporción del hueco de la ilustración en dos columnas.
-     --welcome-art-ratio-narrow: la banda en una columna.
-     El arte se recorta (object-fit: cover) para llenar el hueco. */
-  --welcome-art-ratio: 4 / 3;
-  --welcome-art-ratio-narrow: 5 / 2;
-  --welcome-title-measure: 16ch;
-  --welcome-copy-measure: 46ch;
+  /* ---- Franja de entrada del inicio (U29, tablero D) -------------------------
+     Campo de pulso a todo el ancho, bajo el cabecero. Bienvenida y nota beta
+     comparten un solo hueco (FranjaCabeza): título 102/92 en desktop y 48/46
+     en móvil, texto de 20/28 (16/24) y, en la nota beta, los enlaces de
+     contacto. Sin bienvenida ni nota, la franja se reduce a una banda de
+     --franja-h-reducida con el título (28/32) y el buscador encima.
+     --franja-beta-*: la nota beta usa los mismos tokens de acento que el resto
+     del sitio (el «beta» del cabecero es --color-acento); no tiene color propio. */
+  --franja-h: 460px;
+  --franja-h-reducida: 120px;
+  --franja-pad-top: var(--space-8);
+  --franja-titulo-medida: 56.25rem;           /* 900 */
+  --franja-texto-medida: 40rem;               /* 640 */
+  --text-franja: clamp(3.5rem, 7.0833vw, 6.375rem);   /* 56–102px */
+  --text-franja-lh: 0.902;                    /* 92 / 102 */
+  --text-franja-m: 3rem;                      /* 48 · móvil */
+  --text-franja-m-lh: 2.875rem;               /* 46 */
+  --text-franja-reducida: 1.75rem;            /* 28 */
+  --franja-buscador-w: 560px;
+  --franja-buscador-w-reducida: 420px;
+  --franja-buscador-h: 56px;
+  --franja-buscador-h-reducida: var(--control-h-form);
+
+  /* ---- Perfil y Mis aportes (U31, tableros F, K y N) -------------------------
+     Perfil: cenefa de la huella de 380 (280 en móvil) bajo el cabecero, con el
+     velo horizontal de K (0,82 → 0,5 → 0,1; plano al 55 % en móvil). Título de
+     entidad 88/84 (52 en móvil) a 700. En móvil el título empieza a 190 de la
+     cenefa y lo demás sigue debajo. Botones sobre la cenefa con fondo al 70 %.
+     Colecciones: 4 columnas en desktop (4 × 270 en 1152), 3 en tablet y 2 en
+     móvil; tile con nombre 18/24 (15/20) y dato 14/20 (13/18). Mis aportes va
+     fijado: borde de 2 y pin de 32 (28). Tile «Crea tu primera colección»:
+     24/28 (20/24). Página Mis aportes: cenefa de 240 (180), título 64 (48),
+     cifras 28/32, grupos 22/28 y filas con portada de 64 (56) y radio 6. */
+  --perfil-cenefa-h: 380px;
+  --perfil-cenefa-h-movil: 280px;
+  --perfil-titulo-top-movil: 190px;
+  --perfil-cabeza-pad: 1.375rem;              /* 22 · del texto al borde de la cenefa */
+  --text-entidad: 5.5rem;                     /* 88 */
+  --text-entidad-lh: 5.25rem;                 /* 84 */
+  --text-entidad-m: 3.25rem;                  /* 52 */
+  --text-entidad-m-lh: 3.25rem;
+  --text-perfil-seccion: 1.75rem;             /* 28 */
+  --text-perfil-seccion-lh: 2rem;             /* 32 */
+  --color-velo-perfil: linear-gradient(90deg, rgba(14, 14, 14, 0.82) 0, rgba(14, 14, 14, 0.5) 60%, rgba(14, 14, 14, 0.1) 100%);
+  --color-velo-perfil-movil: rgba(14, 14, 14, 0.55);
+  --color-boton-cenefa: rgba(14, 14, 14, 0.7);
+  --tile-gap-y: 1.75rem;                      /* 28 */
+  --tile-gap-x: var(--space-5);               /* 24 */
+  --tile-borde-fijada: 2px;
+  --tile-pin: 32px;
+  --tile-pin-m: 28px;
+  --text-tile: var(--text-lg);                /* 18 */
+  --text-tile-lh: 1.5rem;                     /* 24 */
+  --text-tile-m: 0.9375rem;                   /* 15 */
+  --text-tile-m-lh: 1.25rem;                  /* 20 */
+  --text-tile-cta: var(--text-2xl);           /* 24 */
+  --text-tile-cta-lh: 1.75rem;                /* 28 */
+  --text-tile-cta-m: var(--text-xl);          /* 20 */
+  --text-tile-cta-m-lh: 1.5rem;               /* 24 */
+  --aportes-cenefa-h: 240px;
+  --aportes-cenefa-h-movil: 180px;
+  --text-aportes: 4rem;                       /* 64 */
+  --text-aportes-m: 3rem;                     /* 48 */
+  --text-cifra: 1.75rem;                      /* 28 */
+  --text-cifra-lh: 2rem;                      /* 32 */
+  --text-aportes-grupo: 1.375rem;             /* 22 */
+  --text-aportes-grupo-lh: 1.75rem;           /* 28 */
+  --aportes-portada: 64px;
+  --aportes-portada-m: 56px;
+  --aportes-portada-radius: 6px;
+  --aportes-col-estado: 210px;
+  --aportes-col-fecha: 170px;              /* «Revisado 29 sept 2026» en una línea */
+  --aportes-col-accion: 150px;
+
+  /* ---- Fichas de colección, artista y sello (U32, tablero G2) ----------------
+     Cenefa troquelada de 400 bajo el cabecero (crece si el contenido no cabe) y
+     180 en móvil, donde título y datos van debajo. Título de entidad como el
+     perfil. Columna de datos de 372 sobre la zona atenuada: filas de 44 a 15/20
+     con línea al 26 %. «N más»: chip de 26, radio 6. Desplegable opaco del ancho
+     de la columna, filas de 38 (44 en móvil) y radio 10; 8 filas y scroll. */
+  --ficha-cenefa-h: 400px;
+  --ficha-cenefa-h-movil: 180px;
+  --ficha-columna-w: 372px;
+  --ficha-dato-h: 44px;
+  --text-ficha-dato: 0.9375rem;               /* 15 */
+  --text-ficha-dato-lh: 1.25rem;              /* 20 */
+  --color-linea-cenefa: rgba(248, 255, 238, 0.26);
+  --color-texto-cenefa: rgba(248, 255, 238, 0.9);
+  --ficha-mas-h: 26px;
+  --ficha-mas-radius: 6px;
+  --ficha-lista-radius: 10px;
+  --ficha-lista-pad: 6px;
+  --ficha-lista-fila: 38px;
+  --ficha-lista-fila-radius: 6px;
+  --ficha-lista-filas: 8;
 
   /* ---- Ficha de lanzamiento (U9) ---------------------------------------------
      decisiones.md, "Ficha (2026-10-07, durante U9)". Dos columnas desde

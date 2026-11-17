@@ -109,13 +109,13 @@
 
   .l-reading--toc {
     display: grid;
-    grid-template-columns: var(--reading-toc-w) minmax(0, var(--measure-reading));
+    grid-template-columns: var(--lectura-toc-w) minmax(0, var(--lectura-w));
     grid-template-areas:
       'crumbs crumbs'
-      '. header'
+      'toc header'
       'toc body';
     column-gap: var(--space-8);
-    justify-content: center;
+    justify-content: start;
   }
   .l-reading--toc :global(.l-reading__crumbs) { grid-area: crumbs; }
   .l-reading--toc .l-reading__header { grid-area: header; }
@@ -133,7 +133,7 @@
     padding-bottom: var(--space-6);
     border-bottom: 1px solid var(--color-linea);
   }
-  .l-reading__heading { min-width: 0; max-width: var(--measure-reading); }
+  .l-reading__heading { min-width: 0; max-width: var(--lectura-w); }
   .l-reading__aside { flex: none; }
 
   .l-reading__eyebrow {
@@ -149,10 +149,10 @@
   .l-reading__title {
     margin: 0;
     color: var(--color-texto);
-    font-size: var(--text-display);
-    font-weight: 800;
-    letter-spacing: -0.025em;
-    line-height: var(--leading-heading);
+    font-size: var(--text-lectura-h1);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: var(--text-lectura-h1-lh);
     text-wrap: balance;
   }
 
@@ -221,10 +221,10 @@
   /* ---- Texto ------------------------------------------------------------- */
   .l-reading__body {
     min-width: 0;
-    max-width: var(--measure-reading);
+    max-width: var(--lectura-w);
     color: var(--color-texto-alto);
-    font-size: var(--text-md);
-    line-height: var(--leading-reading);
+    font-size: var(--text-lectura-cuerpo);
+    line-height: var(--text-lectura-cuerpo-lh);
   }
 
   .l-reading__body :global([id]) { scroll-margin-top: var(--space-6); }
@@ -234,10 +234,10 @@
   .l-reading__body :global(h2) {
     margin: var(--reading-section-gap) 0 var(--space-4);
     color: var(--color-texto);
-    font-size: var(--text-2xl);
-    font-weight: 800;
-    letter-spacing: -0.015em;
-    line-height: var(--leading-heading);
+    font-size: var(--text-lectura-h2);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: var(--text-lectura-h2-lh);
   }
   .l-reading__body > :global(h2:first-child),
   .l-reading__body :global(:is(section, div) > h2:first-child) { margin-top: 0; }

@@ -175,3 +175,18 @@ test('U21 iconos: señales del catálogo y bandeja vacía', () => {
     assert.ok(!ICONS[name].filled, `${name}: trazo, sin relleno`);
   }
 });
+
+// ---- U26: base de la dirección de arte -------------------------------------------
+
+test('U26 iconos: estudio, ajustes y pin, de trazo; menu y flecha-externa se reutilizan', () => {
+  for (const name of ['menu', 'estudio', 'ajustes', 'pin', 'flecha-externa']) {
+    assert.ok(ICON_NAMES.includes(name), name);
+    assert.ok(!ICONS[name].filled, `${name}: trazo, sin relleno`);
+    assert.equal(ICONS[name].viewBox, undefined, `${name}: retícula de 24`);
+  }
+  assert.ok(!ICON_NAMES.includes('externo'), 'externo es flecha-externa: sin duplicado');
+  assert.deepEqual(ICONS['flecha-externa'].paths, ['M7 17 17 7', 'M9 7h8v8']);
+  // Faders: tres trazos verticales partidos por su mando.
+  const verticals = ICONS.estudio.paths.filter((path) => /^M\d+ \d+v\d+$/.test(path));
+  assert.equal(verticals.length, 6);
+});
