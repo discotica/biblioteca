@@ -184,6 +184,18 @@ export function proposalAction(item: ProposalLike, role: InboxRole, userId: stri
 }
 
 /**
+ * Cifra de Propuestas en la barra lateral: lo que la bandeja muestra a este rol
+ * y él puede decidir o preparar. Sale de los grupos, así que lo que no entra en
+ * ninguno (una propuesta antigua sin `queue_kind`) tampoco cuenta.
+ */
+export function proposalInboxCount<T extends ProposalLike>(items: T[], role: InboxRole, userId: string): number {
+  return proposalGroups(items, role, false)
+    .flatMap((group) => group.items)
+    .filter((item) => ['review', 'prepare'].includes(proposalAction(item, role, userId)))
+    .length;
+}
+
+/**
  * Fecha corta de la bandeja (U23): «hoy», «ayer», «hace n días» hasta una semana; después el día
  * y el mes, con el año solo si no es el actual. Por días del calendario de Bogotá.
  */
