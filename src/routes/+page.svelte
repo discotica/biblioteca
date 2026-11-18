@@ -37,7 +37,7 @@
     replaceWithCanonicalQuery, restoreUnderlyingScroll, searchHref as searchHrefFor, startModalSession, takeBootModalEntry
   } from '$lib/ui/homeUrl';
   import { observeMobileSearchChrome } from '$lib/ui/mobileSearchChrome';
-  import { alAsentarseElScroll, animarReduccion, esMovil, medirFranja, movimientoReducido, observarPrimerScroll } from '$lib/ui/franjaReduccion';
+  import { alAsentarseElScroll, animarFranja, esMovil, medirFranja, movimientoReducido, observarScrollFranja } from '$lib/ui/franjaReduccion';
   import { readViewPreference, writeViewPreference } from '$lib/ui/viewPreference';
   import { parseBetaInvitation, removeBetaInvitationParams } from '$lib/domain/betaInvitation';
   import { WELCOME_CONTENT } from '$lib/content/welcome';
@@ -306,7 +306,9 @@
     if (franjaReducida) return true;
     if (!franjaEl || esMovil() || franjaSinTexto) return false;
     const animar = !instantanea && !movimientoReducido();
+    // Si venía expandiéndose, parte de donde está ahora mismo.
     const antes = animar ? medirFranja(refsFranja()) : null;
+    terminarAnimacionFranja();
     const focoEnTexto = franjaEl.contains(document.activeElement);
     // Síncrono de punta a punta: el estado final se vuelca al DOM y la animación
     // arranca en la misma tarea. Con un `await tick()` por medio, un cuadro podía
@@ -315,8 +317,20 @@
     flushSync(() => { franjaReducida = true; });
     // El texto pasa a estar oculto: el foco que tuviera dentro va al campo.
     if (focoEnTexto) desktopSearchInputEl?.focus({ preventScroll: true });
-    if (antes) transicionFranja = animarReduccion(refsFranja(), antes);
+    if (antes) transicionFranja = animarFranja(refsFranja(), antes, 'reducir');
     return true;
+  }
+
+  // De vuelta en el tope: la franja recupera su texto (bienvenida o nota) con
+  // la transición inversa. Como reducir, solo cambia presentación.
+  function expandirFranja() {
+    cancelarReduccionPendiente?.();
+    cancelarReduccionPendiente = null;
+    if (!franjaReducida || !franjaEl || esMovil() || franjaSinTexto) return;
+    const antes = movimientoReducido() ? null : medirFranja(refsFranja());
+    terminarAnimacionFranja();
+    flushSync(() => { franjaReducida = false; });
+    if (antes) transicionFranja = animarFranja(refsFranja(), antes, 'expandir');
   }
 
   function terminarAnimacionFranja() {
@@ -470,11 +484,12 @@
       onViewport: () => {}
     });
     void initialize();
-    const stopFranja = observarPrimerScroll({
+    const stopFranja = observarScrollFranja({
+      alExpandir: expandirFranja,
       alReducir: () => {
-        if (!franjaEl || franjaSinTexto || esMovil()) return false;
+        if (franjaReducida || !franjaEl || franjaSinTexto || esMovil()) return;
         // Con la franja a la vista, reduce ya y con transición.
-        if (franjaEl.getBoundingClientRect().bottom > 0) return reducirFranja();
+        if (franjaEl.getBoundingClientRect().bottom > 0) { reducirFranja(); return; }
         // Entera fuera de la vista no hay nada que animar, y reducir en mitad de
         // un salto de scroll mueve lo que se está pulsando: se espera al reposo.
         cancelarReduccionPendiente ??= alAsentarseElScroll(() => {
@@ -482,7 +497,6 @@
           const caja = franjaEl?.getBoundingClientRect();
           reducirFranja({ instantanea: !caja || caja.bottom <= 0 });
         });
-        return true;
       }
     });
     return () => {
@@ -548,7 +562,7 @@
 <!-- Va después de la barra móvil: en móvil solo muestra la banda de chips. -->
 <HomeSearchBar
   bind:open={mostrarPanelFiltros} {lanzamientos} valores={filtrosSeleccionados} pills={activePills}
-  compacta={franjaSinTexto || franjaReducida} titulo={WELCOME_CONTENT.title}
+  compacta={franjaSinTexto || franjaReducida} titulo={WELCOME_CONTENT.bandTitle}
   bind:radarRef bind:inputEl={desktopSearchInputEl}
   on:remove={(event) => quitarPill(event.detail)}
   on:filtrar={actualizarFiltros} on:filtrarRadar={actualizarRadar} on:reset={reiniciarFiltrosYRadar}

@@ -60,6 +60,10 @@
   /* El campo y el texto comparten la celda: el campo detrás y a toda su altura. */
   .franja > :global(*) { grid-area: 1 / 1; }
   .franja__campo { position: relative; z-index: 0; align-self: stretch; min-height: 0; }
+  /* El lienzo llena el campo sin darle alto: con el dibujo en un worker el
+     elemento conserva su tamaño por defecto (300×150) y, en el flujo, su
+     proporción 2:1 estiraba la franja a medio ancho de pantalla (720 a 1440). */
+  .franja__campo :global(canvas) { position: absolute; inset: 0; }
 
   /* Reducida: la banda no ocupa sitio; el buscador la cubre y la abre su panel
      sin estirar el campo. */

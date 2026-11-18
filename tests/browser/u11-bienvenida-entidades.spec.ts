@@ -55,7 +55,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 
       await page.goto('/');
       const welcome = page.locator('[data-welcome-banner]');
       await expect(welcome).toBeVisible();
-      await expect(welcome.getByRole('heading', { level: 1, name: 'Explora la biblioteca' })).toBeVisible();
+      await expect(welcome.getByRole('heading', { level: 1, name: 'La casa del orgullo sudaca.' })).toBeVisible();
       // Sin ilustración ni botón de acción: el campo de pulso es el arte (U29).
       await expect(welcome.locator('[data-welcome-illustration]')).toHaveCount(0);
       await expect(welcome.getByRole('button', { name: 'Explorar' })).toHaveCount(0);
