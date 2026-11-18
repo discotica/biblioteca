@@ -1,12 +1,13 @@
 // Reducción de la franja de entrada del inicio (U29b, tablero D «Reducida»).
 //
-// Tras el primer scroll hacia abajo la franja grande (bienvenida o nota beta)
-// pasa a la banda de --franja-h-reducida. Este módulo solo LEE el scroll y
-// anima una forma que ya está aplicada en el DOM:
-//  - `observarPrimerScroll` avisa una vez, al pasar el umbral bajando. Nunca
-//    escribe el scroll (ni scrollTo ni scrollBy): ni la URL, ni el historial,
-//    ni la paginación tienen parte aquí.
-//  - `medirFranja` y `animarReduccion` hacen un FLIP con WAAPI. La forma final
+// Al bajar más allá del umbral la franja grande (bienvenida o nota beta) pasa a
+// la banda de --franja-h-reducida; al volver al tope de la página se expande
+// otra vez. Este módulo solo LEE el scroll y anima una forma que ya está
+// aplicada en el DOM:
+//  - `observarScrollFranja` avisa al pasar el umbral bajando y al llegar al
+//    tope. Nunca escribe el scroll (ni scrollTo ni scrollBy): ni la URL, ni el
+//    historial, ni la paginación tienen parte aquí.
+//  - `medirFranja` y `animarFranja` hacen un FLIP con WAAPI. La forma final
 //    (clases y estado) la pone la página y se mide ya aplicada; después se
 //    anima desde la caja anterior hasta ella. Cancelar las animaciones deja el
 //    DOM exactamente en la forma final, sin esperar a nada.
@@ -25,56 +26,59 @@ export const FRANJA_UMBRAL_SCROLL = 48;
 export const esMovil = (): boolean => window.matchMedia(MOBILE_QUERY).matches;
 export const movimientoReducido = (): boolean => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export interface ObservarPrimerScrollOptions {
-  /** Devuelve false si ahora no toca reducir (p. ej. en móvil): el observador sigue armado. */
-  alReducir: (y: number) => boolean | void;
+export interface ObservarScrollFranjaOptions {
+  /** Bajando, pasado el umbral. La página ignora el aviso si ya está reducida. */
+  alReducir: (y: number) => void;
+  /** De vuelta en el tope (scroll 0). La página lo ignora si no está reducida. */
+  alExpandir: () => void;
 }
 
 /**
- * Observa el scroll; avisa una sola vez y se desarma. Devuelve la función que lo suelta.
+ * Observa el scroll mientras la página viva. Devuelve la función que lo suelta.
  * Con un botón del puntero pulsado no avisa: cambiar el layout entre pulsar y
  * soltar mueve el destino del clic (un scroll que acaba de llevar el botón a
  * la vista, y la persona o la prueba que lo pulsa en ese mismo cuadro). Avisa
  * al soltar, ya sin cambios en el layout que importen para ese clic.
  */
-export function observarPrimerScroll({ alReducir }: ObservarPrimerScrollOptions): () => void {
-  let ultimo = window.scrollY;
-  let armado = true;
+export function observarScrollFranja({ alReducir, alExpandir }: ObservarScrollFranjaOptions): () => void {
+  let ultimo = Math.max(0, window.scrollY);
   let pulsado = false;
   let aplazado = false;
   let cuadro = 0;
   const soltar = () => {
-    armado = false;
     window.cancelAnimationFrame(cuadro);
     window.removeEventListener('scroll', alScroll);
     window.removeEventListener('pointerdown', alPulsar, true);
     window.removeEventListener('pointerup', alSoltar, true);
     window.removeEventListener('pointercancel', alSoltar, true);
   };
-  const intentar = (y: number) => {
-    if (alReducir(y) !== false) soltar();
-  };
   function alPulsar() { pulsado = true; }
   function alSoltar() {
     pulsado = false;
-    if (!aplazado || !armado) return;
+    if (!aplazado) return;
     aplazado = false;
-    cuadro = window.requestAnimationFrame(() => { if (armado && window.scrollY >= FRANJA_UMBRAL_SCROLL) intentar(window.scrollY); });
+    cuadro = window.requestAnimationFrame(() => {
+      const y = Math.max(0, window.scrollY);
+      if (y <= 0) alExpandir();
+      else if (y >= FRANJA_UMBRAL_SCROLL) alReducir(y);
+    });
   }
   function alScroll() {
     const y = Math.max(0, window.scrollY);
     const bajando = y > ultimo;
     ultimo = y;
-    if (!armado || !bajando || y < FRANJA_UMBRAL_SCROLL) return;
+    const enTope = y <= 0;
+    if (!enTope && !(bajando && y >= FRANJA_UMBRAL_SCROLL)) return;
     if (pulsado) { aplazado = true; return; }
-    intentar(y);
+    if (enTope) alExpandir();
+    else alReducir(y);
   }
   window.addEventListener('scroll', alScroll, { passive: true });
   window.addEventListener('pointerdown', alPulsar, true);
   window.addEventListener('pointerup', alSoltar, true);
   window.addEventListener('pointercancel', alSoltar, true);
   // Una página que arranca ya desplazada (restaurada) no emite un primer scroll.
-  if (window.scrollY >= FRANJA_UMBRAL_SCROLL) intentar(window.scrollY);
+  if (window.scrollY >= FRANJA_UMBRAL_SCROLL) alReducir(window.scrollY);
   return soltar;
 }
 
@@ -148,7 +152,7 @@ type Cuadro = Record<string, string | number>;
  * aún no ha empezado a aplicarse, y sin ellos un cuadro podría leerse o
  * pintarse con la forma final antes del primer fotograma.
  */
-function animar(el: HTMLElement, cuadros: [Cuadro, Cuadro], opciones: KeyframeAnimationOptions, limpiezas: Array<() => void>): Animation {
+function animar(el: HTMLElement, cuadros: [Cuadro, ...Cuadro[]], opciones: KeyframeAnimationOptions, limpiezas: Array<() => void>): Animation {
   const propiedades = Object.keys(cuadros[0]).filter((nombre) => nombre !== 'offset');
   const estilo = el.style as unknown as Record<string, string>;
   for (const nombre of propiedades) estilo[nombre] = String(cuadros[0][nombre]);
@@ -161,10 +165,16 @@ function animar(el: HTMLElement, cuadros: [Cuadro, Cuadro], opciones: KeyframeAn
 }
 
 /**
- * Anima la reducción hacia la forma final, que ya está aplicada en el DOM.
- * Devuelve la transición para poder terminarla en seco (terminar = forma final).
+ * Anima la reducción (o la expansión de vuelta) hacia la forma final, que ya
+ * está aplicada en el DOM. Devuelve la transición para poder terminarla en
+ * seco (terminar = forma final).
  */
-export function animarReduccion(refs: RefsFranja, antes: MedidasFranja): TransicionFranja {
+export function animarFranja(
+  refs: RefsFranja,
+  antes: MedidasFranja,
+  direccion: 'reducir' | 'expandir' = 'reducir'
+): TransicionFranja {
+  const expandir = direccion === 'expandir';
   const { franja, campo, fila, entrada, grilla } = refs;
   const ritmoBase = ritmo();
   const animaciones: Animation[] = [];
@@ -175,9 +185,15 @@ export function animarReduccion(refs: RefsFranja, antes: MedidasFranja): Transic
   const despuesEntrada = punto(entrada);
   const margenFinal = parseFloat(getComputedStyle(franja).marginBottom) || 0;
 
-  // El lienzo se queda con su alto de partida: lo único que se anima es la caja
-  // que lo recorta. Sin esto el ResizeObserver lo remuestrearía en cada cuadro.
-  if (campo) campo.style.height = `${antes.alto}px`;
+  // El lienzo se queda con el alto mayor de los dos: lo único que se anima es la
+  // caja que lo recorta. Sin esto el ResizeObserver lo remuestrearía en cada
+  // cuadro. Al reducir se queda así (recortado por la banda); al expandir lo
+  // suelta al acabar, para que vuelva a estirarse con el texto.
+  const soltarCampo = () => { if (campo) campo.style.height = ''; };
+  if (campo) {
+    campo.style.height = `${Math.max(antes.alto, despuesAlto)}px`;
+    if (expandir) limpiezas.push(soltarCampo);
+  }
 
   // Posición de la grilla al empezar = la de antes: la altura y el margen
   // inferior de partida absorben lo que el buscador ocupa de más en la banda.
@@ -194,25 +210,33 @@ export function animarReduccion(refs: RefsFranja, antes: MedidasFranja): Transic
       limpiezas
     )
   );
+  if (expandir) {
+    animaciones[0].addEventListener('finish', soltarCampo);
+    animaciones[0].addEventListener('cancel', soltarCampo);
+  }
 
-  // El texto que se va (bienvenida o nota) se desvanece en la primera mitad.
-  // En la forma final está oculto (visibility): se fuerza visible mientras dura
-  // y, al acabar, vuelve a quedar oculto por el CSS.
+  // Al reducir, el texto (bienvenida o nota) se desvanece en la primera mitad:
+  // en la forma final está oculto (visibility), así que se fuerza visible
+  // mientras dura y, al acabar, vuelve a quedar oculto por el CSS. Al expandir
+  // aparece en la segunda mitad, cuando la caja ya le ha hecho sitio.
   for (const hijo of Array.from(franja.children)) {
     if (hijo === campo) continue;
     animaciones.push(
       animar(
         hijo as HTMLElement,
-        [{ opacity: 1, visibility: 'visible' }, { opacity: 0, visibility: 'visible' }],
-        { duration: ritmoBase.duration * 0.5, easing: 'linear' },
+        expandir
+          ? [{ opacity: 0, visibility: 'visible' }, { opacity: 0, visibility: 'visible', offset: 0.5 }, { opacity: 1, visibility: 'visible' }]
+          : [{ opacity: 1, visibility: 'visible' }, { opacity: 0, visibility: 'visible' }],
+        expandir ? { ...ritmoBase, easing: 'linear' } : { duration: ritmoBase.duration * 0.5, easing: 'linear' },
         limpiezas
       )
     );
   }
 
-  // El título de la banda aparece en la fila del buscador mientras el texto se va.
+  // El título de la banda aparece en la fila del buscador mientras el texto se
+  // va. Al expandir ya no está en el DOM: no hay nada que desvanecer.
   const titulo = fila?.querySelector<HTMLElement>('.home-search__titulo');
-  if (titulo) animaciones.push(animar(titulo, [{ opacity: 0 }, { opacity: 1 }], { ...ritmoBase, easing: 'linear' }, limpiezas));
+  if (titulo && !expandir) animaciones.push(animar(titulo, [{ opacity: 0 }, { opacity: 1 }], { ...ritmoBase, easing: 'linear' }, limpiezas));
 
   // La fila del buscador parte donde estaba y el campo conserva su sitio y su
   // ancho hasta encajar en la banda (título a la izquierda, 420).

@@ -10,8 +10,13 @@ export interface BetaInvitation {
 export const BETA_INVITATION_MAX_NAME_LENGTH = 40;
 export const BETA_FEEDBACK_EMAIL = 'hola@discotica.com';
 export const BETA_INVITATION_COPY = {
-  genericTitle: 'Bienvenida a la beta de Discótica',
-  body: 'Estás entrando a una versión en prueba de nuestra biblioteca. Explora el catálogo y cuéntanos si encuentras algo que podamos mejorar.',
+  genericTitle: 'Bienvenidx',
+  /** Un párrafo por entrada. */
+  body: [
+    'Estás entrando a una versión en prueba de la primera y más grande biblioteca de música electrónica latinoamericana. Un espacio para descubrir música de producción 100% sudaca por género, país, año o perfil sonoro.',
+    'Un nuevo espacio para tu digging y escucha libre de algoritmos.',
+    'Regístrate, explora el catálogo, haz aportes (si deseas) y cuéntanos si encuentras algo que podamos mejorar.'
+  ],
   cta: 'Explorar',
   /** Keep null until product approves a real launch date. */
   launchDate: null as string | null

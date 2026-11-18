@@ -23,7 +23,7 @@ test('E20: primera entrada directa muestra un banner no modal; cierre persiste a
 
   const banner = page.locator('[data-welcome-banner]');
   await expect(banner).toBeVisible();
-  await expect(banner).toContainText('Explora la biblioteca');
+  await expect(banner).toContainText('La casa del orgullo sudaca.');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('search').getByRole('combobox', { name: 'Buscar por país, género, artista, sello o álbum' })).toBeVisible();
 

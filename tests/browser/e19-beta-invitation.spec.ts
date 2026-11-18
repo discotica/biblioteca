@@ -37,8 +37,10 @@ test.describe('E19: invitación beta con flag activo', () => {
     await expect(note).toBeVisible();
     // No modal: sin diálogo y con el catálogo a la vista.
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(note.getByRole('heading', { level: 1, name: 'Hola, María.' })).toBeVisible();
-    await expect(note).toContainText('Estás entrando a una versión en prueba de nuestra biblioteca. Explora el catálogo y cuéntanos si encuentras algo que podamos mejorar.');
+    await expect(note.getByRole('heading', { level: 1, name: 'Hola, María' })).toBeVisible();
+    await expect(note).toContainText('Estás entrando a una versión en prueba de la primera y más grande biblioteca de música electrónica latinoamericana.');
+    await expect(note).toContainText('Un nuevo espacio para tu digging y escucha libre de algoritmos.');
+    await expect(note).toContainText('Regístrate, explora el catálogo, haz aportes (si deseas) y cuéntanos si encuentras algo que podamos mejorar.');
     await expect(note.getByRole('link', { name: 'Escribir a hola@discotica.com' })).toHaveAttribute('href', 'mailto:hola@discotica.com');
     await expect(searchField(page)).toBeVisible();
 
@@ -63,7 +65,7 @@ test.describe('E19: invitación beta con flag activo', () => {
 
     // An explicitly opened beta URL remains a valid invitation link.
     await page.goto('/?beta=1&nombre=%E6%9D%8E%E9%9B%B7&pais=Colombia');
-    await expect(invitation(page).getByRole('heading', { level: 1, name: 'Hola, 李雷.' })).toBeVisible();
+    await expect(invitation(page).getByRole('heading', { level: 1, name: 'Hola, 李雷' })).toBeVisible();
     await invitation(page).getByRole('button', { name: 'Cerrar invitación beta' }).click();
     await expect(invitation(page)).toHaveCount(0);
     await expect(page).toHaveURL(/\?pais=Colombia&orden=match$/);
@@ -86,7 +88,7 @@ test.describe('E19: invitación beta con flag activo', () => {
     await stubLegacyCatalog(page);
     await page.goto('/?beta=1');
     const note = invitation(page);
-    await expect(note.getByRole('heading', { level: 1, name: 'Bienvenida a la beta de Discótica' })).toBeVisible();
+    await expect(note.getByRole('heading', { level: 1, name: 'Bienvenidx' })).toBeVisible();
     await expect(note.getByRole('link', { name: 'Iniciar sesión para reportar un problema' })).toHaveAttribute('href', '/auth/login?redirect=%2Freportar');
   });
 
@@ -97,7 +99,7 @@ test.describe('E19: invitación beta con flag activo', () => {
       await stubLegacyCatalog(page);
       await page.goto('/?beta=1&nombre=%F0%9F%98%80&pais=Colombia');
       const note = invitation(page);
-      await expect(note.getByRole('heading', { level: 1, name: 'Hola, 😀.' })).toBeVisible();
+      await expect(note.getByRole('heading', { level: 1, name: 'Hola, 😀' })).toBeVisible();
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       await note.getByRole('button', { name: 'Cerrar invitación beta' }).click();
       await expect(note).toHaveCount(0);

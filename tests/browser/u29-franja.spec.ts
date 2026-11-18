@@ -70,7 +70,7 @@ test.describe('desktop 1440', () => {
     expect(Math.round(franja.height)).toBe(460);
     expect(Math.round(franja.width)).toBe(1440);
 
-    const h1 = welcome.getByRole('heading', { level: 1, name: 'Explora la biblioteca' });
+    const h1 = welcome.getByRole('heading', { level: 1, name: 'La casa del orgullo sudaca.' });
     await expect(h1).toHaveCSS('font-size', '102px');
     await expect(h1).toHaveCSS('line-height', /^92(\.\d+)?px$/);
     await expect(h1).toHaveCSS('font-weight', '700');
@@ -217,7 +217,7 @@ test.describe('beta con flag activo', () => {
     expect(Math.round(franja.x)).toBe(0);
     expect(Math.round(franja.width)).toBe(1440);
     expect(franja.height).toBeGreaterThanOrEqual(460);
-    const h1 = note.getByRole('heading', { level: 1, name: 'Hola, Laura.' });
+    const h1 = note.getByRole('heading', { level: 1, name: 'Hola, Laura' });
     await expect(h1).toHaveCSS('font-size', '102px');
     await expect(page.locator('canvas.ui-campo-pulso')).toHaveCount(1);
     // Bajo la franja, el mismo buscador de 560 × 56.
@@ -245,7 +245,7 @@ test.describe('móvil 390', () => {
     await page.goto('/');
     const welcome = page.locator('[data-welcome-banner]');
     await expect(welcome).toBeVisible();
-    const h1 = welcome.getByRole('heading', { level: 1, name: 'Explora la biblioteca' });
+    const h1 = welcome.getByRole('heading', { level: 1, name: 'La casa del orgullo sudaca.' });
     await expect(h1).toHaveCSS('font-size', '48px');
     await expect(h1).toHaveCSS('line-height', /^46(\.\d+)?px$/);
     await expect(page.locator('.home-search__field')).toBeHidden();

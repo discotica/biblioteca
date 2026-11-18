@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 
-// U29b (tablero D, «Reducida»): tras el primer scroll hacia abajo la franja con
+// U29b (tablero D, «Reducida»): al bajar más allá del umbral la franja con
 // bienvenida o nota beta pasa a la banda de 120 con título 28, campo de 420 y
-// chips. Solo desktop, solo lectura del scroll. Lo que NO cambia: la URL, el
+// chips; al volver al tope se expande otra vez. Solo desktop, solo lectura del scroll. Lo que NO cambia: la URL, el
 // historial, la sesión de la bienvenida y la paginación (U18 H15, E12, E17, E19).
 
 const betaEnabled = process.env.VITE_BETA_INVITATION_ENABLED === 'true';
@@ -103,12 +103,22 @@ test.describe('desktop 1440', () => {
     await expect(page.locator('canvas.ui-campo-pulso')).toHaveCount(1);
     expect(await page.locator('canvas.ui-campo-pulso').evaluate((node) => (node as unknown as { __mismo?: boolean }).__mismo === true)).toBe(true);
 
-    // Volver arriba no la reexpande: se queda reducida para esta visita.
-    await wheel(page, -3000);
+    // Volver al tope la expande otra vez, con el mismo campo y su cierre de vuelta.
+    // Justo lo que hay que subir: con -3000 la inercia del scroll suave sigue
+    // tirando hacia arriba y se mezcla con la rueda siguiente.
+    await wheel(page, -(await scrollY(page)));
     await expect.poll(() => scrollY(page)).toBe(0);
-    expect(await franjaForma(page)).toBe('reducida');
-    expect((await box(page, '.franja')).height).toBe(120);
-    await expect(page.locator('[data-welcome-banner]')).toBeHidden();
+    await expect(page.locator('.franja')).toHaveAttribute('data-franja', 'bienvenida');
+    expect((await box(page, '.franja')).height).toBe(460);
+    await expect(page.locator('[data-welcome-banner]')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Cerrar bienvenida' })).toHaveCount(1);
+    await expect(page.locator('.home-search__titulo')).toHaveCount(0);
+    expect(await page.locator('canvas.ui-campo-pulso').evaluate((node) => (node as unknown as { __mismo?: boolean }).__mismo === true)).toBe(true);
+
+    // Y bajar de nuevo la vuelve a reducir.
+    await wheel(page, 200);
+    await expect(page.locator('.franja')).toHaveAttribute('data-franja', 'reducida');
+    await expect.poll(async () => (await box(page, '.franja')).height).toBe(120);
 
     // La reducción solo leyó el scroll.
     expect((await scrollWrites(page)).length).toBe(escriturasAntes);
@@ -147,6 +157,35 @@ test.describe('desktop 1440', () => {
     expect(await franjaForma(page)).toBe('bienvenida');
     await expect(page.locator('.franja')).toHaveAttribute('data-franja', 'reducida');
     expect(await page.locator('.franja').evaluate((node) => node.getAnimations().length)).toBe(0);
+  });
+
+  test('con movimiento: volver al tope expande sin dejar animaciones ni el lienzo fijado, y vuelve a reducir', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/');
+    await expect(page.locator('.card--grid').first()).toBeVisible();
+    // Con el lienzo dibujando en un worker la franja sigue midiendo 460.
+    expect((await box(page, '.franja')).height).toBe(460);
+    await wheel(page, 200);
+    await expect(page.locator('.franja')).toHaveAttribute('data-franja', 'reducida');
+    await settled(page);
+
+    await wheel(page, -(await scrollY(page)));
+    await expect.poll(() => scrollY(page)).toBe(0);
+    await expect(page.locator('.franja')).toHaveAttribute('data-franja', 'bienvenida');
+    await settled(page);
+    await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(0);
+    expect(await scrollY(page)).toBe(0);
+    expect((await box(page, '.franja')).height).toBe(460);
+    // El lienzo vuelve a estirarse con la franja: sin alto en línea.
+    expect(await page.locator('.franja__campo').evaluate((node) => (node as HTMLElement).style.height)).toBe('');
+    expect((await box(page, '.franja__campo')).height).toBe(460);
+    await expect(page.locator('[data-welcome-banner]')).toBeVisible();
+    await expect(page.locator('[data-welcome-banner]')).toHaveCSS('opacity', '1');
+
+    await wheel(page, 200);
+    await expect(page.locator('.franja')).toHaveAttribute('data-franja', 'reducida');
+    await settled(page);
+    expect((await box(page, '.franja')).height).toBe(120);
   });
 
   test('la URL, el historial y la sesión de la bienvenida no cambian al reducir', async ({ page }) => {
@@ -326,6 +365,8 @@ test.describe('beta con flag activo', () => {
 
     await wheel(page, -3000);
     await expect.poll(() => scrollY(page)).toBe(0);
+    await expect(page.locator('[data-beta-invitation]')).toBeVisible();
+    await expect(page.locator('.franja')).toHaveAttribute('data-franja', 'beta');
     expect(page.url()).toBe(urlBefore);
     expect(page.url()).toContain('beta=1');
     expect(page.url()).toContain('nombre=Laura');

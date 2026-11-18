@@ -7,11 +7,15 @@
 export interface WelcomeContent {
   title: string;
   description: string;
+  /** Título de la banda reducida (tras el primer scroll o sin bienvenida). */
+  bandTitle: string;
   closeLabel: string;
 }
 
 export const WELCOME_CONTENT: WelcomeContent = {
-  title: 'Explora la biblioteca',
-  description: 'Descubre lanzamientos por género, país, año y perfil sonoro.',
+  title: 'La casa del orgullo sudaca.',
+  description:
+    'Bienvenidx a la primera y más grande biblioteca de música electrónica latinoamericana. Descubre lanzamientos por género, país, año o perfil sonoro.',
+  bandTitle: 'Explora la biblioteca',
   closeLabel: 'Cerrar bienvenida'
 };

@@ -4,6 +4,7 @@
   // bienvenida. La lógica no cambia: el nombre entra como texto, nunca como
   // HTML, y cerrar hace que la página quite beta/nombre de la URL.
   import FranjaCabeza from '$lib/components/home/FranjaCabeza.svelte';
+  import Button from '$lib/ui/Button.svelte';
   import { user } from '$lib/stores/authStore';
   import { BETA_FEEDBACK_EMAIL, BETA_INVITATION_COPY } from '$lib/domain/betaInvitation';
 
@@ -19,17 +20,17 @@
 
 <FranjaCabeza
   id="beta-title"
-  titulo={name ? `Hola, ${name}.` : BETA_INVITATION_COPY.genericTitle}
+  titulo={name ? `Hola, ${name}` : BETA_INVITATION_COPY.genericTitle}
   texto={BETA_INVITATION_COPY.body}
   closeLabel="Cerrar invitación beta"
   {onclose}
   data-beta-invitation
 >
   {#if BETA_INVITATION_COPY.launchDate}<p>{BETA_INVITATION_COPY.launchDate}</p>{/if}
-  <a href={`mailto:${BETA_FEEDBACK_EMAIL}`}>Escribir a {BETA_FEEDBACK_EMAIL}</a>
+  <Button variant="accent" href={`mailto:${BETA_FEEDBACK_EMAIL}`}>Escribir a {BETA_FEEDBACK_EMAIL}</Button>
   {#if $user}
-    <a href="/reportar">Reportar un problema</a>
+    <Button variant="secondary" href="/reportar">Reportar un problema</Button>
   {:else}
-    <a href={reportLoginHref}>Iniciar sesión para reportar un problema</a>
+    <Button variant="secondary" href={reportLoginHref}>Iniciar sesión para reportar un problema</Button>
   {/if}
 </FranjaCabeza>
