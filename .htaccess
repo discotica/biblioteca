@@ -15,6 +15,12 @@ RewriteRule ^crate/([^/]+)/?$ /coleccion/$1 [R=301,L]
 RewriteRule ^admin/catalogo/?$ /estudio/catalogo [R=301,L]
 RewriteRule ^editorial/?$ /estudio/propuestas [R=301,L]
 
+# Vista previa de enlaces (2026-11-17): las fichas que se comparten pasan por
+# vista-previa.php, que devuelve index.html con sus etiquetas Open Graph para
+# WhatsApp y compañía. Si el script falla, devuelve index.html tal cual.
+RewriteRule ^vista-previa\.config\.php$ - [F,L]
+RewriteRule ^(lanzamiento|coleccion)/[^/]+/?$ /vista-previa.php [L]
+
 RewriteRule ^index\.html$ - [L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
