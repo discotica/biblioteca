@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
+  import { afterNavigate, goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { MOBILE_QUERY } from '$lib/ui/breakpoints';
   import Button from '$lib/ui/Button.svelte';
@@ -23,8 +23,18 @@
   $: mode = headerModeFor($page.url.pathname, ($page.data as { header?: unknown } | undefined)?.header);
 
   let panelOpen = false;
-  let headerVisible = true;
   let headerHeight = 0;
+  // Visibilidad del cabecero (2026-11-17). El desplazamiento solo decide si se
+  // oculta (scrollHidden); otras señales lo traen de vuelta sin tocar ese estado:
+  //  · peek: en escritorio, el puntero llega al borde superior o sigue encima.
+  //  · focusInside: el foco de teclado entra en la barra.
+  //  · panelOpen: el panel de cuenta está abierto.
+  // Y scrollHidden vuelve a false al navegar y cuando el documento deja de tener
+  // desplazamiento: oculto sin scroll no había forma de recuperarlo.
+  let scrollHidden = false;
+  let peek = false;
+  let focusInside = false;
+  $: headerVisible = !scrollHidden || peek || focusInside || panelOpen;
   // El header es sticky (U16 en el Estudio, U18 en todo el sitio) y tapa lo que
   // también lo es. Publica cuánto ocupa mientras se ve para que el índice del
   // manual y del editor, el selector y la barra lateral se coloquen debajo
@@ -33,7 +43,9 @@
   // el header vuelve en escritorio y tapa los primeros píxeles; en móvil solo
   // vuelve al inicio del documento (--header-reserve, scroll-padding de styles.css).
   $: if (typeof document !== 'undefined') {
-    document.documentElement.style.setProperty('--header-offset', `${headerVisible ? headerHeight : 0}px`);
+    // Solo el estado del desplazamiento mueve lo que es sticky: el asomo (peek,
+    // foco) se superpone sin correr el contenido bajo el puntero.
+    document.documentElement.style.setProperty('--header-offset', `${scrollHidden ? 0 : headerHeight}px`);
     document.documentElement.style.setProperty('--header-reserve', `${menuMovil ? 0 : headerHeight}px`);
   }
   let lastScroll = 0;
@@ -134,6 +146,18 @@
     return panelOpen || hasFocusedField() || keyboardViewport;
   }
 
+  // Franja del borde superior que hace asomar el cabecero en escritorio. Fina a
+  // propósito: con el cabecero oculto, lo sticky (barras del Estudio, índice del
+  // manual) sube a top 0 y una zona del alto de la barra lo taparía al usarlo.
+  const PEEK_EDGE = 12;
+  const PEEK_RELEASE_MS = 300;
+  let peekTimer: ReturnType<typeof setTimeout> | undefined;
+  function releasePeek() {
+    clearTimeout(peekTimer);
+    peekTimer = undefined;
+    peek = false;
+  }
+
   async function cerrarSesion() {
     panelOpen = false;
     await supabase.auth.signOut();
@@ -148,6 +172,10 @@
     lastScroll = window.scrollY;
 
     const resetBaseline = () => { lastScroll = window.scrollY; };
+    // Sin desplazamiento posible no hay gesto que lo devuelva: se muestra.
+    const ensureRecoverable = () => {
+      if (document.documentElement.scrollHeight - window.innerHeight <= 0) scrollHidden = false;
+    };
     const onScroll = () => {
       const y = window.scrollY;
       if (freezeScrollDetection()) {
@@ -158,34 +186,62 @@
       if (!mobileQuery.matches) {
         // Desktop retains the established direction-based behaviour, with a
         // threshold that prevents trackpad noise from flickering the bar.
-        if (Math.abs(y - lastScroll) >= 8) headerVisible = y < lastScroll || y < 10;
+        if (Math.abs(y - lastScroll) >= 8) scrollHidden = !(y < lastScroll || y < 10);
       } else if (y <= 0) {
         // Mobile only returns the global header at the document start.
-        headerVisible = true;
+        scrollHidden = false;
       } else if (y - lastScroll >= 8) {
-        headerVisible = false;
+        scrollHidden = true;
       }
       lastScroll = y;
     };
     const onViewportResize = () => {
       const nextHeight = visualViewport?.height ?? window.innerHeight;
       // Browser chrome is a small change; a larger reduction is the virtual
-      // keyboard, during which transforms would make the header jump.
-      keyboardViewport = Math.abs(nextHeight - viewportHeight) >= 120;
+      // keyboard, during which transforms would make the header jump. Solo hay
+      // teclado en móvil y con un campo activo: en escritorio, el zoom de
+      // trackpad o redimensionar la ventana dejaban la detección congelada.
+      keyboardViewport = mobileQuery.matches && hasFocusedField() && Math.abs(nextHeight - viewportHeight) >= 120;
       if (!keyboardViewport) viewportHeight = nextHeight;
       resetBaseline();
+      ensureRecoverable();
     };
-    const onFocusChange = () => window.setTimeout(resetBaseline, 0);
+    const onFocusChange = () => window.setTimeout(() => {
+      if (!hasFocusedField()) keyboardViewport = false;
+      resetBaseline();
+    }, 0);
     const onBreakpointChange = () => {
       menuMovil = mobileQuery.matches;
       panelOpen = false;
-      headerVisible = true;
+      scrollHidden = false;
+      releasePeek();
       resetBaseline();
+    };
+    // Asomo en escritorio: el puntero en el borde superior lo trae; mientras
+    // siga sobre la barra se queda; al salir se va tras una pausa breve.
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerType !== 'mouse' || mobileQuery.matches) return;
+      if (!scrollHidden) {
+        if (peek) releasePeek();
+        return;
+      }
+      if (event.clientY <= PEEK_EDGE || (peek && event.clientY <= headerHeight)) {
+        clearTimeout(peekTimer);
+        peekTimer = undefined;
+        peek = true;
+      } else if (peek && !peekTimer) {
+        peekTimer = setTimeout(releasePeek, PEEK_RELEASE_MS);
+      }
     };
 
     fit = new ResizeObserver(() => encaja());
+    // El contenido cambia de alto sin desplazarse (carga, filtros, otra vista).
+    const docSize = new ResizeObserver(() => ensureRecoverable());
+    docSize.observe(document.body);
 
     window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', ensureRecoverable);
+    document.addEventListener('pointermove', onPointerMove, { passive: true });
     document.addEventListener('focusin', onFocusChange);
     document.addEventListener('focusout', onFocusChange);
     visualViewport?.addEventListener('resize', onViewportResize);
@@ -193,16 +249,43 @@
     return () => {
       fit?.disconnect();
       fit = undefined;
+      docSize.disconnect();
+      clearTimeout(peekTimer);
       window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', ensureRecoverable);
+      document.removeEventListener('pointermove', onPointerMove);
       document.removeEventListener('focusin', onFocusChange);
       document.removeEventListener('focusout', onFocusChange);
       visualViewport?.removeEventListener('resize', onViewportResize);
       mobileQuery.removeEventListener('change', onBreakpointChange);
     };
   });
+
+  // Cada página empieza con el cabecero a la vista, venga de donde venga.
+  afterNavigate(() => {
+    scrollHidden = false;
+    releasePeek();
+    lastScroll = window.scrollY;
+  });
+
+  // Tabular hasta la barra oculta la trae (focusin/focusout burbujean).
+  function onHeaderFocusIn() { focusInside = true; }
+  function onHeaderFocusOut(event: FocusEvent) {
+    const next = event.relatedTarget;
+    focusInside = next instanceof Node && event.currentTarget instanceof Node && event.currentTarget.contains(next);
+  }
 </script>
 
-<header class="site-header" class:oculto={!headerVisible} data-header-visible={headerVisible} data-header-mode={mode} bind:offsetHeight={headerHeight}>
+<header
+  class="site-header"
+  class:oculto={!headerVisible}
+  data-header-visible={headerVisible}
+  data-header-peek={peek}
+  data-header-mode={mode}
+  bind:offsetHeight={headerHeight}
+  on:focusin={onHeaderFocusIn}
+  on:focusout={onHeaderFocusOut}
+>
   <div class="l-container l-container--wide inner" class:inner--crowded={Boolean(studioLink) && mode !== 'minimo'} bind:this={innerEl}>
     <a class="logo" href="/" aria-label="Discótica inicio" bind:this={logoEl}>
       <img src="/img/logo.svg" alt="Discótica" />

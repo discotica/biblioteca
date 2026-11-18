@@ -20,7 +20,7 @@
     "test:anchos": "VISUAL_SPEC=anchos-zoom.spec.ts playwright test -c tests/visual/playwright.config.ts --reporter=list",
     "verify:media": "node scripts/verify-release-media.mjs",
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/vista-previa-config.mjs",
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''"
   },
