@@ -179,6 +179,15 @@ export function animarFranja(
   const ritmoBase = ritmo();
   const animaciones: Animation[] = [];
   const limpiezas: Array<() => void> = [];
+  // La transición CSS de max-width del campo arrancaría con el cambio de clase
+  // y la medida de abajo leería su valor de partida (420 al expandir): la
+  // animación acabaría ahí y el campo saltaría a 560 al terminar. La anima el
+  // FLIP; la transición queda fuera mientras dura.
+  const soltarTransicion = () => { if (entrada) entrada.style.transition = ''; };
+  if (entrada) {
+    entrada.style.transition = 'none';
+    limpiezas.push(soltarTransicion);
+  }
   const despuesAlto = franja.getBoundingClientRect().height;
   const despuesGrilla = punto(grilla);
   const despuesFila = punto(fila);
@@ -203,13 +212,17 @@ export function animarFranja(
     animar(
       franja,
       [
-        { height: `${antes.alto}px`, marginBottom: `${margenInicial}px` },
-        { height: `${despuesAlto}px`, marginBottom: `${margenFinal}px` }
+        // min-height acompaña a height: la forma con texto tiene un mínimo de
+        // --franja-h que, si no, fijaba el alto final desde el primer cuadro al
+        // expandir (la franja saltaba entera y empujaba buscador y grilla).
+        { height: `${antes.alto}px`, minHeight: `${antes.alto}px`, marginBottom: `${margenInicial}px` },
+        { height: `${despuesAlto}px`, minHeight: `${despuesAlto}px`, marginBottom: `${margenFinal}px` }
       ],
       ritmoBase,
       limpiezas
     )
   );
+  animaciones[0].addEventListener('finish', soltarTransicion);
   if (expandir) {
     animaciones[0].addEventListener('finish', soltarCampo);
     animaciones[0].addEventListener('cancel', soltarCampo);

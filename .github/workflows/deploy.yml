@@ -22,6 +22,7 @@ jobs:
       VITE_EDITORIAL_ENABLED: ${{ vars.VITE_EDITORIAL_ENABLED || 'false' }}
       VITE_ADMIN_CATALOG_ENABLED: ${{ vars.VITE_ADMIN_CATALOG_ENABLED || 'false' }}
       VITE_BETA_INVITATION_ENABLED: ${{ vars.VITE_BETA_INVITATION_ENABLED || 'false' }}
+      VITE_GA_MEASUREMENT_ID: ${{ vars.VITE_GA_MEASUREMENT_ID || '' }}
       # Versión del build en los reportes de problemas (E18); no es un flag.
       VITE_APP_VERSION: ${{ github.sha }}
 

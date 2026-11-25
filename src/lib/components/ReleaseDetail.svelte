@@ -9,7 +9,7 @@
   import CompartirLanzamiento from './lanzamiento/CompartirLanzamiento.svelte';
   import { filterHref, isModifiedClick } from './lanzamiento/lanzamiento';
   import type { Release } from '$lib/domain/releases';
-  import { formatReleaseDateEsCo } from '$lib/domain/releaseDetail';
+  import { formatReleaseDateEsCo, releasePlayerConfig } from '$lib/domain/releaseDetail';
   import Button from '$lib/ui/Button.svelte';
   import Chip from '$lib/ui/Chip.svelte';
   import Cover from '$lib/ui/Cover.svelte';
@@ -44,6 +44,9 @@
   $: date = formatReleaseDateEsCo(release.releaseDate);
   $: hasRadar = Object.values(release.radar).some((value) => value > 0);
   $: actionSize = (wide ? 'md' : 'sm') as 'md' | 'sm';
+  // Escuchar lleva la marca de la plataforma que reproduce (la misma detección
+  // que el reproductor); con un enlace de otra fuente, los auriculares.
+  $: listenIcon = releasePlayerConfig(release)?.provider ?? 'escuchar';
   $: search = $page.url.search;
   $: reportHref = `/reportar${release.id ? `?release_id=${encodeURIComponent(release.id)}` : ''}`;
 
@@ -179,18 +182,19 @@
       </section>
     </div>
 
-    <!-- Una sola línea (I1): Comprar y Añadir a colección con texto e icono;
+    <!-- Una sola línea (I1): Añadir a colección (la acción principal) y
+         Escuchar (abre la fuente, con el ícono de su plataforma) con texto e icono;
          Compartir y Reportar como IconButton. Fila propia al pie de la ficha,
          fuera de la región con scroll: nunca se dibuja sobre el reproductor. -->
     <div class="release-detail__dock">
       <div class="release-detail__actions" role="group" aria-label="Acciones del lanzamiento" data-release-actions>
+        <AddToCrateButton releaseId={release.id ?? undefined} lanzamientoSlug={release.slug} menuPortalTarget={menuLayer} size={actionSize} variant="primary" />
+
         {#if release.buyLink}
-          <Button href={release.buyLink} target="_blank" rel="noopener noreferrer" icon="comprar" size={actionSize} class="release-detail__buy">
-            Comprar<span class="sr-only">, se abre en otra pestaña</span>
+          <Button href={release.buyLink} target="_blank" rel="noopener noreferrer" variant="secondary" icon={listenIcon} size={actionSize} class="release-detail__listen">
+            Escuchar<span class="sr-only">, se abre en otra pestaña</span>
           </Button>
         {/if}
-
-        <AddToCrateButton releaseId={release.id ?? undefined} lanzamientoSlug={release.slug} menuPortalTarget={menuLayer} size={actionSize} />
 
         <span class="release-detail__secondary">
           <CompartirLanzamiento slug={release.slug} size={actionSize} quiet={false} />
@@ -351,7 +355,7 @@
     margin-inline-start: auto;
   }
 
-  .release-detail__actions :global(.release-detail__buy) { flex: none; }
+  .release-detail__actions :global(.release-detail__listen) { flex: none; }
 
   /* ---- Una columna (hasta 767) ------------------------------------------- */
 

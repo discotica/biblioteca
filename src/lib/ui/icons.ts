@@ -34,8 +34,11 @@ export const ICONS = {
     ]
   },
   reportar: { paths: ['M5 21V4', 'M5 4h13l-3 5 3 5H5'] },
-  // Bolsa: Comprar en la ficha (U9).
+  // Bolsa: Comprar en la ficha (U9). Sin uso desde que la ficha dice Escuchar.
   comprar: { paths: ['M5 8h14l-1.2 12H6.2Z', 'M9 10V7a3 3 0 0 1 6 0v3'] },
+  // Auriculares: Escuchar en la ficha cuando la fuente no es Bandcamp,
+  // SoundCloud ni Spotify (esas llevan su marca).
+  escuchar: { paths: ['M4 15v-3a8 8 0 0 1 16 0v3', 'M4 15h3v5H5.5A1.5 1.5 0 0 1 4 18.5Z', 'M20 15h-3v5h1.5a1.5 1.5 0 0 0 1.5-1.5Z'] },
   menu: { paths: ['M4 7h16', 'M4 12h16', 'M4 17h16'] },
   cerrar: { paths: ['M6 6l12 12', 'M18 6 6 18'] },
   agregar: { paths: ['M12 5v14', 'M5 12h14'] },

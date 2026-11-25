@@ -109,7 +109,7 @@ add('home-pagination-D', 'D', '/', { selector: '.resultados__paginacion-inferior
 add('home-sheet-M', 'M', '/', { setup: openSheet });
 // U10: modo lista (el selector está en la barra en desktop y junto a «Buscar» en móvil) y carga en móvil.
 add('home-list-D', 'D', '/', { supplementary: true, setup: async (page) => { await page.click('.results-bar .ui-view-toggle [aria-label="Lista"]'); await page.waitForSelector('.resultados__grid .fila'); await settle(page); } });
-add('home-list-M', 'M', '/', { supplementary: true, setup: async (page) => { await page.click('.mobile-search-row [aria-label="Lista"]'); await page.waitForSelector('.resultados__grid .fila'); await settle(page); } });
+add('home-list-M', 'M', '/', { supplementary: true, setup: async (page) => { await page.click('.mobile-search-row [aria-label="Ver como lista"]'); await page.waitForSelector('.resultados__grid .fila'); await settle(page); } });
 add('home-loading-M', 'M', '/', { supplementary: true, loading: true, ready: '.loader', mock: holdCatalog });
 add('home-sheet-radar-M', 'M', '/', {
   setup: async (page) => {
@@ -353,7 +353,8 @@ add('perfil-colab-M', 'M', '/perfil/colaboradora', { role: 'colaborador', ready:
 // U14: mis aportes, perfil visto por otra persona, colección en lista, de visitante y acciones.
 const CRATE_URL = '/coleccion/para-abrir-el-set?usuario=comunidad';
 const listView = async (page: Page) => {
-  await page.getByRole('button', { name: 'Lista', exact: true }).click();
+  // Desktop: el par Grilla / Lista; móvil: el botón que alterna.
+  await page.getByRole('button', { name: /^(Lista|Ver como lista)$/ }).click();
   await page.mouse.move(0, 0);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await settle(page);
