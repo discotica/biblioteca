@@ -251,16 +251,28 @@ test.describe('desktop', () => {
 
   test('U10b: al abrir, el panel se despliega con --ease-expressive y las chips viajan con el campo en vez de saltar', async ({ page }) => {
     await ready(page, '/?pais=Colombia&genero=Techno');
+    // FLIP: cada chip tiene una animación de transform con la duración y la curva
+    // del campo. Dura 140 ms: se lee en el mismo cuadro en que la lista cambia de
+    // alineación (el observador corre tras el flush de Svelte, con las animaciones
+    // ya creadas). Leerla después del clic llegaba tarde bajo la carga de la CI.
+    await page.locator('.home-search .pills').evaluate((list) => {
+      const registro = window as unknown as { __chipAnimations?: unknown };
+      const observer = new MutationObserver(() => {
+        if (list.classList.contains('pills--end')) return;
+        observer.disconnect();
+        registro.__chipAnimations = Array.from(list.querySelectorAll(':scope > li'), (item) => {
+          const animation = item.getAnimations()[0];
+          const timing = animation?.effect?.getTiming();
+          return animation ? { duration: timing?.duration, easing: timing?.easing } : null;
+        });
+      });
+      observer.observe(list, { attributes: true, attributeFilter: ['class'] });
+    });
     await searchInput(page).click();
     const easing = 'cubic-bezier(0.16, 1, 0.3, 1)';
     await expect(filterPanel(page)).toHaveCSS('animation-timing-function', easing);
     await expect(filterPanel(page)).toHaveCSS('animation-duration', '0.2s');
-    // FLIP: cada chip tiene una animación de transform con la duración y la curva del campo.
-    const chipAnimations = await page.locator('.home-search .pills > li').evaluateAll((items) => items.map((item) => {
-      const animation = item.getAnimations()[0];
-      const timing = animation?.effect?.getTiming();
-      return animation ? { duration: timing?.duration, easing: timing?.easing } : null;
-    }));
+    const chipAnimations = await (await page.waitForFunction(() => (window as unknown as { __chipAnimations?: unknown }).__chipAnimations)).jsonValue();
     expect(chipAnimations).toEqual([{ duration: 140, easing }, { duration: 140, easing }]);
     await panelSettled(page);
     await page.getByRole('button', { name: 'Cerrar búsqueda' }).click();

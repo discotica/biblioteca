@@ -39,3 +39,13 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
+      # Solo si algo falló: trazas y contexto de las pruebas de navegador. Los
+      # datos son los simulados de las pruebas; el repo es público y el
+      # artefacto también.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-test-results
+          path: test-results/
+          retention-days: 14
+          if-no-files-found: ignore
