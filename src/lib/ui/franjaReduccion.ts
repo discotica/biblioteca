@@ -58,12 +58,18 @@ export function observarScrollFranja({ alReducir, alExpandir }: ObservarScrollFr
     if (!aplazado) return;
     aplazado = false;
     cuadro = window.requestAnimationFrame(() => {
+      if (document.body.style.position === 'fixed') return;
       const y = Math.max(0, window.scrollY);
       if (y <= 0) alExpandir();
       else if (y >= FRANJA_UMBRAL_SCROLL) alReducir(y);
     });
   }
   function alScroll() {
+    // Con una capa modal abierta el fondo está bloqueado (overlay.ts fija el
+    // body y el scroll del documento pasa a 0): ese 0 no es «volver al tope».
+    // Expandir ahí cambiaba el alto bajo el modal y, al cerrarlo, la posición
+    // restaurada ya no caía en el mismo sitio.
+    if (document.body.style.position === 'fixed') return;
     const y = Math.max(0, window.scrollY);
     const bajando = y > ultimo;
     ultimo = y;
