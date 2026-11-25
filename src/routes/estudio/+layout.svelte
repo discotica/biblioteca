@@ -18,6 +18,7 @@
     type StudioRole,
     type StudioSectionId
   } from '$lib/domain/studio';
+  import { proposalInboxCount } from '$lib/domain/studioInbox';
 
   let { children }: { children: Snippet } = $props();
 
@@ -88,10 +89,7 @@
       loadEditorialQueue()
         .then((queue) => {
           if (!Array.isArray(queue)) return (proposalCount = undefined);
-          // Lo que cada rol puede decidir o preparar, como en la estación de E10.
-          proposalCount = role === 'admin'
-            ? queue.length
-            : queue.filter((item) => item.queue_kind === 'community' && item.status === 'pending' && item.author_id !== userId).length;
+          proposalCount = proposalInboxCount(queue, role as StudioRole, userId);
         })
         .catch(() => (proposalCount = undefined));
     }
