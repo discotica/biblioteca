@@ -62,7 +62,7 @@ test('Privacidad: el índice lleva a cada sección y marca la actual', async ({ 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/privacidad');
   const toc = page.getByRole('navigation', { name: 'Contenido' }).locator('visible=true');
-  await expect(toc.getByRole('link')).toHaveCount(7);
+  await expect(toc.getByRole('link')).toHaveCount(8);
   await toc.getByRole('link', { name: 'Tus derechos' }).click();
   await expect(page).toHaveURL(/#derechos$/);
   await expect(toc.getByRole('link', { name: 'Tus derechos' })).toHaveAttribute('aria-current', 'location');

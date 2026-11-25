@@ -16,6 +16,8 @@
   export let menuPortalTarget: HTMLElement | undefined;
   /** Talla del disparador: md en la ficha de escritorio, sm en la barra de una columna. */
   export let size: 'sm' | 'md' = 'md';
+  /** primary en la ficha, donde es la acción principal. */
+  export let variant: 'primary' | 'secondary' = 'secondary';
 
   let abierto = false;
   let lanzamientosEnCrates: Map<string, Set<string>> = new Map();
@@ -105,7 +107,7 @@
 
 <div class="add-crate-wrap">
   <Button
-    variant="secondary"
+    {variant}
     {size}
     icon="agregar"
     class="btn-add-crate"

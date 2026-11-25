@@ -149,7 +149,7 @@ for (const viewport of viewports) {
           // El reproductor conserva su alto (R1).
           expect(Math.round((await player.boundingBox())?.height ?? 0), `${tag}: alto del reproductor`).toBe(item.height);
 
-          // Acciones en una sola línea: Comprar, Añadir a colección, Compartir, Reportar.
+          // Acciones en una sola línea: Añadir a colección, Escuchar, Compartir, Reportar.
           const actions = detail.locator('[data-release-actions]');
           const controls = actions.locator(':scope > :is(a, span, div)');
           await expect(controls).toHaveCount(3);

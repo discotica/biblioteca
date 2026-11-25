@@ -131,7 +131,7 @@ async function detailContract(page: Page) {
     date: await detail.locator('.release-detail__metadata').getByText(/agosto de 2026/i).textContent(),
     credits: (await credits.innerText()).replace(/\s+/g, ' ').trim(),
     artistHref: await credits.getByRole('link', { name: 'Artista Principal' }).getAttribute('href'),
-    // U9: nombre accesible de cada acción (Comprar es enlace; Compartir y Reportar, IconButton).
+    // U9: nombre accesible de cada acción (Escuchar es enlace; Compartir y Reportar, IconButton).
     actions: await detail.locator('[data-release-actions]').locator('a, button').evaluateAll((nodes) =>
       nodes.map((node) => node.getAttribute('aria-label') ?? node.textContent?.replace(/\s+/g, ' ').trim())
     )
@@ -159,7 +159,7 @@ test('E16: ruta y modal renderizan el mismo contrato editorial y el alias conser
   expect(modalContract.credits).not.toMatch(/y \d+ más/);
   expect(modalContract.artistHref).toBe('/artista/artista-principal');
   expect(modalContract.actions).toEqual([
-    'Comprar, se abre en otra pestaña', 'Añadir a colección', 'Copiar enlace', 'Reportar un problema'
+    'Añadir a colección', 'Escuchar, se abre en otra pestaña', 'Copiar enlace', 'Reportar un problema'
   ]);
 
   await dialog.getByRole('button', { name: 'Copiar enlace' }).click();

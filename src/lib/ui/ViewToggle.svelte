@@ -37,9 +37,20 @@
   }
 </script>
 
+<!-- Desktop: el par Grilla / Lista con el activo marcado. Móvil (≤768): un
+     solo botón que alterna; su ícono y su nombre dicen a qué vista lleva, así
+     no hay dos íconos casi iguales que leer a 360 px. -->
 <div class="ui-view-toggle ui-view-toggle--{size} {className}" role="group" aria-label={label}>
-  <IconButton icon="grilla" label="Grilla" {size} pressed={value === 'grid'} onclick={() => select('grid')} />
-  <IconButton icon="lista" label="Lista" {size} pressed={value === 'list'} tooltipAlign="end" onclick={() => select('list')} />
+  <IconButton class="ui-view-toggle__par" icon="grilla" label="Grilla" {size} pressed={value === 'grid'} onclick={() => select('grid')} />
+  <IconButton class="ui-view-toggle__par" icon="lista" label="Lista" {size} pressed={value === 'list'} tooltipAlign="end" onclick={() => select('list')} />
+  <IconButton
+    class="ui-view-toggle__alterna"
+    icon={value === 'grid' ? 'lista' : 'grilla'}
+    label={value === 'grid' ? 'Ver como lista' : 'Ver como grilla'}
+    {size}
+    tooltipAlign="end"
+    onclick={() => select(value === 'grid' ? 'list' : 'grid')}
+  />
 </div>
 
 <style>
@@ -50,4 +61,10 @@
   }
   /* En sm (32) la separación completa los 44 de cada objetivo sin solaparlos. */
   .ui-view-toggle--sm { gap: calc(var(--target-touch) - var(--button-h-sm)); }
+
+  .ui-view-toggle :global(.ui-icon-btn.ui-view-toggle__alterna) { display: none; }
+  @media (max-width: 768px) {
+    .ui-view-toggle :global(.ui-icon-btn.ui-view-toggle__par) { display: none; }
+    .ui-view-toggle :global(.ui-icon-btn.ui-view-toggle__alterna) { display: inline-flex; }
+  }
 </style>

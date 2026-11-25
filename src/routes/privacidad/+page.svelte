@@ -1,13 +1,16 @@
 <script lang="ts">
   import ReadingLayout from '$lib/layouts/ReadingLayout.svelte';
+  import Button from '$lib/ui/Button.svelte';
+  import { analyticsConsent, analyticsEnabled, setAnalyticsConsent } from '$lib/analytics';
 
-  const fechaActualizacion = '24 de septiembre de 2026';
+  const fechaActualizacion = '25 de noviembre de 2026';
 
   // Lectura (U33, tablero M): índice a la izquierda con las mismas secciones.
   const secciones = [
     { id: 'quienes', label: 'Quiénes somos' },
     { id: 'datos', label: 'Qué datos guardamos' },
     { id: 'usos', label: 'Para qué usamos tus datos' },
+    { id: 'cookies', label: 'Cookies y analítica' },
     { id: 'proveedores', label: 'Proveedores' },
     { id: 'derechos', label: 'Tus derechos' },
     { id: 'seguridad', label: 'Seguridad' },
@@ -58,11 +61,43 @@
       <p>Los reportes y sus capturas son privados: sólo la persona autora y administración autorizada pueden acceder a ellos.</p>
     </section>
 
+    <section id="cookies">
+      <h2>Cookies y analítica</h2>
+      <p>
+        Para que inicies sesión guardamos en tu navegador lo necesario para mantener tu sesión
+        abierta. Esas cookies y datos locales son imprescindibles y no requieren tu permiso.
+      </p>
+      <p>
+        Solo si lo aceptas, usamos <strong>Google Analytics</strong> para medir de forma agregada
+        qué páginas se visitan y cómo se usa la biblioteca. Deja las cookies <code>_ga</code> y
+        <code>_ga_*</code>, que duran hasta dos años. Sin tu permiso no se carga. No lo usamos
+        para publicidad ni lo cruzamos con tu cuenta.
+      </p>
+      {#if analyticsEnabled}
+        <p data-preferencia-analitica>
+          Ahora mismo:
+          <strong>{$analyticsConsent === 'granted' ? 'aceptada' : $analyticsConsent === 'denied' ? 'rechazada' : 'sin elegir'}</strong>.
+        </p>
+        <p class="privacidad__acciones">
+          {#if $analyticsConsent !== 'granted'}
+            <Button variant="secondary" size="sm" onclick={() => setAnalyticsConsent('granted')}>Aceptar analítica</Button>
+          {/if}
+          {#if $analyticsConsent !== 'denied'}
+            <Button variant="secondary" size="sm" onclick={() => setAnalyticsConsent('denied')}>Rechazar analítica</Button>
+          {/if}
+        </p>
+      {/if}
+    </section>
+
     <section id="proveedores">
       <h2>Proveedores</h2>
       <p>
         Usamos <strong>Supabase</strong> para almacenar los datos. Puedes consultar su
         política de privacidad en <a href="https://supabase.com/privacy" target="_blank" rel="noopener">supabase.com/privacy</a>.
+      </p>
+      <p>
+        Si aceptas la analítica, <strong>Google</strong> procesa los datos de uso. Su política está en
+        <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a>.
       </p>
     </section>
 
@@ -93,3 +128,7 @@
       </p>
     </section>
 </ReadingLayout>
+
+<style>
+  .privacidad__acciones { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+</style>

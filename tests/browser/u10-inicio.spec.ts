@@ -188,12 +188,14 @@ test.describe('móvil', () => {
     await expect(toggle).toBeVisible();
     await expect(page.locator('.results-bar').getByRole('group', { name: 'Vista de resultados' })).toBeHidden();
 
-    await toggle.getByRole('button', { name: 'Lista' }).click();
+    // Móvil: un solo botón que alterna y nombra la vista a la que lleva.
+    await expect(toggle.getByRole('button')).toHaveCount(1);
+    await toggle.getByRole('button', { name: 'Ver como lista' }).click();
     await expect(page.locator('.resultados__grid.lanzamientos-lista .fila')).toHaveCount(12);
     await expect(page.locator('.card--grid')).toHaveCount(0);
     await page.reload();
     await expect(page.locator('.resultados__grid .fila').first()).toBeVisible();
-    await expect(page.locator('.mobile-search-row').getByRole('button', { name: 'Lista' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.mobile-search-row').getByRole('button', { name: 'Ver como grilla' })).toBeVisible();
   });
 });
 
